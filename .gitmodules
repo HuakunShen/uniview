@@ -1,0 +1,6 @@
+[submodule "vendors/svelte-react-render"]
+	path = vendors/svelte-react-render
+	url = https://github.com/HuakunShen/svelte-react-render.git
+[submodule "vendors/kkrpc"]
+	path = vendors/kkrpc
+	url = https://github.com/kunkunsh/kkrpc.git
