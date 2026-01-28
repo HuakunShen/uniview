@@ -1,0 +1,457 @@
+---
+title: Custom Components
+description: Creating and registering custom components for your host application
+icon: Puzzle
+---
+
+Learn how to create custom components that plugins can use, giving you full control over styling and behavior.
+
+## Overview
+
+Uniview has two types of renderable elements:
+
+1. **Layout Tags**: Built-in HTML elements (`div`, `button`, `input`, etc.)
+2. **Custom Components**: Your framework-specific implementations
+
+When a plugin renders `<Button>`, the host looks up `"Button"` in the component registry and renders your implementation.
+
+## Creating a Component Registry
+
+```typescript
+import { createComponentRegistry } from "@uniview/host-sdk";
+import type { Component } from "svelte";
+
+// Create a typed registry for your framework
+const registry = createComponentRegistry<Component>();
+
+// Register components
+registry.register("Button", Button);
+registry.register("Card", Card);
+registry.register("Input", Input);
+```
+
+## Writing Custom Components
+
+### Svelte 5 Example
+
+```svelte
+<!-- Button.svelte -->
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    variant?: 'primary' | 'secondary' | 'danger';
+    size?: 'sm' | 'md' | 'lg';
+    disabled?: boolean;
+    onclick?: () => void;
+    children?: Snippet;
+  }
+
+  let {
+    variant = 'primary',
+    size = 'md',
+    disabled = false,
+    onclick,
+    children
+  }: Props = $props();
+</script>
+
+<button
+  class="btn btn-{variant} btn-{size}"
+  {disabled}
+  {onclick}
+>
+  {@render children?.()}
+</button>
+
+<style>
+  .btn {
+    border-radius: 0.375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
+  .btn-md { padding: 0.5rem 1rem; font-size: 1rem; }
+  .btn-lg { padding: 0.75rem 1.5rem; font-size: 1.125rem; }
+
+  .btn-primary {
+    background: #3b82f6;
+    color: white;
+  }
+  .btn-primary:hover { background: #2563eb; }
+
+  .btn-secondary {
+    background: #6b7280;
+    color: white;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .btn-danger {
+    background: #ef4444;
+    color: white;
+  }
+  .btn-danger:hover { background: #dc2626; }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>
+```
+
+### Props Contract
+
+Your component receives props from the plugin:
+
+```tsx
+// Plugin renders:
+<Button variant="primary" onClick={() => save()}>
+  Save Changes
+</Button>
+
+// Your component receives:
+{
+  variant: "primary",
+  onclick: () => controller.execute("handler_abc"),
+  children: Snippet // Svelte 5 snippet for children
+}
+```
+
+<Callout type="info">
+  Event handlers like `onClick` are automatically converted to lowercase
+  (`onclick`) for Svelte compatibility.
+</Callout>
+
+## Component Patterns
+
+### Card Component
+
+```svelte
+<!-- Card.svelte -->
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    title?: string;
+    description?: string;
+    children?: Snippet;
+  }
+
+  let { title, description, children }: Props = $props();
+</script>
+
+<div class="card">
+  {#if title}
+    <h3 class="card-title">{title}</h3>
+  {/if}
+  {#if description}
+    <p class="card-description">{description}</p>
+  {/if}
+  <div class="card-content">
+    {@render children?.()}
+  </div>
+</div>
+```
+
+### Input Component
+
+```svelte
+<!-- Input.svelte -->
+<script lang="ts">
+  interface Props {
+    id?: string;
+    type?: 'text' | 'email' | 'password' | 'number';
+    value?: string;
+    placeholder?: string;
+    label?: string;
+    disabled?: boolean;
+    oninput?: (e: Event) => void;
+    onchange?: (e: Event) => void;
+  }
+
+  let {
+    id,
+    type = 'text',
+    value = '',
+    placeholder,
+    label,
+    disabled = false,
+    oninput,
+    onchange
+  }: Props = $props();
+</script>
+
+<div class="input-group">
+  {#if label}
+    <label for={id}>{label}</label>
+  {/if}
+  <input
+    {id}
+    {type}
+    {value}
+    {placeholder}
+    {disabled}
+    {oninput}
+    {onchange}
+  />
+</div>
+```
+
+### Toggle Component
+
+```svelte
+<!-- Toggle.svelte -->
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    pressed?: boolean;
+    disabled?: boolean;
+    variant?: 'default' | 'outline';
+    onclick?: () => void;
+    children?: Snippet;
+  }
+
+  let {
+    pressed = false,
+    disabled = false,
+    variant = 'default',
+    onclick,
+    children
+  }: Props = $props();
+</script>
+
+<button
+  class="toggle"
+  class:pressed
+  class:outline={variant === 'outline'}
+  aria-pressed={pressed}
+  {disabled}
+  {onclick}
+>
+  {@render children?.()}
+</button>
+```
+
+## Event Handling
+
+Events flow from plugin to host automatically:
+
+<Tabs items={['Diagram', 'ASCII']}>
+
+<Tab value="Diagram">
+
+<Mermaid
+  chart={`
+flowchart TD
+    A["Plugin: onClick={() => setCount(c + 1)}"] --> B["Serialized: { _onClickHandlerId: 'handler_123' }"]
+    B --> C["Host proxy: onclick = () => controller.execute('handler_123')"]
+    C --> D["Your component: {onclick} prop"]
+    style A fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    style C fill:#ec4899,stroke:#be185d,color:#fff
+    style D fill:#10b981,stroke:#047857,color:#fff
+`}
+/>
+
+</Tab>
+
+<Tab value="ASCII">
+
+```
+Plugin: onClick={() => setCount(c + 1)}
+          │
+          ▼
+Serialized: { _onClickHandlerId: "handler_123" }
+          │
+          ▼
+Host proxy: onclick = () => controller.execute("handler_123")
+          │
+          ▼
+Your component: {onclick} prop
+```
+
+</Tab>
+
+</Tabs>
+
+### Passing Event Data
+
+For events with data (like input changes):
+
+```svelte
+<!-- In your component -->
+<input
+  oninput={(e) => oninput?.(e.currentTarget.value)}
+/>
+```
+
+```tsx
+// Plugin side
+<Input onInput={(value) => setName(value)} />
+```
+
+## Registration Patterns
+
+### Lazy Registration
+
+Register components on-demand:
+
+```typescript
+const registry = createComponentRegistry();
+
+// Register core components immediately
+registry.register("Button", Button);
+registry.register("Input", Input);
+
+// Register others when needed
+async function loadAdvancedComponents() {
+  const { DataTable } = await import("$lib/components/DataTable.svelte");
+  const { Chart } = await import("$lib/components/Chart.svelte");
+
+  registry.register("DataTable", DataTable);
+  registry.register("Chart", Chart);
+}
+```
+
+### Component Metadata
+
+Add metadata for documentation or tooling:
+
+```typescript
+registry.register("Button", Button, {
+  description: "Primary action button",
+  props: {
+    variant: { type: "string", default: "primary" },
+    size: { type: "string", default: "md" },
+    disabled: { type: "boolean", default: false },
+  },
+});
+```
+
+### Checking Registration
+
+```typescript
+// Check if component exists
+if (registry.has("Chart")) {
+  // Chart is available
+}
+
+// List all registered components
+const components = registry.list();
+// ['Button', 'Input', 'Card', ...]
+
+// Get component
+const ButtonComponent = registry.get("Button");
+```
+
+## Design System Integration
+
+### Using Tailwind CSS
+
+```svelte
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    variant?: 'primary' | 'secondary';
+    children?: Snippet;
+  }
+
+  let { variant = 'primary', children }: Props = $props();
+
+  const variants = {
+    primary: 'bg-blue-500 hover:bg-blue-600 text-white',
+    secondary: 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+  };
+</script>
+
+<button class="px-4 py-2 rounded-md font-medium {variants[variant]}">
+  {@render children?.()}
+</button>
+```
+
+### Using shadcn/ui
+
+Wrap shadcn components for Uniview:
+
+```svelte
+<script lang="ts">
+  import { Button as ShadcnButton } from '$lib/components/ui/button';
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    variant?: 'default' | 'destructive' | 'outline' | 'ghost';
+    size?: 'default' | 'sm' | 'lg' | 'icon';
+    onclick?: () => void;
+    children?: Snippet;
+  }
+
+  let { variant, size, onclick, children }: Props = $props();
+</script>
+
+<ShadcnButton {variant} {size} {onclick}>
+  {@render children?.()}
+</ShadcnButton>
+```
+
+## Unknown Components
+
+When a plugin uses an unregistered component:
+
+```typescript
+// In ComponentRenderer logic
+if (!registry.has(node.type)) {
+  console.warn(`Unknown component: ${node.type}`);
+  // Option 1: Render nothing
+  // Option 2: Render error message
+  // Option 3: Render as div with warning
+}
+```
+
+Consider creating a fallback component:
+
+```svelte
+<!-- UnknownComponent.svelte -->
+<script lang="ts">
+  let { type }: { type: string } = $props();
+</script>
+
+<div class="unknown-component">
+  <span class="warning">Unknown component: {type}</span>
+</div>
+
+<style>
+  .unknown-component {
+    padding: 1rem;
+    border: 2px dashed #f59e0b;
+    background: #fef3c7;
+    border-radius: 0.375rem;
+  }
+  .warning {
+    color: #92400e;
+    font-family: monospace;
+  }
+</style>
+```
+
+## Best Practices
+
+<Cards>
+  <Card title="Keep Props Simple">
+    Use primitive types (string, number, boolean) for props. Complex objects may
+    not serialize correctly over RPC.
+  </Card>
+  <Card title="Handle Missing Props">
+    Always provide sensible defaults. Plugins may not pass all expected props.
+  </Card>
+  <Card title="Document Your Components">
+    Create a component catalog so plugin developers know what's available and
+    how to use it.
+  </Card>
+  <Card title="Test Edge Cases">
+    Test with empty children, missing handlers, and invalid prop values.
+  </Card>
+</Cards>

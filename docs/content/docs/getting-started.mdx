@@ -1,0 +1,243 @@
+---
+title: Getting Started
+description: Build your first Uniview plugin in 5 minutes
+icon: Play
+---
+
+This guide walks you through creating a simple plugin and rendering it in a Svelte host.
+
+## Prerequisites
+
+- Node.js 18+
+- pnpm (recommended) or npm
+
+## Installation
+
+Install the core packages:
+
+```bash
+# For plugin development
+pnpm add @uniview/runtime @uniview/react-renderer @uniview/protocol react
+
+# For host development (Svelte)
+pnpm add @uniview/host-sdk @uniview/host-svelte @uniview/protocol
+```
+
+## Creating a Plugin
+
+### 1. Write Your React Component
+
+Create a standard React component. You can use hooks, state, and props as usual.
+
+```tsx title="src/App.tsx"
+import { useState } from "react";
+
+interface Props {
+  initialCount?: number;
+}
+
+export default function App({ initialCount = 0 }: Props) {
+  const [count, setCount] = useState(initialCount);
+
+  return (
+    <div className="p-4 space-y-4">
+      <h1 className="text-xl font-bold">Counter Plugin</h1>
+      <p>Current count: {count}</p>
+      <div className="flex gap-2">
+        <button
+          onClick={() => setCount((c) => c - 1)}
+          className="px-4 py-2 bg-red-500 text-white rounded"
+        >
+          -
+        </button>
+        <button
+          onClick={() => setCount((c) => c + 1)}
+          className="px-4 py-2 bg-green-500 text-white rounded"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+### 2. Create the Worker Entry Point
+
+Bootstrap your plugin using the runtime:
+
+```typescript title="src/worker.ts"
+import { startWorkerPlugin } from "@uniview/runtime";
+import App from "./App";
+
+startWorkerPlugin({ App });
+```
+
+### 3. Build the Plugin
+
+Bundle for browser (Web Worker target):
+
+```typescript title="build.ts"
+// Using Bun
+await Bun.build({
+  entrypoints: ["./src/worker.ts"],
+  outdir: "./dist",
+  target: "browser",
+  format: "esm",
+  minify: true,
+});
+```
+
+Or with other bundlers (esbuild, Vite, etc.):
+
+```bash
+esbuild src/worker.ts --bundle --format=esm --outfile=dist/plugin.js
+```
+
+<Callout type="info">
+  The plugin bundle must be self-contained with all dependencies included. Web
+  Workers can't access the host's modules.
+</Callout>
+
+## Creating a Host (Svelte)
+
+### 1. Set Up the Controller
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  import { PluginHost } from '@uniview/host-svelte';
+  import { createWorkerController, createComponentRegistry } from '@uniview/host-sdk';
+  import type { Component } from 'svelte';
+
+  // Create component registry (for custom components)
+  const registry = createComponentRegistry<Component>();
+
+  // Create controller pointing to your plugin
+  const controller = createWorkerController({
+    pluginUrl: '/plugins/counter.js'
+  });
+</script>
+
+<div class="p-8">
+  <h1 class="text-2xl font-bold mb-4">Uniview Docs</h1>
+
+  <PluginHost {controller} {registry}>
+    {#snippet loading()}
+      <p>Loading plugin...</p>
+    {/snippet}
+  </PluginHost>
+</div>
+```
+
+### 2. Serve the Plugin
+
+Place your built plugin in `static/plugins/` (for SvelteKit) or configure your dev server to serve it.
+
+### 3. Run the App
+
+```bash
+pnpm dev
+```
+
+Your plugin should now render inside the host!
+
+## Custom Components
+
+By default, plugins can use HTML elements (`div`, `button`, `input`, etc.). For custom components:
+
+### Plugin Side
+
+Create wrapper components that emit custom types:
+
+```tsx title="plugin-api/Button.tsx"
+import { createElement } from "react";
+
+export function Button({ title, onClick, variant = "primary" }) {
+  return createElement("Button", { title, onClick, variant });
+}
+```
+
+### Host Side
+
+Register renderers for custom types:
+
+```svelte title="components/PluginButton.svelte"
+<script lang="ts">
+  import { Button } from '$lib/components/ui/button';
+
+  let { title, onclick, variant }: Props = $props();
+</script>
+
+<Button {variant} on:click={onclick}>
+  {title}
+</Button>
+```
+
+```typescript
+// In your page
+registry.register("Button", PluginButton);
+registry.register("Card", PluginCard);
+// etc.
+```
+
+## Runtime Modes
+
+Uniview supports three runtime modes:
+
+| Mode            | Use Case                          | Security         |
+| --------------- | --------------------------------- | ---------------- |
+| **Worker**      | Production, untrusted plugins     | Sandboxed        |
+| **WebSocket**   | Server-side plugins, Node.js APIs | Network isolated |
+| **Main Thread** | Development, debugging            | None             |
+
+```typescript
+// Worker mode (default, production)
+const controller = createWorkerController({
+  pluginUrl: "/plugin.js",
+});
+
+// WebSocket mode (server-side plugins via Bridge)
+const controller = createWebSocketController({
+  serverUrl: "ws://localhost:3000", // Bridge server
+  pluginId: "my-plugin", // Required for routing
+});
+
+// Main thread mode (development only)
+import App from "./plugin/App";
+const controller = createMainController({ App });
+```
+
+## Running the Example
+
+The quickest way to see all modes in action:
+
+```bash
+# From the repository root
+pnpm install && pnpm build
+
+# Run the complete example
+cd examples/host-svelte-demo
+pnpm dev:all
+```
+
+This starts:
+
+1. **Bridge server** on `:3000` - Routes WebSocket traffic
+2. **Plugin clients** - Node.js plugins connect to bridge
+3. **SvelteKit host** on `:5173` - The UI
+
+Open `http://localhost:5173` and toggle between "Worker" and "Node.js" modes to see both in action.
+
+## Next Steps
+
+<Cards>
+  <Card title="Architecture" href="/docs/architecture">
+    Understand how Uniview works under the hood
+  </Card>
+  <Card title="Packages Reference" href="/docs/packages/protocol">
+    Explore the API documentation
+  </Card>
+  <Card title="Runtime Modes" href="/docs/guides/runtime-modes">
+    Learn about Worker, WebSocket, and Main Thread modes
+  </Card>
+</Cards>

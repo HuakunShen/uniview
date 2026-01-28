@@ -1,0 +1,361 @@
+---
+title: Runtime Modes
+description: Understanding Worker, WebSocket, and Main Thread execution modes
+icon: Cpu
+---
+
+Uniview supports multiple runtime modes for different use cases. Each mode provides different trade-offs between isolation, performance, and capabilities.
+
+## Overview
+
+| Mode            | Isolation        | Environment      | Use Case                          |
+| --------------- | ---------------- | ---------------- | --------------------------------- |
+| **Worker**      | Full sandbox     | Browser          | Production, untrusted plugins     |
+| **WebSocket**   | Process boundary | Node.js/Deno/Bun | Server-side plugins, full runtime |
+| **Main Thread** | None             | Browser          | Development, debugging            |
+
+## Web Worker Mode
+
+The default and recommended mode for browser plugins.
+
+### Characteristics
+
+- **Full isolation**: Plugin cannot access DOM, `window`, or host memory
+- **Secure**: Safe to run untrusted third-party plugins
+- **Async only**: All communication via `postMessage`
+- **Browser-compatible**: Works in all modern browsers
+
+### Setup
+
+**Plugin side:**
+
+```typescript
+// worker.ts
+import { startWorkerPlugin } from "@uniview/runtime";
+import App from "./App";
+
+startWorkerPlugin({ App });
+```
+
+**Host side:**
+
+```typescript
+import { createWorkerController } from "@uniview/host-sdk";
+
+const controller = createWorkerController({
+  pluginUrl: "/plugins/my-plugin.js",
+  initialProps: { theme: "dark" },
+});
+
+await controller.connect();
+```
+
+### Restrictions
+
+Plugins in Worker mode cannot:
+
+- Access `window`, `document`, or DOM APIs
+- Use `localStorage` or `sessionStorage`
+- Import Node.js modules (`fs`, `path`, etc.)
+- Make synchronous calls to the host
+
+### Allowed APIs
+
+- `fetch()` for network requests
+- `console.log()` and other console methods
+- `setTimeout()`, `setInterval()`
+- Web Worker global APIs
+- All React hooks and patterns
+
+## WebSocket Mode
+
+For server-side plugins with full runtime access, using a Bridge architecture.
+
+### Characteristics
+
+- **Bridge Architecture**: Plugins connect as clients to a central bridge server
+- **Full runtime**: Access to file system, network, databases, and Node.js APIs
+- **Process isolation**: Plugin runs in a separate Node.js/Deno/Bun process
+- **Persistent**: Maintains long-running connections through the bridge
+- **Routing**: The bridge server routes traffic between specific plugin instances and hosts
+
+### Bridge Server
+
+In the new architecture, a central **Bridge Server** (typically built with Elysia or similar) acts as a transparent byte forwarder. Instead of each plugin running its own WebSocket server, they connect to the bridge.
+
+- **Plugin Connection**: `ws://bridge:3000/plugins/:pluginId`
+- **Host Connection**: `ws://bridge:3000/host/:pluginId`
+
+The bridge server manages the pairing and ensures that RPC messages are forwarded correctly between the host and the plugin.
+
+### Setup
+
+**Plugin side (Node.js/Deno/Bun):**
+
+```typescript
+// server-plugin.ts (Recommended)
+import { connectToHostServer } from "@uniview/runtime/ws-client";
+import App from "./App";
+
+connectToHostServer({
+  App,
+  serverUrl: "ws://localhost:3000", // Bridge server
+  pluginId: "my-plugin",
+});
+```
+
+<Callout type="warn">
+  **Deprecated Approach**
+  The old method where the plugin runs its own server is still supported but deprecated:
+  ```typescript
+  import { startWSServerPlugin } from "@uniview/runtime/ws-server";
+  startWSServerPlugin({ App, port: 3001 });
+  ```
+</Callout>
+
+**Host side:**
+
+```typescript
+import { createWebSocketController } from "@uniview/host-sdk";
+
+const controller = createWebSocketController({
+  serverUrl: "ws://localhost:3000", // Bridge server
+  pluginId: "my-plugin", // Required for bridge routing
+  initialProps: { userId: "abc" },
+});
+
+await controller.connect();
+```
+
+### Use Cases
+
+- Plugins that need database access or read/write files
+- Plugins that call external APIs with secrets
+- Plugins that need heavy computation (AI, image processing)
+- Multi-user collaborative plugins
+- Centralized management of multiple server-side plugins
+
+### Architecture
+
+<Tabs items={['Diagram', 'ASCII']}>
+
+<Tab value="Diagram">
+
+<Mermaid
+  chart={`
+graph LR
+    subgraph Browser
+        A[Browser Host<br/>Svelte/React]
+    end
+    
+    subgraph "Bridge Server (Elysia)"
+        B[Bridge<br/>Forwarder]
+    end
+    
+    subgraph "Plugin Runtime"
+        C[Plugin Client<br/>Node.js/Deno/Bun]
+        D[Database / FS]
+    end
+    
+    A <-->|ws://.../host/:id| B
+    B <-->|ws://.../plugins/:id| C
+    C --> D
+    
+    style A fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    style C fill:#10b981,stroke:#047857,color:#fff
+    style D fill:#f59e0b,stroke:#d97706,color:#fff
+`}
+/>
+
+</Tab>
+
+<Tab value="ASCII">
+
+```
+┌─────────────────┐       WebSocket       ┌─────────────────┐       WebSocket       ┌─────────────────┐
+│  Browser Host   │ <───────────────────> │  Bridge Server  │ <───────────────────> │  Plugin Client  │
+│  (Svelte/React) │   /host/:pluginId     │    (Elysia)     │   /plugins/:pluginId  │  (Node.js/Deno) │
+└─────────────────┘                       └─────────────────┘                       └─────────────────┘
+                                                                                             │
+                                                                                             ▼
+                                                                                    ┌─────────────────┐
+                                                                                    │  Database,      │
+                                                                                    │  File System,   │
+                                                                                    │  External APIs  │
+                                                                                    └─────────────────┘
+```
+
+</Tab>
+
+</Tabs>
+
+## Main Thread Mode
+
+For development and debugging only.
+
+<Callout type="error">
+  Never use Main Thread mode in production. Plugins have full access to your
+  application's memory and DOM.
+</Callout>
+
+### Characteristics
+
+- **No isolation**: Plugin runs in same context as host
+- **Synchronous**: Direct function calls, no serialization overhead
+- **Full debugging**: Use browser DevTools normally
+- **Hot reload**: Works with Vite/webpack HMR
+
+### Setup
+
+```typescript
+import { createMainController } from "@uniview/host-sdk";
+import { SimpleDemo } from "@uniview/example-plugin";
+
+const controller = createMainController({
+  App: SimpleDemo,
+  initialProps: { debug: true },
+});
+
+await controller.connect();
+```
+
+### When to Use
+
+- Local development with HMR
+- Debugging plugin issues
+- Performance profiling
+- Testing new components
+
+### Development Workflow
+
+```typescript
+// In development, switch based on environment
+const controller = import.meta.env.DEV
+  ? createMainController({ App: SimpleDemo })
+  : createWorkerController({ pluginUrl: "/plugins/simple.js" });
+```
+
+## Choosing a Mode
+
+<Cards>
+  <Card title="Use Worker Mode" icon="shield">
+    - Production browser deployments - Third-party or untrusted plugins -
+    Security-sensitive applications - Standard web applications
+  </Card>
+  <Card title="Use WebSocket Mode" icon="server">
+    - Server-side plugin logic - Database or file system access - Heavy
+    computation offloading - Multi-tenant architectures
+  </Card>
+  <Card title="Use Main Thread Mode" icon="bug">
+    - Local development only - Debugging issues - Performance profiling - Never
+    in production
+  </Card>
+</Cards>
+
+## Mode Comparison
+
+### Communication Flow
+
+<Tabs items={['Diagram', 'ASCII']}>
+
+<Tab value="Diagram">
+
+<Mermaid
+  chart={`
+graph LR
+    subgraph Worker Mode
+        A1[Host] -->|postMessage| B1[Worker]
+        B1 -->|onmessage| A1
+    end
+    
+    subgraph WebSocket Mode
+        A2[Host] -->|ws.send| B2[Server]
+        B2 -->|ws.send| A2
+    end
+    
+    subgraph Main Thread Mode
+        A3[Host] <-->|direct function call| B3[Plugin]
+    end
+    
+    style A1 fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B1 fill:#10b981,stroke:#047857,color:#fff
+    style A2 fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B2 fill:#10b981,stroke:#047857,color:#fff
+    style A3 fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B3 fill:#10b981,stroke:#047857,color:#fff
+`}
+/>
+
+</Tab>
+
+<Tab value="ASCII">
+
+**Worker Mode:**
+
+```
+Host → postMessage → Worker → onmessage
+Worker → postMessage → Host → onmessage
+```
+
+**WebSocket Mode:**
+
+```
+Host → ws.send() → Server → ws.onmessage
+Server → ws.send() → Host → ws.onmessage
+```
+
+**Main Thread Mode:**
+
+```
+Host → direct function call → Plugin
+Plugin → direct function call → Host
+```
+
+</Tab>
+
+</Tabs>
+
+### Latency
+
+| Mode        | Typical Latency | Notes                   |
+| ----------- | --------------- | ----------------------- |
+| Main Thread | < 1ms           | Direct calls            |
+| Worker      | 1-5ms           | Serialization overhead  |
+| WebSocket   | 10-100ms        | Network + serialization |
+
+### Capabilities
+
+| Capability   | Worker    | WebSocket | Main Thread |
+| ------------ | --------- | --------- | ----------- |
+| DOM Access   | No        | No        | Yes         |
+| File System  | No        | Yes       | Yes         |
+| Fetch API    | Yes       | Yes       | Yes         |
+| Node.js APIs | No        | Yes       | No          |
+| Hot Reload   | Limited   | No        | Yes         |
+| Debugging    | Difficult | Moderate  | Easy        |
+
+## Migration Between Modes
+
+The `PluginController` interface is identical across all modes. To switch modes:
+
+1. Change the controller creation
+2. Update plugin build configuration
+3. Deploy plugin to appropriate environment
+
+```typescript
+// Before: Worker mode
+const controller = createWorkerController({
+  pluginUrl: "/plugins/app.js",
+});
+
+// After: WebSocket mode
+const controller = createWebSocketController({
+  serverUrl: "ws://bridge-server:3000",
+  pluginId: "my-plugin",
+});
+
+// The rest of your code stays the same!
+controller.subscribe((tree) => renderTree(tree));
+await controller.connect();
+```

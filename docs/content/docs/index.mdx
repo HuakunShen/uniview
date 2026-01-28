@@ -1,0 +1,120 @@
+---
+title: Uniview
+description: Universal plugin system for React plugins that render in any host framework
+icon: Rocket
+---
+
+Uniview is a universal plugin system that enables writing plugins in React that can be rendered by **any host framework** - Svelte, Vue, React, or custom implementations.
+
+## Why Uniview?
+
+Modern applications often need extensibility through plugins. Uniview solves the challenge of:
+
+- **Framework Lock-in**: Write plugins once, render anywhere
+- **Security**: Sandboxed execution in Web Workers
+- **Flexibility**: Run plugins in browser, Node.js, Deno, or Bun
+- **Type Safety**: Full TypeScript support with RPC type checking
+
+<Tabs items={['Diagram', 'ASCII']}>
+
+<Tab value="Diagram">
+
+<Mermaid
+  chart={`
+graph LR
+    A[Plugin React<br/>Web Worker] <-->|RPC kkrpc<br/>UINode tree| B[Host Svelte<br/>or Vue, React]
+    style A fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B fill:#10b981,stroke:#047857,color:#fff
+`}
+/>
+
+</Tab>
+
+<Tab value="ASCII">
+
+```
+                         RPC (kkrpc)
+┌──────────────────┐ ◄──────────────────► ┌──────────────────┐
+│  Plugin (React)  │      UINode tree     │  Host (Svelte)   │
+│  Web Worker      │                      │  or Vue, React   │
+└──────────────────┘                      └──────────────────┘
+```
+
+</Tab>
+
+</Tabs>
+
+## Key Features
+
+<Cards>
+  <Card title="React Plugins" href="/docs/getting-started">
+    Write plugins using familiar React patterns - hooks, state, components
+  </Card>
+  <Card title="Any Host Framework" href="/docs/architecture">
+    Render in Svelte, Vue, React, or build your own adapter
+  </Card>
+  <Card title="Sandboxed Execution" href="/docs/guides/runtime-modes">
+    Run untrusted plugins safely in Web Workers
+  </Card>
+  <Card title="Server-Side Plugins" href="/docs/guides/runtime-modes">
+    Execute plugins in Node.js/Deno via WebSocket
+  </Card>
+</Cards>
+
+## Quick Example
+
+**Plugin (React):**
+
+```tsx
+// App.tsx
+import { useState } from "react";
+
+export default function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div className="p-4">
+      <p>Count: {count}</p>
+      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
+    </div>
+  );
+}
+```
+
+**Host (Svelte):**
+
+```svelte
+<script lang="ts">
+  import { PluginHost } from '@uniview/host-svelte';
+  import { createWorkerController } from '@uniview/host-sdk';
+
+  const controller = createWorkerController({
+    pluginUrl: '/plugins/my-plugin.js'
+  });
+</script>
+
+<PluginHost {controller} />
+```
+
+## Packages
+
+| Package                   | Description                               |
+| ------------------------- | ----------------------------------------- |
+| `@uniview/protocol`       | Core types, UINode schema, RPC interfaces |
+| `@uniview/react-renderer` | Custom React reconciler                   |
+| `@uniview/runtime`        | Plugin bootstrap for Worker/Node.js       |
+| `@uniview/host-sdk`       | Framework-agnostic host controller        |
+| `@uniview/host-svelte`    | Svelte 5 rendering adapter                |
+
+## Inspiration
+
+Uniview is inspired by [Raycast's plugin architecture](https://www.raycast.com/blog/how-raycast-api-extensions-work) which uses a custom React reconciler to render plugins using native AppKit components.
+
+<Cards>
+  <Card title="Get Started" href="/docs/getting-started">
+    Build your first plugin in 5 minutes
+  </Card>
+  <Card title="Architecture" href="/docs/architecture">
+    Understand how Uniview works
+  </Card>
+</Cards>

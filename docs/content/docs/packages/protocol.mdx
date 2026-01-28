@@ -1,0 +1,132 @@
+---
+title: "@uniview/protocol"
+description: Core types, UINode schema, and RPC interfaces
+icon: FileCode
+---
+
+The protocol package defines the shared contract between plugins and hosts.
+
+## Installation
+
+```bash
+pnpm add @uniview/protocol
+```
+
+## UINode
+
+The serializable tree structure representing UI:
+
+```typescript
+import type { UINode, JSONValue } from "@uniview/protocol";
+
+interface UINode {
+  id: string;
+  type: string;
+  props: Record<string, JSONValue>;
+  children: (UINode | string)[];
+}
+```
+
+## Layout Tags
+
+Built-in HTML-like elements that don't require registration:
+
+```typescript
+import { LAYOUT_TAGS, isLayoutTag } from "@uniview/protocol";
+
+// Available tags
+const tags = [
+  "div",
+  "span",
+  "p",
+  "section",
+  "header",
+  "footer",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "ul",
+  "ol",
+  "li",
+  "br",
+  "hr",
+  "button",
+  "input",
+  "textarea",
+  "select",
+  "option",
+  "form",
+  "label",
+  "a",
+];
+
+isLayoutTag("div"); // true
+isLayoutTag("Button"); // false
+```
+
+## Event Props
+
+Utilities for handling event handler IDs:
+
+```typescript
+import {
+  EVENT_PROPS,
+  handlerIdProp,
+  isHandlerIdProp,
+  extractEventName,
+} from "@uniview/protocol";
+
+// Supported events
+EVENT_PROPS; // ['onClick', 'onChange', 'onInput', 'onSubmit', ...]
+
+// Convert event name to handler ID prop
+handlerIdProp("onClick"); // '_onClickHandlerId'
+
+// Check if a prop is a handler ID
+isHandlerIdProp("_onClickHandlerId"); // true
+isHandlerIdProp("className"); // false
+
+// Extract event name from handler ID prop
+extractEventName("_onClickHandlerId"); // 'onClick'
+```
+
+## RPC Interfaces
+
+Type definitions for plugin-host communication:
+
+```typescript
+import type { HostToPluginAPI, PluginToHostAPI } from "@uniview/protocol";
+
+// Methods host can call on plugin
+interface HostToPluginAPI {
+  initialize(props?: JSONValue): Promise<void>;
+  updateProps(props: JSONValue): Promise<void>;
+  executeHandler(handlerId: string, args: JSONValue[]): Promise<JSONValue>;
+  destroy(): Promise<void>;
+}
+
+// Methods plugin can call on host
+interface PluginToHostAPI {
+  updateTree(tree: UINode | null): void;
+  log(level: string, ...args: JSONValue[]): void;
+}
+```
+
+## Validation
+
+Zod schemas for runtime validation:
+
+```typescript
+import { UINodeSchema, validateUINode } from "@uniview/protocol";
+
+const tree = await fetchPluginTree();
+
+// Validate at runtime
+const result = UINodeSchema.safeParse(tree);
+if (!result.success) {
+  console.error("Invalid tree:", result.error);
+}
+```

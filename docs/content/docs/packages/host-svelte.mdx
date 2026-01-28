@@ -1,0 +1,315 @@
+---
+title: "@uniview/host-svelte"
+description: Svelte 5 adapter for rendering Uniview plugin UI trees
+icon: Component
+---
+
+The host-svelte package provides Svelte 5 components for rendering Uniview plugin UI trees using runes syntax.
+
+## Installation
+
+```bash
+pnpm add @uniview/host-svelte @uniview/host-sdk @uniview/protocol
+```
+
+## Quick Start
+
+```svelte
+<script lang="ts">
+  import { PluginHost } from '@uniview/host-svelte';
+  import { createWorkerController, createComponentRegistry } from '@uniview/host-sdk';
+  import Button from '$lib/components/Button.svelte';
+
+  // Create component registry
+  const registry = createComponentRegistry();
+  registry.register('Button', Button);
+
+  // Create plugin controller
+  const controller = createWorkerController({
+    pluginUrl: '/plugins/my-plugin.js'
+  });
+</script>
+
+<PluginHost {controller} {registry}>
+  {#snippet loading()}
+    <p>Loading plugin...</p>
+  {/snippet}
+</PluginHost>
+```
+
+## Components
+
+### PluginHost
+
+Main component that manages plugin lifecycle and renders the UI tree.
+
+```svelte
+<script lang="ts">
+  import { PluginHost } from '@uniview/host-svelte';
+  import type { PluginController, ComponentRegistry } from '@uniview/host-sdk';
+
+  interface Props {
+    controller: PluginController;
+    registry: ComponentRegistry;
+  }
+
+  let { controller, registry }: Props = $props();
+</script>
+
+<PluginHost {controller} {registry}>
+  {#snippet loading()}
+    <div class="spinner">Loading...</div>
+  {/snippet}
+</PluginHost>
+```
+
+**Props:**
+
+| Prop         | Type                | Description                         |
+| ------------ | ------------------- | ----------------------------------- |
+| `controller` | `PluginController`  | Controller from `@uniview/host-sdk` |
+| `registry`   | `ComponentRegistry` | Component registry for custom types |
+
+**Snippets:**
+
+| Snippet   | Description                               |
+| --------- | ----------------------------------------- |
+| `loading` | Shown while waiting for first tree update |
+
+**Lifecycle:**
+
+1. Connects to plugin on mount
+2. Subscribes to tree updates
+3. Re-renders on each tree change
+4. Disconnects on destroy
+
+### ComponentRenderer
+
+Low-level component for rendering a single UINode. Used internally by PluginHost but available for custom rendering logic.
+
+```svelte
+<script lang="ts">
+  import { ComponentRenderer } from '@uniview/host-svelte';
+  import type { UINode } from '@uniview/protocol';
+
+  let { node }: { node: UINode | string } = $props();
+</script>
+
+<ComponentRenderer {node} />
+```
+
+<Callout type="info">
+  ComponentRenderer requires context set by PluginHost. It reads
+  `uniview:controller` and `uniview:registry` from Svelte context.
+</Callout>
+
+## Custom Components
+
+Create Svelte 5 components that match plugin component types:
+
+```svelte
+<!-- Button.svelte -->
+<script lang="ts">
+  import type { Snippet } from 'svelte';
+
+  interface Props {
+    variant?: 'primary' | 'secondary' | 'outline';
+    disabled?: boolean;
+    onclick?: () => void;
+    children?: Snippet;
+  }
+
+  let {
+    variant = 'primary',
+    disabled = false,
+    onclick,
+    children
+  }: Props = $props();
+</script>
+
+<button
+  class="btn btn-{variant}"
+  {disabled}
+  {onclick}
+>
+  {@render children?.()}
+</button>
+
+<style>
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+  }
+  .btn-primary {
+    background: #3b82f6;
+    color: white;
+  }
+  .btn-secondary {
+    background: #6b7280;
+    color: white;
+  }
+  .btn-outline {
+    border: 1px solid #d1d5db;
+    background: transparent;
+  }
+</style>
+```
+
+Register in your host:
+
+```typescript
+import { createComponentRegistry } from "@uniview/host-sdk";
+import Button from "$lib/components/Button.svelte";
+
+const registry = createComponentRegistry();
+registry.register("Button", Button);
+```
+
+## Event Handling
+
+Events are automatically proxied from plugins to your components.
+
+### How It Works
+
+1. Plugin defines handler: `onClick={() => setCount(c => c + 1)}`
+2. Serialized as: `{ _onClickHandlerId: "handler_abc123" }`
+3. ComponentRenderer creates proxy: `onclick: () => controller.execute(id)`
+4. Your component receives normal `onclick` prop
+
+### Event Props Mapping
+
+| Plugin Prop | Svelte Prop | Handler ID Prop      |
+| ----------- | ----------- | -------------------- |
+| `onClick`   | `onclick`   | `_onClickHandlerId`  |
+| `onChange`  | `onchange`  | `_onChangeHandlerId` |
+| `onInput`   | `oninput`   | `_onInputHandlerId`  |
+| `onSubmit`  | `onsubmit`  | `_onSubmitHandlerId` |
+
+Your components just receive normal event handlers - no special handling needed.
+
+## Layout Tags
+
+These elements render as native Svelte elements via `<svelte:element>`:
+
+```
+div, span, p, section, header, footer,
+h1, h2, h3, h4, h5, h6,
+ul, ol, li, br, hr,
+button, input, textarea, select, option,
+form, label, a
+```
+
+Custom component names (PascalCase) are looked up in the registry.
+
+## Full Example
+
+```svelte
+<!-- +page.svelte -->
+<script lang="ts">
+  import { PluginHost } from '@uniview/host-svelte';
+  import { createWorkerController, createComponentRegistry } from '@uniview/host-sdk';
+  import Button from '$lib/components/Button.svelte';
+  import Card from '$lib/components/Card.svelte';
+  import Input from '$lib/components/Input.svelte';
+
+  // Register all custom components
+  const registry = createComponentRegistry();
+  registry.register('Button', Button);
+  registry.register('Card', Card);
+  registry.register('Input', Input);
+
+  // Create controller with initial props
+  const controller = createWorkerController({
+    pluginUrl: '/plugins/dashboard.js',
+    initialProps: {
+      theme: 'dark',
+      userId: 'user_123'
+    }
+  });
+
+  // Update props dynamically
+  function setTheme(theme: string) {
+    controller.updateProps({ theme });
+  }
+
+  // Reload plugin
+  function reload() {
+    controller.reload();
+  }
+</script>
+
+<main class="container">
+  <header>
+    <h1>Dashboard</h1>
+    <div class="controls">
+      <button onclick={() => setTheme('light')}>Light</button>
+      <button onclick={() => setTheme('dark')}>Dark</button>
+      <button onclick={reload}>Reload Plugin</button>
+    </div>
+  </header>
+
+  <PluginHost {controller} {registry}>
+    {#snippet loading()}
+      <div class="loading">
+        <div class="spinner"></div>
+        <p>Loading plugin...</p>
+      </div>
+    {/snippet}
+  </PluginHost>
+</main>
+```
+
+## Svelte 5 Requirements
+
+This package uses Svelte 5 runes exclusively:
+
+| Feature  | Syntax                           |
+| -------- | -------------------------------- |
+| Props    | `let { prop } = $props()`        |
+| State    | `let value = $state(initial)`    |
+| Derived  | `let computed = $derived(expr)`  |
+| Effects  | `$effect(() => { ... })`         |
+| Snippets | `{#snippet name()}...{/snippet}` |
+
+<Callout type="error">
+  Svelte 4 syntax is not supported. Do not use `export let`, `$:`, or slot
+  syntax.
+</Callout>
+
+## Context API
+
+PluginHost sets context for child components:
+
+```typescript
+import { setContext } from "svelte";
+
+// Set by PluginHost
+setContext("uniview:controller", controller);
+setContext("uniview:registry", registry);
+
+// Read in custom renderers
+import { getContext } from "svelte";
+
+const controller = getContext("uniview:controller");
+const registry = getContext("uniview:registry");
+```
+
+## Children Handling
+
+UINode children can be either `UINode` objects or strings:
+
+```svelte
+{#each node.children as child}
+  {#if typeof child === 'string'}
+    {child}
+  {:else}
+    <ComponentRenderer node={child} />
+  {/if}
+{/each}
+```
+
+<Callout type="warn">
+  Never drop text children! Always handle the `string` case to render text
+  content properly.
+</Callout>

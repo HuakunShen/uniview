@@ -1,0 +1,37 @@
+{
+  "name": "@uniview/protocol",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Protocol types and schemas for the Uniview plugin system",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}

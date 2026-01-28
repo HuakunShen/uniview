@@ -1,0 +1,32 @@
+{
+  "name": "@uniview/example-plugin-api",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "React component primitives for Uniview demo plugins",
+  "author": "",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.9.3"
+  }
+}

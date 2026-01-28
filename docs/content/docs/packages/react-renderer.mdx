@@ -1,0 +1,108 @@
+---
+title: "@uniview/react-renderer"
+description: Custom React reconciler producing serializable UINode trees
+icon: Atom
+---
+
+The react-renderer package provides a custom React reconciler that produces serializable tree structures instead of DOM nodes.
+
+## Installation
+
+```bash
+pnpm add @uniview/react-renderer react
+```
+
+## Basic Usage
+
+```typescript
+import {
+  render,
+  createRenderBridge,
+  serializeTree,
+  HandlerRegistry
+} from "@uniview/react-renderer";
+
+// Create handler registry
+const registry = new HandlerRegistry();
+
+// Create render bridge
+const bridge = createRenderBridge();
+
+// Subscribe to tree updates
+bridge.subscribe((root) => {
+  if (root) {
+    const tree = serializeTree(root, registry);
+    console.log('Tree updated:', tree);
+  }
+});
+
+// Render your React app
+render(<App />, bridge);
+```
+
+## HandlerRegistry
+
+Manages the mapping between event handler functions and their IDs:
+
+```typescript
+import { HandlerRegistry } from "@uniview/react-renderer";
+
+const registry = new HandlerRegistry();
+
+// Register a handler
+const id = registry.register(() => console.log("clicked"));
+// Returns something like "h_abc123"
+
+// Execute by ID
+await registry.execute(id, ["arg1", "arg2"]);
+
+// Clear all handlers (on plugin destroy)
+registry.clear();
+```
+
+## serializeTree
+
+Converts the internal tree to protocol-compliant UINode:
+
+```typescript
+import { serializeTree } from "@uniview/react-renderer";
+
+bridge.subscribe((root) => {
+  const tree = serializeTree(root, registry);
+  // tree is now JSON-serializable
+  // - Functions replaced with handler IDs
+  // - Props validated for serializability
+});
+```
+
+## Internal Types
+
+```typescript
+// In-memory tree node (before serialization)
+interface InternalNode {
+  id: string;
+  type: string;
+  props: Record<string, unknown>;
+  children: (InternalNode | TextNode)[];
+  parent: InternalNode | null;
+}
+
+// Text content node
+interface TextNode {
+  _isTextNode: true;
+  text: string;
+}
+```
+
+<Callout type="info">
+  The reconciler has no DOM dependencies. It works in Web Workers, Node.js,
+  Deno, and Bun.
+</Callout>
+
+## How It Works
+
+1. React calls reconciler with element tree
+2. Reconciler creates `InternalNode` for each element
+3. Event handlers stored in `HandlerRegistry`
+4. `serializeTree()` produces JSON-safe `UINode`
+5. UINode sent to host via RPC

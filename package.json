@@ -9,12 +9,24 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "prettier": "^3.7.4",
+    "prettier-plugin-svelte": "^3.4.1",
+    "prettier-plugin-tailwindcss": "^0.7.2",
     "turbo": "^2.7.5",
     "typescript": "5.9.2"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.28.2",
   "engines": {
     "node": ">=18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@tailwindcss/oxide"
+    ]
+  },
+  "dependencies": {
+    "is-what": "^5.5.0"
   }
 }

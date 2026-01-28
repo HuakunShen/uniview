@@ -1,0 +1,294 @@
+---
+title: "@uniview/runtime"
+description: Plugin-side runtime for bootstrapping React plugins in Web Workers and server environments
+icon: Play
+---
+
+The runtime package bootstraps React plugins in isolated environments (Web Workers, Node.js, Deno, Bun).
+
+## Installation
+
+```bash
+pnpm add @uniview/runtime
+```
+
+## Quick Start
+
+### Web Worker Plugin
+
+The simplest way to create a worker-based plugin:
+
+```typescript
+// worker.ts
+import { startWorkerPlugin } from "@uniview/runtime";
+import App from "./App";
+
+startWorkerPlugin({ App });
+```
+
+That's it! The runtime handles all RPC communication with the host.
+
+### Your React Component
+
+Write a normal React component - it works exactly as expected:
+
+```tsx
+// App.tsx
+import { useState } from "react";
+
+export default function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div className="p-4">
+      <p>Count: {count}</p>
+      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
+    </div>
+  );
+}
+```
+
+## API
+
+### startWorkerPlugin
+
+Bootstrap a plugin in a Web Worker with automatic RPC setup:
+
+```typescript
+function startWorkerPlugin(options: { App: React.ComponentType }): void;
+```
+
+This function:
+
+1. Creates an RPC channel using the Worker's `postMessage`
+2. Exposes the `HostToPluginAPI` methods to the host
+3. Sets up the React reconciler
+4. Starts rendering when `initialize()` is called
+
+### createPluginRuntime
+
+For advanced use cases, create a runtime with custom transport:
+
+```typescript
+import { createPluginRuntime } from "@uniview/runtime";
+import type { PluginToHostAPI } from "@uniview/protocol";
+
+interface PluginRuntimeOptions {
+  App: React.ComponentType;
+  hostApi: PluginToHostAPI;
+  onInitialize?: (props: JSONValue) => void;
+  onUpdateProps?: (props: JSONValue) => void;
+}
+
+interface PluginRuntime {
+  start(): void;
+  stop(): void;
+  executeHandler(handlerId: string, args: JSONValue[]): Promise<void>;
+}
+
+const runtime = createPluginRuntime({
+  App: MyApp,
+  hostApi: {
+    updateTree: (tree) => sendToHost(tree),
+    log: (level, args) => console.log(level, ...args),
+  },
+});
+
+runtime.start();
+```
+
+## Entry Points
+
+The package provides multiple entry points for different environments:
+
+| Entry            | Import                       | Environment                             |
+| ---------------- | ---------------------------- | --------------------------------------- |
+| Default          | `@uniview/runtime`           | Web Worker, Main thread                 |
+| WebSocket Client | `@uniview/runtime/ws-client` | Node.js, Deno, Bun (connects to Bridge) |
+| WebSocket Server | `@uniview/runtime/ws-server` | Node.js, Deno, Bun (Deprecated)         |
+
+### WebSocket Client Plugin (Recommended)
+
+For server-side plugins that connect to a Bridge server:
+
+```typescript
+// server-plugin.ts
+import { connectToHostServer } from "@uniview/runtime/ws-client";
+import App from "./App";
+
+connectToHostServer({
+  App,
+  serverUrl: "ws://localhost:3000", // Bridge server URL
+  pluginId: "my-plugin", // Unique plugin identifier
+});
+```
+
+**Options:**
+
+| Option         | Type                  | Description                       |
+| -------------- | --------------------- | --------------------------------- |
+| `App`          | `React.ComponentType` | Your React plugin component       |
+| `serverUrl`    | `string`              | Bridge server WebSocket URL       |
+| `pluginId`     | `string`              | Unique identifier for this plugin |
+| `initialProps` | `JSONValue`           | Optional initial props            |
+
+The plugin connects to `{serverUrl}/plugins/{pluginId}` and waits for a host to connect.
+
+### WebSocket Server Plugin
+
+<Callout type="warn">
+  **Deprecated**: Running plugins as WebSocket servers is deprecated. Use
+  `@uniview/runtime/ws-client` to connect to a Bridge server instead. This
+  approach simplifies deployment and port management.
+</Callout>
+
+For server-side plugins that communicate over WebSocket:
+
+```typescript
+// server-plugin.ts
+import { startWSServerPlugin } from "@uniview/runtime/ws-server";
+import App from "./App";
+
+startWSServerPlugin({
+  App,
+  port: 3001,
+});
+```
+
+## Plugin Lifecycle
+
+<Tabs items={['Diagram', 'ASCII']}>
+
+<Tab value="Diagram">
+
+### Initialization Flow
+
+<Mermaid
+  chart={`
+flowchart TD
+    A[Host calls initialize props] --> B[Runtime creates:<br/>- React reconciler<br/>- Handler registry<br/>- Tree serializer]
+    B --> C[React renders App<br/>with initial props]
+    C --> D[Tree serialized to<br/>UINode + handler IDs]
+    D --> E[hostApi.updateTree]
+`}
+/>
+
+### Event Handling Flow
+
+<Mermaid
+  chart={`
+flowchart TD
+    A[Host calls executeHandler id, args] --> B[Registry finds handler<br/>by ID and executes it]
+    B --> C[React state updates<br/>trigger re-render]
+    C --> D[hostApi.updateTree]
+`}
+/>
+
+</Tab>
+
+<Tab value="ASCII">
+```
+Host calls initialize(props)
+         │
+         ▼
+┌─────────────────────────┐
+│  Runtime creates:       │
+│  - React reconciler     │
+│  - Handler registry     │
+│  - Tree serializer      │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│  React renders App      │
+│  with initial props     │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│  Tree serialized to     │
+│  UINode + handler IDs   │
+└───────────┬─────────────┘
+            │
+            ▼
+    hostApi.updateTree()
+```
+
+When events occur:
+
+```
+Host calls executeHandler(id, args)
+         │
+         ▼
+┌─────────────────────────┐
+│  Registry finds handler │
+│  by ID and executes it  │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐
+│  React state updates    │
+│  trigger re-render      │
+└───────────┬─────────────┘
+            │
+            ▼
+    hostApi.updateTree()
+```
+
+</Tab>
+
+</Tabs>
+
+## Building Plugins
+
+Bundle your plugin for worker execution:
+
+```typescript
+// tsdown.config.ts
+import { defineConfig } from "tsdown";
+
+export default defineConfig({
+  entry: ["src/worker.ts"],
+  format: ["esm"],
+  platform: "browser",
+  outDir: "dist",
+  clean: true,
+});
+```
+
+<Callout type="warn">
+  Plugins run in isolated environments. Do not use `window`, `document`, or
+  other browser-only APIs.
+</Callout>
+
+## Environment Restrictions
+
+Since plugins run in Web Workers or server environments:
+
+| Allowed         | Not Allowed                     |
+| --------------- | ------------------------------- |
+| React hooks     | DOM APIs (`document`, `window`) |
+| `fetch()`       | `localStorage`                  |
+| `console.log()` | Direct DOM manipulation         |
+| Async/await     | Browser-specific APIs           |
+| Web Worker APIs | Node.js APIs (in worker mode)   |
+
+## Handler Execution
+
+Event handlers are serialized as IDs and executed via RPC:
+
+```tsx
+// In your plugin
+<button onClick={() => setCount(c => c + 1)}>Click</button>
+
+// Becomes UINode:
+{
+  type: "button",
+  props: {
+    _onClickHandlerId: "handler_abc123"
+  },
+  children: ["Click"]
+}
+```
+
+The runtime maintains a `HandlerRegistry` that maps IDs back to the original functions.

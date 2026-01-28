@@ -1,0 +1,361 @@
+---
+title: "@uniview/host-sdk"
+description: Framework-agnostic SDK for hosting Uniview plugins
+icon: Server
+---
+
+The host-sdk package provides the infrastructure for loading and managing Uniview plugins, independent of any UI framework.
+
+## Installation
+
+```bash
+pnpm add @uniview/host-sdk
+```
+
+## Quick Start
+
+```typescript
+import {
+  createWorkerController,
+  createComponentRegistry,
+} from "@uniview/host-sdk";
+
+// Create a registry for custom components
+const registry = createComponentRegistry();
+registry.register("Button", MyButtonComponent);
+
+// Create a controller to load the plugin
+const controller = createWorkerController({
+  pluginUrl: "/plugins/my-plugin.js",
+  initialProps: { userId: "123" },
+});
+
+// Subscribe to tree updates
+controller.subscribe((tree) => {
+  console.log("New UI tree:", tree);
+  // Render the tree using your framework
+});
+
+// Connect to start the plugin
+await controller.connect();
+```
+
+## PluginController
+
+The main interface for controlling plugins:
+
+```typescript
+interface PluginController {
+  // Lifecycle
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  reload(): Promise<void>;
+
+  // Props
+  updateProps(props: JSONValue): Promise<void>;
+
+  // Tree
+  getTree(): UINode | null;
+  subscribe(callback: (tree: UINode | null) => void): () => void;
+
+  // Events
+  execute(handlerId: HandlerId, args?: JSONValue[]): Promise<void>;
+
+  // Status
+  getStatus(): {
+    mode: HostMode;
+    connected: boolean;
+    lastError?: string;
+  };
+}
+```
+
+## Controllers
+
+### Worker Controller
+
+Load plugins in Web Workers for sandboxed execution:
+
+```typescript
+import { createWorkerController } from "@uniview/host-sdk";
+
+const controller = createWorkerController({
+  pluginUrl: "/plugins/dashboard.js",
+  initialProps: { theme: "dark" },
+});
+
+await controller.connect();
+```
+
+**Options:**
+
+| Option         | Type        | Description                    |
+| -------------- | ----------- | ------------------------------ |
+| `pluginUrl`    | `string`    | URL to the plugin bundle       |
+| `initialProps` | `JSONValue` | Props passed to `initialize()` |
+
+### WebSocket Controller
+
+Connect to server-side plugins via WebSocket:
+
+```typescript
+import { createWebSocketController } from "@uniview/host-sdk";
+
+const controller = createWebSocketController({
+  serverUrl: "ws://localhost:3000", // Bridge server
+  pluginId: "my-plugin", // Required - identifies which plugin to connect to
+  initialProps: { userId: "abc" },
+});
+
+await controller.connect();
+```
+
+**Options:**
+
+| Option         | Type        | Description                                        |
+| -------------- | ----------- | -------------------------------------------------- |
+| `serverUrl`    | `string`    | Bridge server WebSocket URL                        |
+| `pluginId`     | `string`    | Plugin identifier (connects to `/host/{pluginId}`) |
+| `initialProps` | `JSONValue` | Props passed to `initialize()`                     |
+
+The host connects to `{serverUrl}/host/{pluginId}` where the Bridge server routes messages to the matching plugin.
+
+### Main Thread Controller
+
+Run plugins in the main thread for development/debugging:
+
+```typescript
+import { createMainController } from "@uniview/host-sdk";
+import { SimpleDemo } from "@uniview/example-plugin";
+
+const controller = createMainController({
+  App: SimpleDemo,
+  initialProps: { debug: true },
+});
+
+await controller.connect();
+```
+
+<Callout type="warn">
+  Main thread mode has no isolation. Use only for development.
+</Callout>
+
+## Component Registry
+
+Map plugin component types to your framework's implementations:
+
+```typescript
+import { createComponentRegistry } from "@uniview/host-sdk";
+
+interface ComponentRegistry<T = unknown> {
+  register(type: string, component: T, metadata?: ComponentMetadata): void;
+  get(type: string): T | undefined;
+  has(type: string): boolean;
+  list(): string[];
+  clear(): void;
+}
+
+const registry = createComponentRegistry<SvelteComponent>();
+
+// Register components
+registry.register("Button", Button);
+registry.register("Card", Card);
+registry.register("Modal", Modal);
+
+// Check availability
+if (registry.has("Button")) {
+  const ButtonComponent = registry.get("Button");
+}
+
+// List all registered
+console.log(registry.list()); // ['Button', 'Card', 'Modal']
+```
+
+### Layout Tags vs Custom Components
+
+- **Layout tags** (`div`, `span`, `p`, etc.) render as native elements
+- **Custom components** (PascalCase names) are looked up in the registry
+
+```typescript
+import { isLayoutTag } from "@uniview/protocol";
+
+function renderNode(node: UINode, registry: ComponentRegistry) {
+  if (isLayoutTag(node.type)) {
+    // Render as native element
+    return createElement(node.type, node.props);
+  } else if (registry.has(node.type)) {
+    // Render registered component
+    const Component = registry.get(node.type);
+    return createElement(Component, node.props);
+  } else {
+    // Unknown component - show error
+    console.warn(`Unknown component: ${node.type}`);
+  }
+}
+```
+
+## Event Execution
+
+Handle events by executing handler IDs:
+
+```typescript
+// When a user clicks a button in your rendered UI
+function handleClick(handlerId: string) {
+  controller.execute(handlerId, []);
+}
+
+// With arguments (e.g., input change)
+function handleChange(handlerId: string, value: string) {
+  controller.execute(handlerId, [value]);
+}
+```
+
+The handler ID is stored in props as `_on{Event}HandlerId`:
+
+```typescript
+// UINode from plugin
+{
+  type: "button",
+  props: {
+    _onClickHandlerId: "handler_abc123",
+    className: "btn"
+  },
+  children: ["Click me"]
+}
+```
+
+## Tree Subscription
+
+Subscribe to UI tree updates:
+
+```typescript
+// Subscribe returns an unsubscribe function
+const unsubscribe = controller.subscribe((tree) => {
+  if (tree) {
+    renderUI(tree);
+  } else {
+    showEmptyState();
+  }
+});
+
+// Clean up on unmount
+onDestroy(() => {
+  unsubscribe();
+  controller.disconnect();
+});
+```
+
+## Status Monitoring
+
+Check controller status for UI feedback:
+
+```typescript
+const status = controller.getStatus();
+
+if (!status.connected) {
+  showDisconnectedBanner();
+}
+
+if (status.lastError) {
+  showError(status.lastError);
+}
+
+console.log(`Mode: ${status.mode}`); // 'worker' | 'websocket' | 'main'
+```
+
+## Framework Integration
+
+### Svelte
+
+Use `@uniview/host-svelte` for ready-to-use components:
+
+```svelte
+<script>
+  import { PluginHost } from '@uniview/host-svelte';
+  import { createWorkerController, createComponentRegistry } from '@uniview/host-sdk';
+
+  const registry = createComponentRegistry();
+  const controller = createWorkerController({ pluginUrl: '/plugin.js' });
+</script>
+
+<PluginHost {controller} {registry} />
+```
+
+### React / Vue / Other
+
+Implement your own renderer using the controller:
+
+```typescript
+// 1. Create controller and registry
+const controller = createWorkerController({ pluginUrl: "/plugin.js" });
+const registry = createComponentRegistry();
+
+// 2. Subscribe to updates
+controller.subscribe((tree) => {
+  // Re-render your UI with the new tree
+  renderTree(tree, registry);
+});
+
+// 3. Handle events
+function createEventHandler(handlerId: string) {
+  return (...args: unknown[]) => {
+    controller.execute(handlerId, args);
+  };
+}
+
+// 4. Connect on mount
+await controller.connect();
+
+// 5. Disconnect on unmount
+controller.disconnect();
+```
+
+## Lifecycle
+
+<Tabs items={['Diagram', 'ASCII']}>
+
+<Tab value="Diagram">
+
+<Mermaid
+  chart={`
+stateDiagram-v2
+    [*] --> createController
+    createController --> connect
+    connect --> subscribe
+    subscribe --> updateProps
+    subscribe --> execute
+    subscribe --> disconnect
+    updateProps --> subscribe
+    execute --> subscribe
+    disconnect --> [*]
+`}
+/>
+
+</Tab>
+
+<Tab value="ASCII">
+
+```
+createController()
+       │
+       ▼
+  connect() ──────────────┐
+       │                  │
+       ▼                  │
+  subscribe(cb) ◄─────────┤
+       │                  │
+       ▼                  │
+  updateProps() ◄─────────┤
+       │                  │
+       ▼                  │
+  execute() ◄─────────────┤
+       │                  │
+       ▼                  │
+  disconnect() ───────────┘
+```
+
+</Tab>
+
+</Tabs>
+
+Always call `disconnect()` when done to clean up resources and prevent memory leaks.
