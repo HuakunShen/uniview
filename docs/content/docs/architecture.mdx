@@ -306,7 +306,7 @@ In WebSocket mode, Uniview uses a **Bridge Server** pattern to facilitate commun
 
 ### The Bridge Pattern
 
-Unlike the traditional approach where each plugin runs its own WebSocket server, Uniview uses a single Elysia-based bridge server. This simplifies deployment and networking by multiplexing all plugin connections through a single port.
+Unlike the traditional approach where each plugin runs its own WebSocket server, Uniview uses a single Elysia-based bridge server (provided by `@uniview/bridge-server`). This simplifies deployment and networking by multiplexing all plugin connections through a single port.
 
 ```mermaid
 flowchart TB
