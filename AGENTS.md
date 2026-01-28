@@ -19,7 +19,10 @@ uniview/
 │   ├── host-sdk/         # Framework-agnostic host controller
 │   └── host-svelte/      # Svelte 5 adapter (runes)
 ├── examples/             # Demo apps (full-stack implementations)
-│   ├── host-svelte-demo/ # Svelte host + bridge server
+│   ├── host-svelte-demo/ # Svelte host demo
+│   ├── host-react-demo/  # React host demo
+│   ├── host-vue-demo/    # Vue host demo
+│   ├── bridge-server/    # Shared WebSocket bridge (Elysia)
 │   ├── plugin-api/       # React API components (Button, Input, etc.)
 │   └── plugin-example/   # Demo plugins (Worker/Node modes)
 ├── vendors/
@@ -41,7 +44,7 @@ uniview/
 | RPC protocol          | `packages/protocol/src/`                         | Type definitions, Zod schemas          |
 | Host controller logic | `packages/host-sdk/src/`                         | Lifecycle, state management            |
 | Svelte adapter        | `packages/host-svelte/src/`                      | Svelte 5 renderer, components          |
-| Bridge server         | `examples/host-svelte-demo/server/`              | Elysia WebSocket multiplexer           |
+| Bridge server         | `examples/bridge-server/src/`                    | Elysia WebSocket multiplexer           |
 | Examples              | `examples/*/`                                    | Plugin/host demo implementations       |
 | Core RPC library      | `vendors/kkrpc/` # See vendors/kkrpc/AGENTS.md   |
 | Svelte reconciler     | `vendors/svelte-react-render/` # See vendor docs |

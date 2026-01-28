@@ -12,7 +12,7 @@ Full-stack SvelteKit demo with Elysia WebSocket bridge multiplexer supporting Wo
 
 | Task                  | Location                             | Notes                                |
 | --------------------- | ------------------------------------ | ------------------------------------ |
-| Bridge server         | `server/index.ts`                    | Elysia WebSocket multiplexer         |
+| Bridge server         | `../bridge-server/src/index.ts`      | Elysia WebSocket multiplexer         |
 | Plugin host UI        | `src/routes/+page.svelte`            | Mode switching, PluginHost rendering |
 | Component adapters    | `src/lib/components/plugin/*.svelte` | PluginButton, PluginInput wrappers   |
 | Plugin client scripts | `../plugin-example/dist/*.worker.js` | Served via bridge GET endpoint       |

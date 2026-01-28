@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:all": "run-p bridge plugins:wait vue",
-    "bridge": "bun ../host-svelte-demo/server/index.ts",
+    "bridge": "cd ../bridge-server && bun src/index.ts",
     "plugins:wait": "sleep 1 && pnpm --filter @uniview/example-plugin client",
     "vue": "vite",
     "build": "run-p type-check \"build-only {@}\" --",

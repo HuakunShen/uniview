@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "dev:all": "run-p bridge plugins:wait svelte",
-    "bridge": "bun server/index.ts",
+    "bridge": "cd ../bridge-server && bun src/index.ts",
     "plugins:wait": "sleep 1 && pnpm --filter @uniview/example-plugin client",
     "svelte": "vite dev",
     "build": "vite build",
@@ -31,7 +31,6 @@
     "@tailwindcss/vite": "^4.1.18",
     "bits-ui": "^2.15.4",
     "clsx": "^2.1.1",
-    "elysia": "^1.4.22",
     "formsnap": "^2.0.1",
     "npm-run-all2": "^8.0.4",
     "prettier-plugin-tailwindcss": "^0.7.2",
