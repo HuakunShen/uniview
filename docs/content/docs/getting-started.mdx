@@ -4,7 +4,7 @@ description: Build your first Uniview plugin in 5 minutes
 icon: Play
 ---
 
-This guide walks you through creating a simple plugin and rendering it in a Svelte host.
+This guide walks you through creating a simple interactive plugin and rendering it in a Svelte host.
 
 ## Prerequisites
 
@@ -27,36 +27,57 @@ pnpm add @uniview/host-sdk @uniview/host-svelte @uniview/protocol
 
 ### 1. Write Your React Component
 
-Create a standard React component. You can use hooks, state, and props as usual.
+Create a React component. Plugins can use standard React hooks, state, and standard HTML elements.
 
 ```tsx title="src/App.tsx"
 import { useState } from "react";
 
-interface Props {
-  initialCount?: number;
-}
+export default function App() {
+  const [name, setName] = useState("");
+  const [submitted, setSubmitted] = useState(false);
 
-export default function App({ initialCount = 0 }: Props) {
-  const [count, setCount] = useState(initialCount);
-
-  return (
-    <div className="p-4 space-y-4">
-      <h1 className="text-xl font-bold">Counter Plugin</h1>
-      <p>Current count: {count}</p>
-      <div className="flex gap-2">
+  // Conditional rendering
+  if (submitted) {
+    return (
+      <div className="p-4 border rounded-lg bg-green-50">
+        <h1 className="text-xl font-bold text-green-700">Welcome, {name}!</h1>
+        <p className="text-green-600 mt-2">Your registration was successful.</p>
         <button
-          onClick={() => setCount((c) => c - 1)}
-          className="px-4 py-2 bg-red-500 text-white rounded"
+          onClick={() => {
+            setSubmitted(false);
+            setName("");
+          }}
+          className="mt-4 px-4 py-2 bg-white border border-green-200 text-green-700 rounded hover:bg-green-50 transition-colors"
         >
-          -
-        </button>
-        <button
-          onClick={() => setCount((c) => c + 1)}
-          className="px-4 py-2 bg-green-500 text-white rounded"
-        >
-          +
+          Reset
         </button>
       </div>
+    );
+  }
+
+  return (
+    <div className="p-4 border rounded-lg space-y-4 bg-white">
+      <h1 className="text-xl font-bold">Registration Plugin</h1>
+
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-gray-700">
+          Enter your name:
+        </label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+          placeholder="John Doe"
+        />
+      </div>
+
+      <button
+        onClick={() => setSubmitted(true)}
+        disabled={!name.trim()}
+        className="w-full px-4 py-2 bg-blue-600 text-white rounded font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        Submit
+      </button>
     </div>
   );
 }
@@ -109,23 +130,27 @@ esbuild src/worker.ts --bundle --format=esm --outfile=dist/plugin.js
   import { createWorkerController, createComponentRegistry } from '@uniview/host-sdk';
   import type { Component } from 'svelte';
 
-  // Create component registry (for custom components)
+  // Create component registry (optional: for custom components)
   const registry = createComponentRegistry<Component>();
 
   // Create controller pointing to your plugin
   const controller = createWorkerController({
-    pluginUrl: '/plugins/counter.js'
+    pluginUrl: '/plugins/plugin.js'
   });
 </script>
 
-<div class="p-8">
-  <h1 class="text-2xl font-bold mb-4">Uniview Docs</h1>
+<div class="p-8 max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-8">Uniview Host Demo</h1>
 
-  <PluginHost {controller} {registry}>
-    {#snippet loading()}
-      <p>Loading plugin...</p>
-    {/snippet}
-  </PluginHost>
+  <div class="border rounded-xl shadow-sm overflow-hidden">
+    <PluginHost {controller} {registry}>
+      {#snippet loading()}
+        <div class="p-8 text-center text-gray-500 animate-pulse">
+          Loading plugin environment...
+        </div>
+      {/snippet}
+    </PluginHost>
+  </div>
 </div>
 ```
 
@@ -176,8 +201,6 @@ Register renderers for custom types:
 ```typescript
 // In your page
 registry.register("Button", PluginButton);
-registry.register("Card", PluginCard);
-// etc.
 ```
 
 ## Runtime Modes
@@ -190,54 +213,18 @@ Uniview supports three runtime modes:
 | **WebSocket**   | Server-side plugins, Node.js APIs | Network isolated |
 | **Main Thread** | Development, debugging            | None             |
 
-```typescript
-// Worker mode (default, production)
-const controller = createWorkerController({
-  pluginUrl: "/plugin.js",
-});
-
-// WebSocket mode (server-side plugins via Bridge)
-const controller = createWebSocketController({
-  serverUrl: "ws://localhost:3000", // Bridge server
-  pluginId: "my-plugin", // Required for routing
-});
-
-// Main thread mode (development only)
-import App from "./plugin/App";
-const controller = createMainController({ App });
-```
-
-## Running the Example
-
-The quickest way to see all modes in action:
-
-```bash
-# From the repository root
-pnpm install && pnpm build
-
-# Run the complete example
-cd examples/host-svelte-demo
-pnpm dev:all
-```
-
-This starts:
-
-1. **Bridge server** on `:3000` - Shared WebSocket multiplexer (from `@uniview/bridge-server`)
-2. **Plugin clients** - Node.js plugins connect to bridge
-3. **SvelteKit host** on `:5173` - The UI
-
-Open `http://localhost:5173` and toggle between "Worker" and "Node.js" modes to see both in action.
+For complex setups involving multiple modes, check out the [Advanced Host Guide](/docs/guides/advanced-host).
 
 ## Next Steps
 
 <Cards>
-  <Card title="Architecture" href="/docs/architecture">
-    Understand how Uniview works under the hood
+  <Card title="Advanced Host" href="/docs/guides/advanced-host">
+    Build a production-ready host with mode switching and dynamic loading
   </Card>
-  <Card title="Packages Reference" href="/docs/packages/protocol">
-    Explore the API documentation
+  <Card title="Bridge Server" href="/docs/guides/bridge-server">
+    Set up the WebSocket bridge for Node.js/server-side plugins
   </Card>
-  <Card title="Runtime Modes" href="/docs/guides/runtime-modes">
-    Learn about Worker, WebSocket, and Main Thread modes
+  <Card title="Custom Components" href="/docs/guides/custom-components">
+    Learn how to create and register custom components
   </Card>
 </Cards>

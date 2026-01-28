@@ -1,0 +1,166 @@
+---
+title: Bridge Server Setup
+description: Setting up the WebSocket bridge for server-side plugins
+icon: Network
+---
+
+To run plugins on the server (Node.js, Deno, or Bun), Uniview uses a **Bridge Server**. This server acts as a transparent WebSocket multiplexer, allowing multiple plugins and hosts to communicate over a single port.
+
+## Why a Bridge Server?
+
+1.  **Single Port**: All plugins connect to one port (e.g., `:3000`). You don't need to open 50 ports for 50 plugins.
+2.  **No NAT Traversal**: Plugins connect _outbound_ to the bridge. They can run behind firewalls or inside Docker containers without exposing ports.
+3.  **Protocol Agnostic**: The bridge just forwards raw messages. It doesn't need to know about Uniview protocols or updates.
+
+## Implementation (Elysia)
+
+We recommend using [Elysia](https://elysiajs.com/) (on Bun) for the bridge server due to its performance and simplicity, but any WebSocket server will work.
+
+Here is the complete code for a production-ready bridge server:
+
+```typescript title="server/index.ts"
+import { Elysia } from "elysia";
+import { readFile } from "fs/promises";
+import { join } from "path";
+
+// In-memory connection map
+// pluginId -> { pluginWs, hostWs }
+const connections = new Map<string, { pluginWs?: any; hostWs?: any }>();
+
+function normalizeMessage(message: unknown): string {
+  let msgStr =
+    typeof message === "string"
+      ? message
+      : message instanceof Buffer
+        ? message.toString()
+        : JSON.stringify(message);
+  return msgStr;
+}
+
+const app = new Elysia()
+  // Optional: Serve static worker files (if you want to host worker bundles too)
+  .get("/:filename", async ({ params }) => {
+    try {
+      const file = await readFile(join("./dist", params.filename));
+      return new Response(file, {
+        headers: { "Content-Type": "application/javascript" },
+      });
+    } catch {
+      return new Response("Not found", { status: 404 });
+    }
+  })
+
+  // 1. Plugin Endpoint: /plugins/:pluginId
+  .ws("/plugins/:pluginId", {
+    open(ws) {
+      const pluginId = ws.data.params.pluginId;
+      console.log(`[Bridge] Plugin connected: ${pluginId}`);
+
+      if (!connections.has(pluginId)) {
+        connections.set(pluginId, {});
+      }
+      connections.get(pluginId)!.pluginWs = ws;
+    },
+    message(ws, message) {
+      const pluginId = ws.data.params.pluginId;
+      const conn = connections.get(pluginId);
+
+      // Forward message to Host
+      if (conn?.hostWs) {
+        conn.hostWs.send(normalizeMessage(message));
+      }
+    },
+    close(ws) {
+      const pluginId = ws.data.params.pluginId;
+      const conn = connections.get(pluginId);
+      if (conn) {
+        conn.pluginWs = undefined;
+        if (!conn.hostWs) connections.delete(pluginId);
+      }
+      console.log(`[Bridge] Plugin disconnected: ${pluginId}`);
+    },
+  })
+
+  // 2. Host Endpoint: /host/:pluginId
+  .ws("/host/:pluginId", {
+    open(ws) {
+      const pluginId = ws.data.params.pluginId;
+      const conn = connections.get(pluginId);
+
+      // Require plugin to be ready first
+      if (!conn?.pluginWs) {
+        ws.close(1000, "Plugin not ready");
+        return;
+      }
+
+      // Replace existing host connection if any
+      if (conn.hostWs) {
+        conn.hostWs.close(1000, "Replaced by new connection");
+      }
+
+      conn.hostWs = ws;
+      console.log(`[Bridge] Host connected: ${pluginId}`);
+    },
+    message(ws, message) {
+      const pluginId = ws.data.params.pluginId;
+      const conn = connections.get(pluginId);
+
+      // Forward message to Plugin
+      if (conn?.pluginWs) {
+        conn.pluginWs.send(normalizeMessage(message));
+      }
+    },
+    close(ws) {
+      const pluginId = ws.data.params.pluginId;
+      const conn = connections.get(pluginId);
+      if (conn) {
+        conn.hostWs = undefined;
+        if (!conn.pluginWs) connections.delete(pluginId);
+      }
+      console.log(`[Bridge] Host disconnected: ${pluginId}`);
+    },
+  })
+  .listen(3000);
+
+console.log(
+  `🌉 Bridge server listening on ${app.server?.hostname}:${app.server?.port}`,
+);
+```
+
+## Running the Server
+
+Using Bun:
+
+```bash
+bun run server/index.ts
+```
+
+## Connecting to the Bridge
+
+### Plugin Side
+
+Connect your Node.js/Deno/Bun plugin to the bridge:
+
+```typescript
+import { connectToHostServer } from "@uniview/runtime/ws-client";
+import App from "./App";
+
+connectToHostServer({
+  App,
+  serverUrl: "ws://localhost:3000",
+  pluginId: "my-plugin", // Must match unique ID
+});
+```
+
+### Host Side
+
+Connect your browser host to the bridge:
+
+```typescript
+import { createWebSocketController } from "@uniview/host-sdk";
+
+const controller = createWebSocketController({
+  serverUrl: "ws://localhost:3000",
+  pluginId: "my-plugin", // Must match plugin's ID
+});
+```

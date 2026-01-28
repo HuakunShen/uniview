@@ -1,4 +1,9 @@
 {
   "title": "Guides",
-  "pages": ["runtime-modes", "custom-components"]
+  "pages": [
+    "runtime-modes",
+    "advanced-host",
+    "bridge-server",
+    "custom-components"
+  ]
 }

@@ -1,0 +1,190 @@
+---
+title: Advanced Host Implementation
+description: Building a production-ready host with dynamic mode switching and robust error handling
+icon: Server
+---
+
+This guide demonstrates how to build a robust Svelte host that can dynamically switch between Worker, WebSocket, and Main Thread modes. This pattern is useful for building "Universal" applications that support both local and remote plugins.
+
+## The Universal Host Pattern
+
+A production-ready host should handle:
+
+1.  **Dynamic Controller Creation**: Creating the right controller (`Worker`, `WebSocket`, `Main`) based on configuration.
+2.  **Resource Cleanup**: Disconnecting controllers when switching modes or unmounting.
+3.  **Loading States**: Showing feedback while the plugin initializes.
+4.  **Error Handling**: Gracefully handling connection failures.
+
+## Implementation (Svelte 5)
+
+Here is a complete example of a host page that supports all three modes.
+
+```svelte title="src/routes/+page.svelte"
+<script lang="ts">
+  import { browser } from "$app/environment";
+  import { PluginHost } from "@uniview/host-svelte";
+  import {
+    createWorkerController,
+    createWebSocketController,
+    createMainController,
+    createComponentRegistry
+  } from "@uniview/host-sdk";
+  import type { PluginController } from "@uniview/host-sdk";
+  import type { Component } from "svelte";
+
+  // Import your local React components for Main Thread mode (dev only)
+  import { SimpleDemo } from "@uniview/example-plugin";
+
+  // Import your custom Svelte adapters
+  import PluginButton from '$lib/components/plugin/PluginButton.svelte';
+  import PluginInput from '$lib/components/plugin/PluginInput.svelte';
+
+  type RuntimeMode = 'worker' | 'main-thread' | 'node-server';
+
+  let runtimeMode: RuntimeMode = $state('worker');
+
+  // Configuration
+  const BRIDGE_URL = 'ws://localhost:3000';
+  const WORKER_URL = 'http://localhost:3000/simple-demo.worker.js';
+  const PLUGIN_ID = 'simple-demo';
+
+  // Derived state to manage controller lifecycle
+  let controllerConfig = $derived.by(() => {
+    if (!browser) return null;
+
+    // 1. Create Registry
+    const registry = createComponentRegistry<Component>();
+    registry.register('Button', PluginButton);
+    registry.register('Input', PluginInput);
+
+    // 2. Create Controller based on mode
+    let controller: PluginController;
+
+    try {
+      if (runtimeMode === 'worker') {
+        controller = createWorkerController({
+          pluginUrl: WORKER_URL,
+        });
+      } else if (runtimeMode === 'node-server') {
+        controller = createWebSocketController({
+          serverUrl: BRIDGE_URL,
+          pluginId: PLUGIN_ID,
+        });
+      } else {
+        // Main Thread (Dev only)
+        controller = createMainController({
+          App: SimpleDemo,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to create controller:", err);
+      return null;
+    }
+
+    return { controller, registry };
+  });
+
+  // 3. Cleanup Effect
+  $effect(() => {
+    const config = controllerConfig;
+    return () => {
+      if (config?.controller) {
+        console.log("Disconnecting controller...");
+        config.controller.disconnect();
+      }
+    };
+  });
+
+  // Helpers for template access
+  let controller = $derived(controllerConfig?.controller ?? null);
+  let registry = $derived(controllerConfig?.registry ?? null);
+</script>
+
+<div class="container mx-auto p-8 space-y-8">
+  <header class="flex justify-between items-center border-b pb-6">
+    <div>
+      <h1 class="text-3xl font-bold">Universal Host</h1>
+      <p class="text-gray-500">
+        Running in <span class="font-mono font-bold text-blue-600">{runtimeMode}</span> mode
+      </p>
+    </div>
+
+    <!-- Mode Switcher -->
+    <div class="flex gap-2 bg-gray-100 p-1 rounded-lg">
+      <button
+        class="px-4 py-2 rounded-md transition-colors {runtimeMode === 'worker' ? 'bg-white shadow text-black' : 'text-gray-500 hover:text-black'}"
+        onclick={() => runtimeMode = 'worker'}
+      >
+        ⚡ Worker
+      </button>
+      <button
+        class="px-4 py-2 rounded-md transition-colors {runtimeMode === 'node-server' ? 'bg-white shadow text-black' : 'text-gray-500 hover:text-black'}"
+        onclick={() => runtimeMode = 'node-server'}
+      >
+        🖥️ Node.js
+      </button>
+      <button
+        class="px-4 py-2 rounded-md transition-colors {runtimeMode === 'main-thread' ? 'bg-white shadow text-black' : 'text-gray-500 hover:text-black'}"
+        onclick={() => runtimeMode = 'main-thread'}
+      >
+        🧵 Main Thread
+      </button>
+    </div>
+  </header>
+
+  <!-- Plugin Container -->
+  <main class="border rounded-xl bg-gray-50 min-h-[400px] p-6">
+    {#if browser && controller && registry}
+      {#key runtimeMode}
+        <PluginHost {controller} {registry}>
+          {#snippet loading()}
+            <div class="flex flex-col items-center justify-center h-64 text-gray-500 gap-4">
+              <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p>Connecting to plugin environment...</p>
+            </div>
+          {/snippet}
+        </PluginHost>
+      {/key}
+    {:else}
+      <div class="flex items-center justify-center h-64 text-gray-400">
+        Initializing host...
+      </div>
+    {/if}
+  </main>
+</div>
+```
+
+## Key Concepts
+
+### Derived Controller Creation
+
+We use `$derived.by` to reactively recreate the controller whenever `runtimeMode` changes. This ensures:
+
+1.  The old controller is properly cleaned up (via `$effect`).
+2.  The new controller is initialized with the correct configuration.
+3.  The `registry` is re-instantiated (or shared, depending on your needs).
+
+### Keyed Re-rendering
+
+Wrapping `<PluginHost>` in a `{#key runtimeMode}` block forces Svelte to destroy and recreate the host component when the mode changes. This is crucial because `PluginHost` maintains internal subscription state that needs to be reset for a fresh connection.
+
+```svelte
+{#key runtimeMode}
+  <PluginHost {controller} {registry} />
+{/key}
+```
+
+### Loading States
+
+The `{#snippet loading()}` block allows you to provide a custom UI while the plugin is initializing. This is especially important for:
+
+- **Worker Mode**: Script loading and worker startup (approx. 50-200ms).
+- **WebSocket Mode**: Network connection latency (10-100ms+).
+
+## Connection Lifecycle
+
+1.  **Mount**: Host connects to the controller (`controller.connect()`).
+2.  **Handshake**: Controller establishes RPC link with plugin.
+3.  **Render**: Plugin sends initial tree → Host renders.
+4.  **Update**: User interaction → Host sends event → Plugin updates tree → Host re-renders.
+5.  **Unmount**: Host disconnects (`controller.disconnect()`), closing workers/sockets.
