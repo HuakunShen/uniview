@@ -1,11 +1,9 @@
-import type { ComponentType } from "react";
-import { createWebSocketPluginClient } from "./ws-client";
+import {
+  createWebSocketPluginClient,
+  type WebSocketPluginClientOptions,
+} from "./ws-client";
 
-export interface ConnectToHostServerOptions {
-  App: ComponentType<unknown>;
-  serverUrl: string;
-  pluginId: string;
-}
+export type ConnectToHostServerOptions = WebSocketPluginClientOptions;
 
 export async function connectToHostServer(
   opts: ConnectToHostServerOptions,

@@ -1,5 +1,6 @@
 # Uniview
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HuakunShen/uniview)
 A universal plugin system for React plugins that render in any host framework.
 
 ## Overview

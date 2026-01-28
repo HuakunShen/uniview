@@ -75,8 +75,8 @@ new Elysia()
         return;
       }
       if (conn.hostWs) {
-        ws.close(1000, "Host already connected");
-        return;
+        console.log(`[Bridge] Replacing existing host connection: ${pluginId}`);
+        conn.hostWs.close(1000, "Replaced by new connection");
       }
 
       conn.hostWs = ws;
