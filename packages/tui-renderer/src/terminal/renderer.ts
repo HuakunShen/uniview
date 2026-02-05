@@ -38,7 +38,7 @@ interface LayoutNode {
   width: number;
   height: number;
   children: LayoutNode[];
-  text?: string;
+  text: string | undefined;
 }
 
 interface FocusableNode {
@@ -87,18 +87,6 @@ function getNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function getTextContent(node: TuiNode): string {
-  let result = "";
-  for (const child of node.children) {
-    if (isTextNode(child)) {
-      result += child.text;
-    } else if (child.type === "Text") {
-      result += getTextContent(child);
-    }
-  }
-  return result;
-}
-
 function measureNode(node: TuiNode | TextNode): {
   width: number;
   height: number;
@@ -112,32 +100,9 @@ function measureNode(node: TuiNode | TextNode): {
     return { width: 0, height: 1 };
   }
 
-  if (node.type === "Text") {
-    const text = getTextContent(node);
-    return { width: stringWidth(text), height: 1, text };
-  }
-
-  if (node.type === "Button") {
-    const title =
-      typeof node.props.title === "string"
-        ? node.props.title
-        : getTextContent(node);
-    const label = title.length > 0 ? title : "Button";
-    return { width: stringWidth(label) + 4, height: 1, text: label };
-  }
-
-  if (node.type === "Input") {
-    const value = typeof node.props.value === "string" ? node.props.value : "";
-    const placeholder =
-      typeof node.props.placeholder === "string" ? node.props.placeholder : "";
-    const display = value.length > 0 ? value : placeholder;
-    const width = getNumber(node.props.width, stringWidth(display) + 4);
-    return { width, height: 1, text: display };
-  }
-
-  const padding = getNumber(node.props.padding, 0);
-  const gap = getNumber(node.props.gap, 0);
-  const direction = node.props.flexDirection === "row" ? "row" : "column";
+  const padding = getNumber(node.props["padding"], 0);
+  const gap = getNumber(node.props["gap"], 0);
+  const direction = node.props["flexDirection"] === "row" ? "row" : "column";
 
   let contentWidth = 0;
   let contentHeight = 0;
@@ -163,8 +128,8 @@ function measureNode(node: TuiNode | TextNode): {
     }
   }
 
-  const width = getNumber(node.props.width, contentWidth + padding * 2);
-  const height = getNumber(node.props.height, contentHeight + padding * 2);
+  const width = getNumber(node.props["width"], contentWidth + padding * 2);
+  const height = getNumber(node.props["height"], contentHeight + padding * 2);
 
   return { width, height };
 }
@@ -208,12 +173,13 @@ function layoutNode(
       width: size.width,
       height: size.height,
       children: [],
+      text: undefined,
     };
   }
 
-  const padding = getNumber(node.props.padding, 0);
-  const gap = getNumber(node.props.gap, 0);
-  const direction = node.props.flexDirection === "row" ? "row" : "column";
+  const padding = getNumber(node.props["padding"], 0);
+  const gap = getNumber(node.props["gap"], 0);
+  const direction = node.props["flexDirection"] === "row" ? "row" : "column";
 
   let offsetX = x + padding;
   let offsetY = y + padding;
@@ -236,6 +202,7 @@ function layoutNode(
     width: size.width,
     height: size.height,
     children,
+    text: undefined,
   };
 }
 
@@ -298,12 +265,12 @@ function renderBuffer(buffer: Cell[][]): string {
 
 function extractStyle(node: TuiNode, extra?: Partial<CellStyle>): CellStyle {
   const style: CellStyle = {};
-  if (typeof node.props.color === "string") {
-    style.color = node.props.color as ColorName;
+  if (typeof node.props["color"] === "string") {
+    style.color = node.props["color"] as ColorName;
   }
-  if (node.props.bold === true) style.bold = true;
-  if (node.props.dim === true) style.dim = true;
-  if (node.props.inverse === true) style.inverse = true;
+  if (node.props["bold"] === true) style.bold = true;
+  if (node.props["dim"] === true) style.dim = true;
+  if (node.props["inverse"] === true) style.inverse = true;
   return { ...style, ...extra };
 }
 
@@ -378,11 +345,13 @@ function drawNode(
   if (node.type === "Input") {
     const isFocused = focusedId === node.id;
     const value =
-      typeof node.props.value === "string"
-        ? node.props.value
+      typeof node.props["value"] === "string"
+        ? (node.props["value"] as string)
         : (inputValues.get(node.id) ?? "");
     const placeholder =
-      typeof node.props.placeholder === "string" ? node.props.placeholder : "";
+      typeof node.props["placeholder"] === "string"
+        ? (node.props["placeholder"] as string)
+        : "";
     const text = value.length > 0 ? value : placeholder;
     const display = text.padEnd(Math.max(0, layout.width - 4), " ");
     const label = `[ ${display} ]`;
@@ -446,7 +415,7 @@ export function createTerminalRenderer(options: TerminalRendererOptions) {
 
     if (key === "\r" || key === "\n" || key === " ") {
       if (focused.type === "Button") {
-        const handler = focused.props.onPress;
+        const handler = focused.props["onPress"];
         if (typeof handler === "function") {
           (handler as () => void)();
         }
@@ -457,15 +426,15 @@ export function createTerminalRenderer(options: TerminalRendererOptions) {
 
     if (focused.type === "Input") {
       const currentValue =
-        typeof focused.props.value === "string"
-          ? focused.props.value
+        typeof focused.props["value"] === "string"
+          ? (focused.props["value"] as string)
           : (state.inputValues.get(focused.id) ?? "");
       if (key === "\u007f") {
         const nextValue = currentValue.slice(0, -1);
-        if (typeof focused.props.onChange === "function") {
-          (focused.props.onChange as (value: string) => void)(nextValue);
+        if (typeof focused.props["onChange"] === "function") {
+          (focused.props["onChange"] as (value: string) => void)(nextValue);
         }
-        if (typeof focused.props.value !== "string") {
+        if (typeof focused.props["value"] !== "string") {
           state.inputValues.set(focused.id, nextValue);
         }
         render(state.root);
@@ -474,10 +443,10 @@ export function createTerminalRenderer(options: TerminalRendererOptions) {
 
       if (isPrintable(key)) {
         const nextValue = currentValue + key;
-        if (typeof focused.props.onChange === "function") {
-          (focused.props.onChange as (value: string) => void)(nextValue);
+        if (typeof focused.props["onChange"] === "function") {
+          (focused.props["onChange"] as (value: string) => void)(nextValue);
         }
-        if (typeof focused.props.value !== "string") {
+        if (typeof focused.props["value"] !== "string") {
           state.inputValues.set(focused.id, nextValue);
         }
         render(state.root);
