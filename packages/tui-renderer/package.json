@@ -1,0 +1,46 @@
+{
+  "name": "@uniview/tui-renderer",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Standalone React reconciler that renders to terminal",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "ansi-escapes": "^6.2.0",
+    "react-reconciler": "^0.29.2",
+    "string-width": "^7.2.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@tsconfig/strictest": "^2.0.8",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-reconciler": "^0.28.0",
+    "react": "^18.3.0",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
