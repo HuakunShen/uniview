@@ -32,12 +32,15 @@ Uniview enables writing plugins in React that can be rendered by Svelte, Vue, Re
 | [@uniview/runtime](./packages/runtime)               | Plugin bootstrap for Worker/WebSocket environments |
 | [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                 |
 | [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                         |
+| [@uniview/tui-renderer](./packages/tui-renderer)     | Terminal UI renderer (non-DOM, like React Native)  |
 
 ## Quick Start
 
-### Running the Example
+### Running the Examples
 
 The fastest way to see Uniview in action:
+
+**Web Example (Svelte Host):**
 
 ```bash
 # Install dependencies
@@ -52,6 +55,32 @@ pnpm dev:all
 ```
 
 Then open `http://localhost:5173` and try both Worker and Node.js modes.
+
+**Terminal UI Example:**
+
+```bash
+cd examples/tui-demo
+pnpm dev
+```
+
+Renders React plugins directly to terminal (no browser, no DOM).
+
+**Native macOS Example:**
+
+```bash
+# Terminal 1: Start bridge
+cd examples/bridge-server && bun src/index.ts
+
+# Terminal 2: Start plugin
+cd examples/plugin-example && bun src/simple-demo.client.ts
+
+# Open Xcode project and run
+cd examples/host-macos-demo
+open HostMacOSDemo.xcodeproj
+# Press Cmd+R in Xcode
+```
+
+Renders React plugins as native SwiftUI app.
 
 ### Plugin Side
 
@@ -184,9 +213,15 @@ uniview/
 │   ├── react-renderer/     # Custom React reconciler
 │   ├── runtime/            # Plugin bootstrap (worker + ws-client)
 │   ├── host-sdk/           # Host controller logic
-│   └── host-svelte/        # Svelte 5 adapter
+│   ├── host-svelte/        # Svelte 5 adapter
+│   └── tui-renderer/       # Terminal UI renderer (non-DOM)
 ├── examples/
-│   ├── host-svelte-demo/   # Example host + bridge server
+│   ├── host-svelte-demo/   # Web example (Svelte + Bridge)
+│   ├── host-macos-demo/    # Native macOS app (SwiftUI)
+│   ├── host-react-demo/    # React host example
+│   ├── host-vue-demo/      # Vue host example
+│   ├── tui-demo/           # Terminal UI example
+│   ├── bridge-server/      # WebSocket bridge server
 │   ├── plugin-api/         # Reusable React components
 │   └── plugin-example/     # Example plugins
 ├── vendors/
