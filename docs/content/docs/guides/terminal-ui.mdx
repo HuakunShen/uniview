@@ -1,0 +1,65 @@
+---
+title: Terminal UI
+description: Rendering React components directly to terminal with no DOM or browser
+icon: Terminal
+---
+
+The `@uniview/tui-renderer` package provides a standalone React reconciler that renders directly to the terminal — no DOM, no browser, no plugin/RPC infrastructure needed.
+
+This is conceptually similar to React Native: React components are rendered to a non-DOM target using a custom reconciler.
+
+## Quick Start
+
+```bash
+cd examples/tui-demo
+pnpm dev
+```
+
+## How It Works
+
+```
+React Components → Custom Reconciler → In-Memory Tree → ANSI Terminal Output
+```
+
+The TUI renderer:
+1. Uses `react-reconciler` to build an in-memory tree of terminal elements
+2. Traverses the tree to compute layout (fixed positioning)
+3. Renders to terminal using ANSI escape codes
+4. Re-renders on state changes (full redraw)
+
+## Available Components
+
+| Component | Description |
+|---|---|
+| `Box` | Container with optional border and padding |
+| `Text` | Styled text output (bold, color, etc.) |
+| `Button` | Highlighted text, selectable with keyboard |
+| `Input` | Single-line text input |
+| `Newline` | Line break |
+
+## Example
+
+```tsx
+import { useState } from "react";
+import { Box, Text, Button } from "@uniview/tui-renderer";
+
+export default function App() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <Box border padding={1}>
+      <Text bold>Counter: {count}</Text>
+      <Button onPress={() => setCount(c => c + 1)}>Increment</Button>
+    </Box>
+  );
+}
+```
+
+## Differences from Uniview Plugin System
+
+The TUI renderer is a **standalone** package — it does not use the uniview plugin/host RPC architecture. It's a direct React-to-terminal renderer, useful for:
+
+- CLI tools built with React
+- Terminal dashboards
+- Learning how custom React reconcilers work
+- Demonstrating that React can target any output surface

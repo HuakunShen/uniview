@@ -63,7 +63,7 @@ graph LR
     Render plugins to terminal without DOM (like React Native)
   </Card>
   <Card title="Native macOS" href="/docs/guides/native-macos">
-    Render plugins as native SwiftUI applications
+    Render plugins as native SwiftUI or AppKit applications
   </Card>
 </Cards>
 
@@ -115,7 +115,7 @@ export default function App() {
 
 ## Inspiration
 
-Uniview is inspired by [Raycast's plugin architecture](https://www.raycast.com/blog/how-raycast-api-extensions-work) which uses a custom React reconciler to render plugins using native AppKit components.
+Uniview uses a custom React reconciler to serialize component trees into a framework-agnostic UINode format, enabling plugins written in React to render on any host platform.
 
 <Cards>
   <Card title="Get Started" href="/docs/getting-started">

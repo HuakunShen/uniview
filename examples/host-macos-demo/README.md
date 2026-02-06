@@ -4,7 +4,7 @@ A native macOS SwiftUI application that demonstrates rendering React plugins via
 
 ## Overview
 
-This demo shows how uniview plugins can run in isolated environments and render UI in native macOS applications, not just web browsers. The architecture mirrors Raycast's plugin system:
+This demo shows how uniview plugins can run in isolated environments and render UI in native macOS applications, not just web browsers. The architecture:
 
 ```
 ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐

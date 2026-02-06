@@ -65,7 +65,7 @@ pnpm dev
 
 Renders React plugins directly to terminal (no browser, no DOM).
 
-**Native macOS Example:**
+**Native macOS Example (SwiftUI):**
 
 ```bash
 # Terminal 1: Start bridge
@@ -81,6 +81,23 @@ open HostMacOSDemo.xcodeproj
 ```
 
 Renders React plugins as native SwiftUI app.
+
+**Native macOS Example (AppKit — diff-based reconciliation):**
+
+```bash
+# Terminal 1: Start bridge
+cd examples/bridge-server && bun src/index.ts
+
+# Terminal 2: Start plugin
+cd examples/plugin-example && bun src/simple-demo.client.ts
+
+# Open Xcode project and run
+cd examples/host-appkit-demo
+open HostAppKitDemo.xcodeproj
+# Press Cmd+R in Xcode
+```
+
+Same React plugins rendered as native AppKit views with a view model layer and id-based tree reconciler for efficient in-place updates.
 
 ### Plugin Side
 
@@ -218,6 +235,7 @@ uniview/
 ├── examples/
 │   ├── host-svelte-demo/   # Web example (Svelte + Bridge)
 │   ├── host-macos-demo/    # Native macOS app (SwiftUI)
+│   ├── host-appkit-demo/   # Native macOS app (AppKit, diff-based)
 │   ├── host-react-demo/    # React host example
 │   ├── host-vue-demo/      # Vue host example
 │   ├── tui-demo/           # Terminal UI example
@@ -291,9 +309,20 @@ Plugin (React)
 └─────────────────────┘
 ```
 
-## Inspiration
+## Host Targets
 
-Inspired by [Raycast's plugin architecture](https://www.raycast.com/blog/how-raycast-api-extensions-work) which uses a custom React reconciler to render plugins using native AppKit components. Uniview takes this concept to the web, rendering to any framework.
+Uniview plugins render on any target that implements the UINode protocol:
+
+| Target | Example | Rendering Approach |
+|---|---|---|
+| **Svelte** (Web) | `host-svelte-demo` | Svelte 5 `ComponentRenderer` |
+| **React** (Web) | `host-react-demo` | React component tree |
+| **Vue** (Web) | `host-vue-demo` | Vue component tree |
+| **SwiftUI** (macOS) | `host-macos-demo` | Declarative SwiftUI views |
+| **AppKit** (macOS) | `host-appkit-demo` | Imperative NSViews with diff reconciler |
+| **Terminal** | `tui-demo` | ANSI escape codes (standalone) |
+
+The AppKit demo uses a view model layer with dirty-tracking bitfields and a tree reconciler that matches nodes by stable ID for O(1) diffing — the same architecture used by React Native. See `examples/host-appkit-demo/README.md` for a full design guide on building this kind of system.
 
 ## License
 

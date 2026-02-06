@@ -4,6 +4,8 @@
     "runtime-modes",
     "advanced-host",
     "bridge-server",
-    "custom-components"
+    "custom-components",
+    "native-macos",
+    "terminal-ui"
   ]
 }

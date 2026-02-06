@@ -1,0 +1,412 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA100001000000000000BF01 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200001000000000000FR01 /* main.swift */; };
+		AA100002000000000000BF02 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200002000000000000FR02 /* AppDelegate.swift */; };
+		AA100003000000000000BF03 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200003000000000000FR03 /* MainWindowController.swift */; };
+		AA100004000000000000BF04 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200004000000000000FR04 /* MainViewController.swift */; };
+		AA100005000000000000BF05 /* UINode.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200005000000000000FR05 /* UINode.swift */; };
+		AA100006000000000000BF06 /* RPCMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200006000000000000FR06 /* RPCMessage.swift */; };
+		AA100007000000000000BF07 /* MessageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200007000000000000FR07 /* MessageParser.swift */; };
+		AA100008000000000000BF08 /* RPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200008000000000000FR08 /* RPCClient.swift */; };
+		AA100009000000000000BF09 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200009000000000000FR09 /* WebSocketClient.swift */; };
+		AA10000A000000000000BF0A /* NodeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000A000000000000FR0A /* NodeViewModel.swift */; };
+		AA10000B000000000000BF0B /* TreeReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000B000000000000FR0B /* TreeReconciler.swift */; };
+		AA10000C000000000000BF0C /* NodeViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000C000000000000FR0C /* NodeViewFactory.swift */; };
+		AA10000D000000000000BF0D /* ContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000D000000000000FR0D /* ContainerView.swift */; };
+		AA10000E000000000000BF0E /* TextNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000E000000000000FR0E /* TextNodeView.swift */; };
+		AA10000F000000000000BF0F /* ButtonNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000F000000000000FR0F /* ButtonNodeView.swift */; };
+		AA100010000000000000BF10 /* InputNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200010000000000000FR10 /* InputNodeView.swift */; };
+		AA100011000000000000BF11 /* ListNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200011000000000000FR11 /* ListNodeView.swift */; };
+		AA100013000000000000BF13 /* SwitchNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200014000000000000FR14 /* SwitchNodeView.swift */; };
+		AA100014000000000000BF14 /* ToggleNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200015000000000000FR15 /* ToggleNodeView.swift */; };
+		AA100012000000000000BF12 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA200012000000000000FR12 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA300001000000000000PR01 /* HostAppKitDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HostAppKitDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA200001000000000000FR01 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		AA200002000000000000FR02 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		AA200003000000000000FR03 /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
+		AA200004000000000000FR04 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
+		AA200005000000000000FR05 /* UINode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UINode.swift; sourceTree = "<group>"; };
+		AA200006000000000000FR06 /* RPCMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RPCMessage.swift; sourceTree = "<group>"; };
+		AA200007000000000000FR07 /* MessageParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageParser.swift; sourceTree = "<group>"; };
+		AA200008000000000000FR08 /* RPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RPCClient.swift; sourceTree = "<group>"; };
+		AA200009000000000000FR09 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
+		AA20000A000000000000FR0A /* NodeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeViewModel.swift; sourceTree = "<group>"; };
+		AA20000B000000000000FR0B /* TreeReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeReconciler.swift; sourceTree = "<group>"; };
+		AA20000C000000000000FR0C /* NodeViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeViewFactory.swift; sourceTree = "<group>"; };
+		AA20000D000000000000FR0D /* ContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerView.swift; sourceTree = "<group>"; };
+		AA20000E000000000000FR0E /* TextNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextNodeView.swift; sourceTree = "<group>"; };
+		AA20000F000000000000FR0F /* ButtonNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ButtonNodeView.swift; sourceTree = "<group>"; };
+		AA200010000000000000FR10 /* InputNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputNodeView.swift; sourceTree = "<group>"; };
+		AA200011000000000000FR11 /* ListNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListNodeView.swift; sourceTree = "<group>"; };
+		AA200012000000000000FR12 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA200013000000000000FR13 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA200014000000000000FR14 /* SwitchNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchNodeView.swift; sourceTree = "<group>"; };
+		AA200015000000000000FR15 /* ToggleNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToggleNodeView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA400001000000000000FW01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA500001000000000000GR01 = {
+			isa = PBXGroup;
+			children = (
+				AA500002000000000000GR02 /* HostAppKitDemo */,
+				AA500003000000000000GR03 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA500002000000000000GR02 /* HostAppKitDemo */ = {
+			isa = PBXGroup;
+			children = (
+				AA500004000000000000GR04 /* App */,
+				AA500005000000000000GR05 /* Models */,
+				AA500006000000000000GR06 /* Services */,
+				AA500007000000000000GR07 /* ViewModels */,
+				AA500008000000000000GR08 /* Views */,
+				AA200012000000000000FR12 /* Assets.xcassets */,
+				AA200013000000000000FR13 /* Info.plist */,
+			);
+			path = HostAppKitDemo;
+			sourceTree = "<group>";
+		};
+		AA500003000000000000GR03 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA300001000000000000PR01 /* HostAppKitDemo.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA500004000000000000GR04 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AA200001000000000000FR01 /* main.swift */,
+				AA200002000000000000FR02 /* AppDelegate.swift */,
+				AA200003000000000000FR03 /* MainWindowController.swift */,
+				AA200004000000000000FR04 /* MainViewController.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AA500005000000000000GR05 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA200005000000000000FR05 /* UINode.swift */,
+				AA200006000000000000FR06 /* RPCMessage.swift */,
+				AA200007000000000000FR07 /* MessageParser.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		AA500006000000000000GR06 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA200008000000000000FR08 /* RPCClient.swift */,
+				AA200009000000000000FR09 /* WebSocketClient.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AA500007000000000000GR07 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				AA20000A000000000000FR0A /* NodeViewModel.swift */,
+				AA20000B000000000000FR0B /* TreeReconciler.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		AA500008000000000000GR08 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA20000C000000000000FR0C /* NodeViewFactory.swift */,
+				AA20000D000000000000FR0D /* ContainerView.swift */,
+				AA20000E000000000000FR0E /* TextNodeView.swift */,
+				AA20000F000000000000FR0F /* ButtonNodeView.swift */,
+				AA200010000000000000FR10 /* InputNodeView.swift */,
+				AA200011000000000000FR11 /* ListNodeView.swift */,
+				AA200014000000000000FR14 /* SwitchNodeView.swift */,
+				AA200015000000000000FR15 /* ToggleNodeView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA600001000000000000NT01 /* HostAppKitDemo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA800002000000000000CL02 /* Build configuration list for PBXNativeTarget "HostAppKitDemo" */;
+			buildPhases = (
+				AA700001000000000000SP01 /* Sources */,
+				AA400001000000000000FW01 /* Frameworks */,
+				AA700002000000000000RS01 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = HostAppKitDemo;
+			productName = HostAppKitDemo;
+			productReference = AA300001000000000000PR01 /* HostAppKitDemo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA500001000000000000PJ01 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					AA600001000000000000NT01 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = AA800001000000000000CL01 /* Build configuration list for PBXProject "HostAppKitDemo" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AA500001000000000000GR01;
+			productRefGroup = AA500003000000000000GR03 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA600001000000000000NT01 /* HostAppKitDemo */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA700002000000000000RS01 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA100012000000000000BF12 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA700001000000000000SP01 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA100001000000000000BF01 /* main.swift in Sources */,
+				AA100002000000000000BF02 /* AppDelegate.swift in Sources */,
+				AA100003000000000000BF03 /* MainWindowController.swift in Sources */,
+				AA100004000000000000BF04 /* MainViewController.swift in Sources */,
+				AA100005000000000000BF05 /* UINode.swift in Sources */,
+				AA100006000000000000BF06 /* RPCMessage.swift in Sources */,
+				AA100007000000000000BF07 /* MessageParser.swift in Sources */,
+				AA100008000000000000BF08 /* RPCClient.swift in Sources */,
+				AA100009000000000000BF09 /* WebSocketClient.swift in Sources */,
+				AA10000A000000000000BF0A /* NodeViewModel.swift in Sources */,
+				AA10000B000000000000BF0B /* TreeReconciler.swift in Sources */,
+				AA10000C000000000000BF0C /* NodeViewFactory.swift in Sources */,
+				AA10000D000000000000BF0D /* ContainerView.swift in Sources */,
+				AA10000E000000000000BF0E /* TextNodeView.swift in Sources */,
+				AA10000F000000000000BF0F /* ButtonNodeView.swift in Sources */,
+				AA100010000000000000BF10 /* InputNodeView.swift in Sources */,
+				AA100011000000000000BF11 /* ListNodeView.swift in Sources */,
+				AA100013000000000000BF13 /* SwitchNodeView.swift in Sources */,
+				AA100014000000000000BF14 /* ToggleNodeView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AA900001000000000000BC01 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_DIALECT = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_DIALECT = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_ABOUT_UNINITIALIZED_VARS = YES;
+				GCC_WARN_ABOUT_UNUSED_VARIABLES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HostAppKitDemo/Info.plist;
+				INFOPLIST_KEY_NSMainNibFile = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.uniview.HostAppKitDemo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA900002000000000000BC02 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_ASSET_SYMBOLS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_DIALECT = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_DIALECT = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = fast;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_ABOUT_UNINITIALIZED_VARS = YES;
+				GCC_WARN_ABOUT_UNUSED_VARIABLES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = HostAppKitDemo/Info.plist;
+				INFOPLIST_KEY_NSMainNibFile = "";
+				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.uniview.HostAppKitDemo;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA800001000000000000CL01 /* Build configuration list for PBXProject "HostAppKitDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA900001000000000000BC01 /* Debug */,
+				AA900002000000000000BC02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA800002000000000000CL02 /* Build configuration list for PBXNativeTarget "HostAppKitDemo" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA900001000000000000BC01 /* Debug */,
+				AA900002000000000000BC02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AA500001000000000000PJ01 /* Project object */;
+}

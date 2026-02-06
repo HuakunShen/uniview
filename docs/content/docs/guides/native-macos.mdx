@@ -1,0 +1,164 @@
+---
+title: Native macOS
+description: Rendering React plugins as native macOS applications with SwiftUI or AppKit
+icon: Apple
+---
+
+Uniview plugins can be rendered as native macOS applications. Two example hosts demonstrate different approaches:
+
+| Example | Framework | Update Strategy | Best For |
+|---|---|---|---|
+| `host-macos-demo` | SwiftUI | Full view rebuild | Rapid prototyping, simple UIs |
+| `host-appkit-demo` | AppKit | Diff-based reconciliation | Production apps, complex UIs |
+
+## Architecture
+
+Both examples use the same protocol stack:
+
+```
+React Plugin → Bridge Server → WebSocket → Native Host
+     (Bun)        (Elysia)                  (Swift)
+```
+
+The host connects to the bridge server as a WebSocket client, receives `UINode` trees (JSON), and renders them as native views.
+
+### Protocol Flow
+
+1. **Plugin** runs React, produces a serialized `UINode` tree on every state change
+2. **Bridge server** relays messages between plugin and host over WebSocket
+3. **Host** receives the tree, maps element types to native views, handles user events
+4. **Events** (clicks, input changes) are sent back to the plugin as RPC calls
+5. **Plugin** runs the handler, React re-renders, new tree is sent — cycle repeats
+
+## SwiftUI Host (`host-macos-demo`)
+
+The simpler approach: converts `UINode` trees directly to SwiftUI views.
+
+```swift
+// UINode → SwiftUI (full rebuild each update)
+struct UINodeRenderer: View {
+    let node: UINode
+    var body: some View {
+        switch node.type {
+        case "div": VStack { ForEach(node.children) { UINodeRenderer(node: $0) } }
+        case "button": Button(node.text) { executeHandler(node.onClick) }
+        // ...
+        }
+    }
+}
+```
+
+SwiftUI's declarative model means the entire view tree is rebuilt on each `updateTree` call. SwiftUI's own diffing handles the actual view updates.
+
+### Running
+
+```bash
+# Terminal 1
+cd examples/bridge-server && bun run dev
+
+# Terminal 2
+cd examples/plugin-example && bun run client:simple
+
+# Xcode
+open examples/host-macos-demo/HostMacOSDemo.xcodeproj
+# Cmd+R
+```
+
+## AppKit Host (`host-appkit-demo`)
+
+The production approach — imperative views with diff-based reconciliation. Uses a three-layer architecture:
+
+```
+UINode (JSON) → NodeViewModel (reference type) → NSView (imperative)
+                       ↑
+                TreeReconciler
+              (id-based diffing)
+```
+
+### Key Concepts
+
+**NodeViewModel** — intermediate layer between JSON data and native views:
+- Reference type (class) so views can hold a reference
+- `DirtyFields` bitfield tracks exactly what changed (type, props, text, children)
+- `weak var associatedView: NSView?` links to the rendered native view
+- `diff(against:)` compares two view models and sets dirty flags
+
+**TreeReconciler** — walks old and new view model trees, applying minimal mutations:
+- Matches nodes by stable ID (assigned by React reconciler) for O(1) lookup
+- Same type + same ID: update props in-place via `UpdatableNodeView` protocol
+- Different type: replace the entire NSView subtree
+- New ID: create and insert
+- Missing ID: remove from parent
+- Reorder: rearrange NSStackView's arranged subviews
+
+**UpdatableNodeView** — protocol for surgical prop updates:
+```swift
+protocol UpdatableNodeView: NSView {
+    func update(from oldModel: NodeViewModel, to newModel: NodeViewModel, ...)
+}
+```
+
+Each native view checks the dirty flags and only updates relevant properties:
+```swift
+class ButtonNodeView: NSButton, UpdatableNodeView {
+    func update(from old: NodeViewModel, to new: NodeViewModel, ...) {
+        if old.dirtyFields.contains(.text) { self.title = new.textContent }
+        if old.dirtyFields.contains(.props) { self.isEnabled = !new.props["disabled"] }
+    }
+}
+```
+
+### Component Mapping
+
+| UINode Type | NSView | Notes |
+|---|---|---|
+| `div`, `section`, `form` | `ContainerView` (NSStackView) | Vertical default, horizontal with flex hint |
+| `p`, `span`, `h1`-`h6`, `label` | `TextNodeView` (NSTextField label) | Typography varies by type |
+| `button` | `ButtonNodeView` (NSButton) | target/action pattern |
+| `input` | `InputNodeView` (NSTextField) | NSTextFieldDelegate for onChange |
+| `Switch` | `SwitchNodeView` (NSSwitch) | Native macOS toggle switch |
+| `Toggle` | `ToggleNodeView` (NSButton) | Push on/push off button |
+| `ul`, `ol` | `ListContainerView` | NSStackView with left indent |
+
+### Running
+
+```bash
+# Terminal 1
+cd examples/bridge-server && bun run dev
+
+# Terminal 2: simple or advanced demo
+cd examples/plugin-example && bun run client:simple
+# or: bun run client:advanced
+
+# Xcode
+open examples/host-appkit-demo/HostAppKitDemo.xcodeproj
+# Cmd+R, enter plugin ID "simple-demo" or "advanced-demo"
+```
+
+## Building Your Own Native Host
+
+To build a native host for any platform, you need:
+
+1. **WebSocket client** — connect to the bridge server at `ws://localhost:3000/host/{pluginId}`
+2. **JSON-RPC handler** — implement the [kkrpc protocol](/docs/architecture) for request/response messages
+3. **UINode decoder** — parse the `UINode` tree from JSON
+4. **View factory** — map element types to native views
+5. **Event handler** — send handler IDs back to the plugin via `executeHandler` RPC call
+
+The protocol is platform-agnostic. The same approach works for UIKit (iOS), WinUI (Windows), GTK (Linux), or any imperative UI framework.
+
+### Handler ID Convention
+
+React event handlers can't be serialized over JSON. Instead, the reconciler replaces them with string IDs:
+
+```
+onClick={() => setCount(c + 1)}  →  { _onClickHandlerId: "handler_0" }
+onChange={(v) => setValue(v)}      →  { _onChangeHandlerId: "handler_1" }
+```
+
+When the user clicks a button, the host sends:
+```json
+{ "method": "executeHandler", "args": ["handler_0", []] }
+```
+
+The plugin resolves the handler ID to the original function and calls it.
