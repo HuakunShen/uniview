@@ -1,23 +1,23 @@
 # Uniview
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HuakunShen/uniview)
-A universal plugin system for React plugins that render in any host framework.
+A universal plugin system for React and Solid plugins that render in any host framework.
 
 ## Overview
 
-Uniview enables writing plugins in React that can be rendered by Svelte, Vue, React, or any other framework. Plugins run in isolated environments (Web Workers, Node.js, Deno, Bun) and communicate with hosts via RPC.
+Uniview enables writing plugins in React or Solid that can be rendered by Svelte, Vue, React, or any other framework. Plugins run in isolated environments (Web Workers, Node.js, Deno, Bun) and communicate with hosts via RPC.
 
 ```
-                         RPC (kkrpc)
-┌──────────────────┐ ◄──────────────────► ┌──────────────────┐
-│  Plugin (React)  │      UINode tree     │  Host (Svelte)   │
-│  Web Worker      │                      │  or Vue, React   │
-└──────────────────┘                      └──────────────────┘
+                              RPC (kkrpc)
+┌───────────────────────┐ ◄──────────────────► ┌──────────────────┐
+│  Plugin (React/Solid) │      UINode tree     │  Host (Svelte)   │
+│  Web Worker           │                      │  or Vue, React   │
+└───────────────────────┘                      └──────────────────┘
 ```
 
 **Key Features:**
 
-- Write plugins once in React, render anywhere
+- Write plugins in React or Solid, render anywhere
 - Sandboxed execution in Web Workers for security
 - Server-side plugins via Node.js/Deno/Bun with WebSocket Bridge
 - Framework-agnostic protocol - hosts implement their own adapters
@@ -25,14 +25,16 @@ Uniview enables writing plugins in React that can be rendered by Svelte, Vue, Re
 
 ## Packages
 
-| Package                                              | Description                                        |
-| ---------------------------------------------------- | -------------------------------------------------- |
-| [@uniview/protocol](./packages/protocol)             | Core types, UINode schema, RPC interfaces          |
-| [@uniview/react-renderer](./packages/react-renderer) | Custom React reconciler producing UINode trees     |
-| [@uniview/runtime](./packages/runtime)               | Plugin bootstrap for Worker/WebSocket environments |
-| [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                 |
-| [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                         |
-| [@uniview/tui-renderer](./packages/tui-renderer)     | Terminal UI renderer (non-DOM, like React Native)  |
+| Package                                              | Description                                            |
+| ---------------------------------------------------- | ------------------------------------------------------ |
+| [@uniview/protocol](./packages/protocol)             | Core types, UINode schema, RPC interfaces              |
+| [@uniview/react-renderer](./packages/react-renderer) | Custom React reconciler producing UINode trees         |
+| [@uniview/solid-renderer](./packages/solid-renderer) | Solid universal renderer producing UINode trees        |
+| [@uniview/runtime](./packages/runtime)               | React plugin bootstrap for Worker/WebSocket            |
+| [@uniview/solid-runtime](./packages/solid-runtime)   | Solid plugin bootstrap for Worker/WebSocket            |
+| [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                     |
+| [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                             |
+| [@uniview/tui-renderer](./packages/tui-renderer)     | Terminal UI renderer (non-DOM, like React Native)      |
 
 ## Quick Start
 
@@ -55,6 +57,19 @@ pnpm dev:all
 ```
 
 Then open `http://localhost:5173` and try both Worker and Node.js modes.
+
+**Solid Plugin Example:**
+
+```bash
+# Build Solid plugins (requires Babel transform)
+cd examples/plugin-solid-example && bun run build.ts
+
+# Run with bridge + Solid plugins + Svelte host
+cd examples/host-svelte-demo
+pnpm dev:all:solid
+```
+
+Open `http://localhost:5173`, select "Solid" in the framework selector.
 
 **Terminal UI Example:**
 
@@ -99,7 +114,7 @@ open HostAppKitDemo.xcodeproj
 
 Same React plugins rendered as native AppKit views with a view model layer and id-based tree reconciler for efficient in-place updates.
 
-### Plugin Side
+### Plugin Side (React)
 
 Create a React component and bootstrap it with the runtime:
 
@@ -126,6 +141,38 @@ export default function App() {
   );
 }
 ```
+
+### Plugin Side (Solid)
+
+Or write plugins in Solid with the same pattern:
+
+```typescript
+// worker.ts
+import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
+import App from "./App";
+
+startSolidWorkerPlugin({ App });
+```
+
+```tsx
+// App.tsx
+import { createSignal } from "solid-js";
+
+const App = () => {
+  const [count, setCount] = createSignal(0);
+
+  return (
+    <div className="p-4">
+      <p>Count: {count()}</p>
+      <Button onClick={() => setCount((c) => c + 1)} title="Increment" />
+    </div>
+  );
+};
+
+export default App;
+```
+
+Solid plugins require a build step (Babel + `babel-preset-solid` with `generate: "universal"`) since the universal JSX transform can't run directly in Bun/Node. See `examples/plugin-solid-example/build.ts` for the build configuration.
 
 ### Host Side (Svelte)
 
@@ -228,7 +275,9 @@ uniview/
 ├── packages/
 │   ├── protocol/           # Shared types and contracts
 │   ├── react-renderer/     # Custom React reconciler
-│   ├── runtime/            # Plugin bootstrap (worker + ws-client)
+│   ├── solid-renderer/     # Solid universal renderer
+│   ├── runtime/            # React plugin bootstrap (worker + ws-client)
+│   ├── solid-runtime/      # Solid plugin bootstrap (worker + ws-client)
 │   ├── host-sdk/           # Host controller logic
 │   ├── host-svelte/        # Svelte 5 adapter
 │   └── tui-renderer/       # Terminal UI renderer (non-DOM)
@@ -241,7 +290,9 @@ uniview/
 │   ├── tui-demo/           # Terminal UI example
 │   ├── bridge-server/      # WebSocket bridge server
 │   ├── plugin-api/         # Reusable React components
-│   └── plugin-example/     # Example plugins
+│   ├── plugin-solid-api/   # Reusable Solid components
+│   ├── plugin-example/     # React example plugins
+│   └── plugin-solid-example/ # Solid example plugins
 ├── vendors/
 │   └── kkrpc/              # RPC library (submodule)
 └── docs/                   # Documentation site
@@ -282,12 +333,12 @@ See the [docs](./docs) folder or visit the documentation site for:
 ## How It Works
 
 ```
-Plugin (React)
+Plugin (React or Solid)
      │
      ▼
 ┌─────────────────────┐
-│  react-renderer     │  Custom reconciler converts React
-│  (InternalNode)     │  elements to in-memory tree
+│  react-renderer /   │  Custom reconciler converts
+│  solid-renderer     │  components to in-memory tree
 └──────────┬──────────┘
            │
            ▼

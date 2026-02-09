@@ -19,6 +19,25 @@ function normalizeMessage(message: unknown): string {
 }
 
 new Elysia()
+  .get("/solid/:filename", async ({ params }) => {
+    try {
+      const filePath = join(
+        __dirname,
+        "../../plugin-solid-example/dist",
+        params.filename,
+      );
+      const content = await readFile(filePath);
+      return new Response(new Uint8Array(content), {
+        headers: {
+          "Content-Type": "application/javascript",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch {
+      return new Response("Not found", { status: 404 });
+    }
+  })
+
   .get("/:filename", async ({ params }) => {
     try {
       const filePath = join(

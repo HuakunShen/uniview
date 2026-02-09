@@ -1,0 +1,41 @@
+{
+  "name": "@uniview/solid-renderer",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "SolidJS universal renderer for Uniview plugins",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist",
+    "jsx-runtime.d.ts"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@uniview/protocol": "workspace:*"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsdown": "^0.18.1",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}

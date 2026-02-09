@@ -1,10 +1,10 @@
 ---
 title: Native macOS
-description: Rendering React plugins as native macOS applications with SwiftUI or AppKit
+description: Rendering plugins as native macOS applications with SwiftUI or AppKit
 icon: Apple
 ---
 
-Uniview plugins can be rendered as native macOS applications. Two example hosts demonstrate different approaches:
+Uniview plugins (React or Solid) can be rendered as native macOS applications. Two example hosts demonstrate different approaches:
 
 | Example | Framework | Update Strategy | Best For |
 |---|---|---|---|
@@ -16,15 +16,15 @@ Uniview plugins can be rendered as native macOS applications. Two example hosts 
 Both examples use the same protocol stack:
 
 ```
-React Plugin → Bridge Server → WebSocket → Native Host
-     (Bun)        (Elysia)                  (Swift)
+Plugin (React/Solid) → Bridge Server → WebSocket → Native Host
+     (Bun)                (Elysia)                   (Swift)
 ```
 
 The host connects to the bridge server as a WebSocket client, receives `UINode` trees (JSON), and renders them as native views.
 
 ### Protocol Flow
 
-1. **Plugin** runs React, produces a serialized `UINode` tree on every state change
+1. **Plugin** runs React or Solid, produces a serialized `UINode` tree on every state change
 2. **Bridge server** relays messages between plugin and host over WebSocket
 3. **Host** receives the tree, maps element types to native views, handles user events
 4. **Events** (clicks, input changes) are sent back to the plugin as RPC calls

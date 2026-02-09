@@ -16,14 +16,19 @@ This guide walks you through creating a simple interactive plugin and rendering 
 Install the core packages:
 
 ```bash
-# For plugin development
+# For React plugin development
 pnpm add @uniview/runtime @uniview/react-renderer @uniview/protocol react
+
+# For Solid plugin development
+pnpm add @uniview/solid-runtime @uniview/solid-renderer @uniview/protocol solid-js
 
 # For host development (Svelte)
 pnpm add @uniview/host-sdk @uniview/host-svelte @uniview/protocol
 ```
 
 ## Creating a Plugin
+
+Plugins can be written in **React** or **Solid**. This guide shows the React path — see below for Solid.
 
 ### 1. Write Your React Component
 
@@ -118,6 +123,41 @@ esbuild src/worker.ts --bundle --format=esm --outfile=dist/plugin.js
 <Callout type="info">
   The plugin bundle must be self-contained with all dependencies included. Web
   Workers can't access the host's modules.
+</Callout>
+
+### Creating a Solid Plugin
+
+The same steps apply for Solid, with different packages and a required build step:
+
+```tsx title="src/App.tsx"
+import { createSignal } from "solid-js";
+
+const App = () => {
+  const [count, setCount] = createSignal(0);
+  return (
+    <div className="p-4">
+      <p>Count: {count()}</p>
+      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
+    </div>
+  );
+};
+
+export default App;
+```
+
+```typescript title="src/worker.ts"
+import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
+import App from "./App";
+
+startSolidWorkerPlugin({ App });
+```
+
+Solid plugins require a Babel build step with `babel-preset-solid` (`generate: "universal"`) because Bun/Node can't natively run Solid's JSX transform. See `examples/plugin-solid-example/build.ts` for the full build configuration.
+
+<Callout type="warn">
+  When building Solid plugins for Bun/Node.js (`target: "bun"`), you must add
+  `conditions: ["browser"]` to the build config. Without this, Bun resolves
+  `solid-js` to its SSR build which has no reactivity.
 </Callout>
 
 ## Creating a Host (Svelte)

@@ -1,0 +1,34 @@
+{
+  "name": "@uniview/example-solid-plugin-api",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "SolidJS component primitives for Uniview demo plugins",
+  "author": "",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uniview/solid-renderer": "workspace:*"
+  },
+  "peerDependencies": {
+    "solid-js": "^1.9.0"
+  },
+  "devDependencies": {
+    "tsdown": "^0.18.1",
+    "typescript": "^5.7.0"
+  }
+}

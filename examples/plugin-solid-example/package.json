@@ -1,0 +1,26 @@
+{
+  "name": "@uniview/plugin-solid-example",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Example SolidJS plugin for Uniview",
+  "private": true,
+  "scripts": {
+    "build": "bun run build.ts",
+    "dev": "bun run build.ts --watch",
+    "client": "bun run client:simple & bun run client:advanced",
+    "client:simple": "bun dist/simple-demo.client.js",
+    "client:advanced": "bun dist/advanced-demo.client.js"
+  },
+  "dependencies": {
+    "@uniview/example-solid-plugin-api": "workspace:*",
+    "@uniview/solid-runtime": "workspace:*",
+    "@uniview/solid-renderer": "workspace:*",
+    "solid-js": "^1.9.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "babel-preset-solid": "^1.9.0",
+    "typescript": "^5.7.0"
+  }
+}

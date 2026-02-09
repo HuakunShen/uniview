@@ -76,6 +76,14 @@
 				attrs.class = value;
 			} else if (key === "htmlFor") {
 				attrs.for = value;
+			} else if (key === "style" && typeof value === "object" && value !== null) {
+				// Convert style objects to CSS strings (e.g. { padding: "20px" } → "padding: 20px")
+				attrs.style = Object.entries(value as Record<string, string>)
+					.map(([prop, val]) => {
+						const cssProp = prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`);
+						return `${cssProp}: ${val}`;
+					})
+					.join("; ");
 			} else {
 				attrs[key] = value;
 			}
@@ -84,8 +92,25 @@
 		return result;
 	}
 
+	// Wrap event handler to extract serializable data from DOM events
+	function wrapEventListener(event: string, handler: (...args: unknown[]) => void, el: HTMLElement): EventListener {
+		if ((event === 'input' || event === 'change') && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+			return (e: Event) => {
+				const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+				handler(target.value);
+			};
+		}
+		if (event === 'submit') {
+			return (e: Event) => {
+				e.preventDefault();
+				handler();
+			};
+		}
+		return () => handler();
+	}
+
 	// Action to attach events dynamically
-	function attachEvents(node: HTMLElement, handlers: TransformedProps) {
+	function attachEvents(el: HTMLElement, handlers: TransformedProps) {
 		const eventMap: Record<string, keyof TransformedProps> = {
 			click: 'onclick',
 			input: 'oninput',
@@ -104,8 +129,9 @@
 		for (const [event, propKey] of Object.entries(eventMap)) {
 			const handler = handlers[propKey] as ((...args: unknown[]) => void) | undefined;
 			if (handler) {
-				node.addEventListener(event, handler as EventListener);
-				cleanup.push(() => node.removeEventListener(event, handler as EventListener));
+				const listener = wrapEventListener(event, handler, el);
+				el.addEventListener(event, listener);
+				cleanup.push(() => el.removeEventListener(event, listener));
 			}
 		}
 
@@ -114,13 +140,14 @@
 				// Remove old handlers
 				cleanup.forEach(fn => fn());
 				cleanup.length = 0;
-				
+
 				// Add new handlers
 				for (const [event, propKey] of Object.entries(eventMap)) {
 					const handler = newHandlers[propKey] as ((...args: unknown[]) => void) | undefined;
 					if (handler) {
-						node.addEventListener(event, handler as EventListener);
-						cleanup.push(() => node.removeEventListener(event, handler as EventListener));
+						const listener = wrapEventListener(event, handler, el);
+						el.addEventListener(event, listener);
+						cleanup.push(() => el.removeEventListener(event, listener));
 					}
 				}
 			},

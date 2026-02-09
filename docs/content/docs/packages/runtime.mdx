@@ -1,22 +1,28 @@
 ---
 title: "@uniview/runtime"
-description: Plugin-side runtime for bootstrapping React plugins in Web Workers and server environments
+description: Plugin-side runtime for bootstrapping plugins in Web Workers and server environments
 icon: Play
 ---
 
-The runtime package bootstraps React plugins in isolated environments (Web Workers, Node.js, Deno, Bun).
+The runtime package bootstraps plugins in isolated environments (Web Workers, Node.js, Deno, Bun). There are two variants: `@uniview/runtime` for React plugins and `@uniview/solid-runtime` for Solid plugins. Both follow the same API pattern.
 
 ## Installation
 
 ```bash
+# React plugins
 pnpm add @uniview/runtime
+
+# Solid plugins
+pnpm add @uniview/solid-runtime
 ```
 
 ## Quick Start
 
 ### Web Worker Plugin
 
-The simplest way to create a worker-based plugin:
+<Tabs items={['React', 'Solid']}>
+
+<Tab value="React">
 
 ```typescript
 // worker.ts
@@ -25,12 +31,6 @@ import App from "./App";
 
 startWorkerPlugin({ App });
 ```
-
-That's it! The runtime handles all RPC communication with the host.
-
-### Your React Component
-
-Write a normal React component - it works exactly as expected:
 
 ```tsx
 // App.tsx
@@ -47,6 +47,42 @@ export default function App() {
   );
 }
 ```
+
+</Tab>
+
+<Tab value="Solid">
+
+```typescript
+// worker.ts
+import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
+import App from "./App";
+
+startSolidWorkerPlugin({ App });
+```
+
+```tsx
+// App.tsx
+import { createSignal } from "solid-js";
+
+const App = () => {
+  const [count, setCount] = createSignal(0);
+
+  return (
+    <div className="p-4">
+      <p>Count: {count()}</p>
+      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
+    </div>
+  );
+};
+
+export default App;
+```
+
+</Tab>
+
+</Tabs>
+
+The runtime handles all RPC communication with the host.
 
 ## API
 
@@ -111,6 +147,10 @@ The package provides multiple entry points for different environments:
 
 For server-side plugins that connect to a Bridge server:
 
+<Tabs items={['React', 'Solid']}>
+
+<Tab value="React">
+
 ```typescript
 // server-plugin.ts
 import { connectToHostServer } from "@uniview/runtime/ws-client";
@@ -118,19 +158,35 @@ import App from "./App";
 
 connectToHostServer({
   App,
-  serverUrl: "ws://localhost:3000", // Bridge server URL
-  pluginId: "my-plugin", // Unique plugin identifier
+  serverUrl: "ws://localhost:3000",
+  pluginId: "my-plugin",
 });
 ```
 
-**Options:**
+</Tab>
 
-| Option         | Type                  | Description                       |
-| -------------- | --------------------- | --------------------------------- |
-| `App`          | `React.ComponentType` | Your React plugin component       |
-| `serverUrl`    | `string`              | Bridge server WebSocket URL       |
-| `pluginId`     | `string`              | Unique identifier for this plugin |
-| `initialProps` | `JSONValue`           | Optional initial props            |
+<Tab value="Solid">
+
+```typescript
+// server-plugin.ts
+import { createSolidWebSocketPluginClient } from "@uniview/solid-runtime/ws-client";
+import App from "./App";
+
+createSolidWebSocketPluginClient({
+  App,
+  serverUrl: "ws://localhost:3000",
+  pluginId: "my-plugin",
+});
+```
+
+<Callout type="warn">
+  Solid WebSocket plugins must be **built first** (Babel transform), then the built output is run with Bun.
+  Use `conditions: ["browser"]` in the Bun build config to avoid resolving to solid-js's SSR build.
+</Callout>
+
+</Tab>
+
+</Tabs>
 
 The plugin connects to `{serverUrl}/plugins/{pluginId}` and waits for a host to connect.
 

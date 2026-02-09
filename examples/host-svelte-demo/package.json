@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite dev",
     "dev:all": "run-p bridge plugins:wait svelte",
+    "dev:all:solid": "run-p bridge solid-plugins:wait svelte",
     "bridge": "cd ../bridge-server && bun src/index.ts",
     "plugins:wait": "sleep 1 && pnpm --filter @uniview/example-plugin client",
+    "solid-plugins:wait": "pnpm --filter @uniview/plugin-solid-example build && sleep 1 && pnpm --filter @uniview/plugin-solid-example client",
     "svelte": "vite dev",
     "build": "vite build",
     "preview": "vite preview",

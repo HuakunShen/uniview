@@ -4,7 +4,7 @@ description: System design and data flow in Uniview
 icon: Cpu
 ---
 
-This document explains how Uniview works under the hood - the custom React reconciler, RPC communication, and rendering pipeline.
+This document explains how Uniview works under the hood - the custom reconcilers (React and Solid), RPC communication, and rendering pipeline.
 
 ## High-Level Overview
 
@@ -24,10 +24,10 @@ flowchart TB
     end
 
     subgraph Plugin["PLUGIN (Web Worker/Node.js)"]
-        Runtime["@uniview/runtime"]
+        Runtime["@uniview/runtime<br/>or @uniview/solid-runtime"]
         PluginRuntime["PluginRuntime<br/>(RPC Handler)"]
-        ReactRenderer["@uniview/react-renderer<br/>Custom Reconciler → UINode"]
-        PluginCode["PLUGIN CODE (React)<br/>function App()"]
+        ReactRenderer["@uniview/react-renderer<br/>or @uniview/solid-renderer<br/>Reconciler → UINode"]
+        PluginCode["PLUGIN CODE<br/>(React or Solid)<br/>function App()"]
 
         Runtime --> PluginRuntime
         Runtime --> ReactRenderer
@@ -51,7 +51,7 @@ sequenceDiagram
 
     Host->>Plugin: connect()
     Plugin->>Host: initialize(protocolVersion)
-    Note over Plugin: Plugin renders React app
+    Note over Plugin: Plugin renders app (React or Solid)
     Plugin->>Host: updateTree(UINode)
     Note over Host: Host renders tree
 ```
@@ -67,7 +67,7 @@ sequenceDiagram
 
     Note over Host: User clicks button
     Host->>Plugin: executeHandler(id, args)
-    Note over Plugin: Plugin executes handler<br/>React state changes<br/>Reconciler produces new tree
+    Note over Plugin: Plugin executes handler<br/>State changes (React/Solid)<br/>Reconciler produces new tree
     Plugin->>Host: updateTree(UINode)
     Note over Host: Host re-renders tree
 ```
@@ -82,7 +82,7 @@ sequenceDiagram
     participant Plugin
 
     Host->>Plugin: updateProps({ theme: 'dark' })
-    Note over Plugin: Plugin receives new props<br/>React re-renders with props
+    Note over Plugin: Plugin receives new props<br/>Re-renders with new props
     Plugin->>Host: updateTree(UINode)
 ```
 
@@ -134,33 +134,43 @@ bridge.subscribe((root) => {
 render(<App />, bridge);
 ```
 
+### @uniview/solid-renderer
+
+Solid universal renderer that produces the same serializable trees. Uses Babel with `babel-preset-solid` (`generate: "universal"`) to transform Solid JSX into renderer-agnostic calls.
+
+**Key Components:**
+
+- **createRenderer()** - Universal renderer (insert, spread, createElement)
+- **SolidNode** - In-memory tree representation (same shape as InternalNode)
+- **serializeTree()** - Converts to protocol UINode
+- **HandlerRegistry** - Maps functions to IDs
+
+Both renderers produce identical `UINode` output — hosts don't need to know which framework the plugin uses.
+
 <Callout type="info">
-  The reconciler has no DOM dependencies. It works in Web Workers, Node.js,
+  Both reconcilers have no DOM dependencies. They work in Web Workers, Node.js,
   Deno, and Bun.
 </Callout>
 
-### @uniview/runtime
+### @uniview/runtime & @uniview/solid-runtime
 
-Plugin bootstrap and lifecycle management.
+Plugin bootstrap and lifecycle management. Both packages follow the same API pattern.
 
-**Exports:**
-
-- `startWorkerPlugin()` - One-line worker setup
-- `startWebSocketPlugin()` - WebSocket server setup
-- `createPluginRuntime()` - Custom runtime control
+**React (`@uniview/runtime`):**
 
 ```typescript
-// Simplest usage
 import { startWorkerPlugin } from "@uniview/runtime";
 startWorkerPlugin({ App });
-
-// With configuration
-startWorkerPlugin({
-  App,
-  initialProps: { theme: "dark" },
-  onError: (err) => console.error(err),
-});
 ```
+
+**Solid (`@uniview/solid-runtime`):**
+
+```typescript
+import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
+startSolidWorkerPlugin({ App });
+```
+
+Both runtimes also provide WebSocket client entries for server-side plugins via `/ws-client` subpath exports.
 
 ### @uniview/host-sdk
 

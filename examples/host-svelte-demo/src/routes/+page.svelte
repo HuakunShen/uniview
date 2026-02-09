@@ -10,26 +10,38 @@
 	import PluginSwitch from '$lib/components/plugin/PluginSwitch.svelte';
 	import PluginToggle from '$lib/components/plugin/PluginToggle.svelte';
 
+	type FrameworkType = 'react' | 'solid';
 	type DemoType = 'simple' | 'advanced';
 	type RuntimeMode = 'worker' | 'main-thread' | 'node-server';
 
+	let framework: FrameworkType = $state('react');
 	let currentDemo: DemoType = $state('simple');
 	let runtimeMode: RuntimeMode = $state('worker');
 
-	// Plugin URLs - served from plugin-example dev server
-	let pluginUrl = $derived(
-		currentDemo === 'simple'
-			? 'http://localhost:3000/simple-demo.worker.js'
-			: 'http://localhost:3000/advanced-demo.worker.js'
-	);
+	// Reset to worker mode when switching to Solid (main-thread not supported)
+	$effect(() => {
+		if (framework === 'solid' && runtimeMode === 'main-thread') {
+			runtimeMode = 'worker';
+		}
+	});
+
+	// Plugin URLs - served from bridge server
+	let pluginUrl = $derived.by(() => {
+		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
+		if (framework === 'solid') {
+			return `http://localhost:3000/solid/${demo}.worker.js`;
+		}
+		return `http://localhost:3000/${demo}.worker.js`;
+	});
 
 	// Bridge server URL for Node.js mode (single server for all plugins)
 	const bridgeServerUrl = 'ws://localhost:3000';
 
-	// Plugin ID based on current demo
-	let pluginId = $derived(
-		currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo'
-	);
+	// Plugin ID based on current demo and framework
+	let pluginId = $derived.by(() => {
+		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
+		return framework === 'solid' ? `solid-${demo}` : demo;
+	});
 
 	// Create controller based on mode - using $derived for controller creation
 	let controllerConfig = $derived.by(() => {
@@ -60,7 +72,7 @@
 				pluginId: pId,
 			});
 		} else {
-			// Main thread mode - run React directly in main thread
+			// Main thread mode - only available for React (Solid can't import into React main-thread)
 			newController = createMainController({
 				App: demo === 'simple' ? SimpleDemo : AdvancedDemo,
 			});
@@ -91,7 +103,7 @@
 			<div class="mb-8 space-y-2">
 				<h1 class="text-3xl font-bold tracking-tight text-zinc-50">Uniview Demo</h1>
 				<p class="text-lg text-zinc-400">
-					React plugins rendered in Svelte via @uniview
+					{framework === 'solid' ? 'Solid' : 'React'} plugins rendered in Svelte via @uniview
 				</p>
 			</div>
 
@@ -99,6 +111,29 @@
 			<div class="rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl">
 				<div class="p-6">
 					<div class="space-y-6">
+						<!-- Framework Selector -->
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+							<div class="text-sm font-medium text-zinc-400">Framework:</div>
+							<div class="flex gap-1 rounded-lg bg-zinc-800 p-1">
+								<button
+									class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {framework === 'react'
+										? 'bg-zinc-700 text-zinc-50 shadow-sm'
+										: 'text-zinc-400 hover:text-zinc-300'}"
+									onclick={() => (framework = 'react')}
+								>
+									React
+								</button>
+								<button
+									class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {framework === 'solid'
+										? 'bg-zinc-700 text-zinc-50 shadow-sm'
+										: 'text-zinc-400 hover:text-zinc-300'}"
+									onclick={() => (framework = 'solid')}
+								>
+									Solid
+								</button>
+							</div>
+						</div>
+
 						<!-- Runtime Mode Toggle -->
 						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div class="text-sm font-medium text-zinc-400">Runtime Mode:</div>
@@ -122,8 +157,10 @@
 								<button
 									class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {runtimeMode === 'main-thread'
 										? 'bg-zinc-700 text-zinc-50 shadow-sm'
-										: 'text-zinc-400 hover:text-zinc-300'}"
-									onclick={() => (runtimeMode = 'main-thread')}
+										: 'text-zinc-400 hover:text-zinc-300'} {framework === 'solid' ? 'opacity-40 cursor-not-allowed' : ''}"
+									onclick={() => { if (framework !== 'solid') runtimeMode = 'main-thread' }}
+									disabled={framework === 'solid'}
+									title={framework === 'solid' ? 'Main thread mode is not available for Solid plugins' : ''}
 								>
 									<span class="text-base">🧵</span> Main
 								</button>
@@ -169,7 +206,7 @@
 						<!-- Plugin Container -->
 						<div class="min-h-[300px] rounded-lg bg-zinc-950/50 p-4">
 							{#if browser && controller && registry}
-								{#key runtimeMode + currentDemo}
+								{#key framework + runtimeMode + currentDemo}
 									<PluginHost {controller} {registry}>
 										{#snippet loading()}
 											<div class="flex h-[200px] items-center justify-center">
@@ -196,7 +233,7 @@
 
 			<!-- Footer -->
 			<div class="mt-8 space-y-2 text-center text-sm text-zinc-500">
-				<p>Built with Svelte 5, React, and @uniview</p>
+				<p>Built with Svelte 5, {framework === 'solid' ? 'Solid' : 'React'}, and @uniview</p>
 				<p class="text-xs">
 					{currentDemo === 'simple'
 						? 'Showing: Basic Button and Input components'
@@ -204,11 +241,11 @@
 				</p>
 				{#if runtimeMode === 'worker'}
 					<p class="text-xs text-violet-400">
-						⚡ React plugin running in Web Worker (sandboxed)
+						⚡ {framework === 'solid' ? 'Solid' : 'React'} plugin running in Web Worker (sandboxed)
 					</p>
 				{:else if runtimeMode === 'node-server'}
 					<p class="text-xs text-purple-400">
-						🖥️ React plugin running in Node.js (WebSocket)
+						🖥️ {framework === 'solid' ? 'Solid' : 'React'} plugin running in Node.js (WebSocket)
 					</p>
 				{:else}
 					<p class="text-xs text-emerald-400">
