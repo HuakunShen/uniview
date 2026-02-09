@@ -160,6 +160,8 @@
 
 {#if typeof node === "string"}
 	{node}
+{:else if node.type === "text"}
+	{node.props.text}
 {:else if node.type === "button"}
 	{@const p = transformProps(node.props)}
 	<button class="cursor-pointer {p.attrs.class || ''}" {...p.attrs} use:attachEvents={p}>
