@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { ref, provide, watch, onUnmounted, type Component } from "vue";
 import type { UINode } from "@uniview/protocol";
-import type { PluginController, ComponentRegistry } from "@uniview/host-sdk";
+import type {
+  PluginController,
+  ComponentRegistry,
+  TreeUpdate,
+} from "@uniview/host-sdk";
 import { PluginContextKey } from "./usePluginContext";
 import ComponentRenderer from "./ComponentRenderer.vue";
 
@@ -30,8 +34,11 @@ async function initController() {
   tree.value = null;
 
   // Subscribe to tree updates
-  unsubscribe = props.controller.subscribe((newTree) => {
-    tree.value = newTree;
+  unsubscribe = props.controller.subscribe((update: TreeUpdate) => {
+    if (update.type === "full") {
+      tree.value = update.tree;
+    }
+    // Mutation updates are not yet implemented in Vue host
   });
 
   // Connect to plugin
