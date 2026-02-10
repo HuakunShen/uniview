@@ -34,6 +34,8 @@ const solidTransformPlugin = {
 const workerEntrypoints = [
   "./src/simple-demo.worker.ts",
   "./src/advanced-demo.worker.ts",
+  "./src/benchmark-full.worker.ts",
+  "./src/benchmark-incremental.worker.ts",
 ]
 
 const clientEntrypoints = [

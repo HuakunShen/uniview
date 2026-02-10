@@ -22,6 +22,7 @@ import {
 export interface SolidPluginRuntimeOptions<T extends DestroyableIoInterface> {
 	App: Component<Record<string, unknown>>;
 	io: T;
+	updateMode?: "full" | "incremental";
 }
 
 export interface SolidPluginRuntime {
@@ -36,7 +37,7 @@ export function createSolidPluginRuntime<T extends DestroyableIoInterface>(
 		expose: HostToPluginAPI,
 	) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
 ): SolidPluginRuntime {
-	const { App, io } = opts;
+	const { App, io, updateMode = "incremental" } = opts;
 
 	let disposeRoot: (() => void) | null = null;
 	let handlerRegistry: HandlerRegistry | null = null;
@@ -71,7 +72,7 @@ export function createSolidPluginRuntime<T extends DestroyableIoInterface>(
 		setUpdateCallback((mutations: Mutation[]) => {
 			if (!handlerRegistry || !rpc) return;
 
-			if (isFirstRender) {
+			if (isFirstRender || updateMode === "full") {
 				isFirstRender = false;
 				const currentRoot = getRootNode();
 				if (!currentRoot || currentRoot.children.length === 0) return;

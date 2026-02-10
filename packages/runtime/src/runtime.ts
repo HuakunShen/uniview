@@ -26,6 +26,7 @@ interface RendererHandle extends RenderBridge {
 export interface PluginRuntimeOptions<T extends DestroyableIoInterface> {
   App: ComponentType<unknown>;
   io: T;
+  updateMode?: "full" | "incremental";
 }
 
 export interface PluginRuntime {
@@ -40,7 +41,7 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
     expose: HostToPluginAPI,
   ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
 ): PluginRuntime {
-  const { App, io } = opts;
+  const { App, io, updateMode = "incremental" } = opts;
 
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
@@ -53,7 +54,9 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
     async initialize(req) {
       handlerRegistry = new HandlerRegistry();
       mutationCollector = new MutationCollector(handlerRegistry);
-      setMutationCollector(mutationCollector);
+      if (updateMode !== "full") {
+        setMutationCollector(mutationCollector);
+      }
       bridge = createRenderer();
 
       bridge.subscribe((type, data) => {

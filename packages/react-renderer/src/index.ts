@@ -1,6 +1,7 @@
 export {
   createRenderer,
   render,
+  flushSync,
   createRenderBridge,
   type RenderBridge,
 } from "./reconciler/renderer";

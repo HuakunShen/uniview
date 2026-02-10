@@ -11,12 +11,14 @@
 	import PluginToggle from '$lib/components/plugin/PluginToggle.svelte';
 
 	type FrameworkType = 'react' | 'solid';
-	type DemoType = 'simple' | 'advanced';
+	type DemoType = 'simple' | 'advanced' | 'benchmark';
 	type RuntimeMode = 'worker' | 'main-thread' | 'node-server';
+	type UpdateMode = 'full' | 'incremental';
 
 	let framework: FrameworkType = $state('react');
 	let currentDemo: DemoType = $state('simple');
 	let runtimeMode: RuntimeMode = $state('worker');
+	let updateMode: UpdateMode = $state('incremental');
 
 	// Reset to worker mode when switching to Solid (main-thread not supported)
 	$effect(() => {
@@ -25,13 +27,22 @@
 		}
 	});
 
+	// Force worker mode for benchmark
+	$effect(() => {
+		if (currentDemo === 'benchmark' && runtimeMode !== 'worker') {
+			runtimeMode = 'worker';
+		}
+	});
+
 	// Plugin URLs - served from bridge server
 	let pluginUrl = $derived.by(() => {
-		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
-		if (framework === 'solid') {
-			return `http://localhost:3000/solid/${demo}.worker.js`;
+		let demo: string;
+		if (currentDemo === 'benchmark') {
+			demo = `benchmark-${updateMode}`;
+		} else {
+			demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
 		}
-		return `http://localhost:3000/${demo}.worker.js`;
+		return `http://localhost:3000/plugins/${framework}/${demo}.worker.js`;
 	});
 
 	// Bridge server URL for Node.js mode (single server for all plugins)
@@ -39,7 +50,12 @@
 
 	// Plugin ID based on current demo and framework
 	let pluginId = $derived.by(() => {
-		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
+		let demo: string;
+		if (currentDemo === 'benchmark') {
+			demo = `benchmark-${updateMode}`;
+		} else {
+			demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
+		}
 		return framework === 'solid' ? `solid-${demo}` : demo;
 	});
 
@@ -185,7 +201,40 @@
 							>
 								Advanced Demo
 							</button>
+							<button
+								class="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {currentDemo === 'benchmark'
+									? 'bg-zinc-700 text-zinc-50 shadow-sm'
+									: 'text-zinc-400 hover:text-zinc-300'}"
+								onclick={() => (currentDemo = 'benchmark')}
+							>
+								Benchmark
+							</button>
 						</div>
+
+						<!-- Update Mode Toggle (benchmark only) -->
+						{#if currentDemo === 'benchmark'}
+							<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div class="text-sm font-medium text-zinc-400">Update Mode:</div>
+								<div class="flex gap-1 rounded-lg bg-zinc-800 p-1">
+									<button
+										class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {updateMode === 'full'
+											? 'bg-zinc-700 text-zinc-50 shadow-sm'
+											: 'text-zinc-400 hover:text-zinc-300'}"
+										onclick={() => (updateMode = 'full')}
+									>
+										Full Tree
+									</button>
+									<button
+										class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {updateMode === 'incremental'
+											? 'bg-zinc-700 text-zinc-50 shadow-sm'
+											: 'text-zinc-400 hover:text-zinc-300'}"
+										onclick={() => (updateMode = 'incremental')}
+									>
+										Incremental
+									</button>
+								</div>
+							</div>
+						{/if}
 
 						<!-- Window Chrome -->
 						<div class="flex items-center gap-2 border-b border-zinc-800 pb-4">
@@ -206,7 +255,7 @@
 						<!-- Plugin Container -->
 						<div class="min-h-[300px] rounded-lg bg-zinc-950/50 p-4">
 							{#if browser && controller && registry}
-								{#key framework + runtimeMode + currentDemo}
+								{#key framework + runtimeMode + currentDemo + updateMode}
 									<PluginHost {controller} {registry}>
 										{#snippet loading()}
 											<div class="flex h-[200px] items-center justify-center">
@@ -237,7 +286,9 @@
 				<p class="text-xs">
 					{currentDemo === 'simple'
 						? 'Showing: Basic Button and Input components'
-						: 'Showing: Form, Switch, and Toggle components'}
+						: currentDemo === 'advanced'
+							? 'Showing: Form, Switch, and Toggle components'
+							: `Showing: Benchmark (${updateMode} mode)`}
 				</p>
 				{#if runtimeMode === 'worker'}
 					<p class="text-xs text-violet-400">

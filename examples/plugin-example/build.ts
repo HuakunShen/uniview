@@ -3,6 +3,8 @@ import { serve } from "bun";
 const entrypoints = [
   "./src/simple-demo.worker.ts",
   "./src/advanced-demo.worker.ts",
+  "./src/benchmark-full.worker.ts",
+  "./src/benchmark-incremental.worker.ts",
 ];
 
 const results = await Promise.all(

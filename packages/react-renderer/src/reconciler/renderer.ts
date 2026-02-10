@@ -31,4 +31,6 @@ export function render(element: ReactElement, handle: RendererHandle): void {
   reconciler.updateContainer(element, handle._container, null, () => {});
 }
 
+export const flushSync = reconciler.flushSync.bind(reconciler);
+
 export { createRenderBridge, type RenderBridge };
