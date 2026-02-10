@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { fileURLToPath } from "url";
@@ -19,6 +20,8 @@ function normalizeMessage(message: unknown): string {
 }
 
 new Elysia()
+  .use(cors())
+
   // Serve React plugins from /plugins/react/:filename
   .get("/plugins/react/:filename", async ({ params }) => {
     try {
@@ -31,7 +34,6 @@ new Elysia()
       return new Response(new Uint8Array(content), {
         headers: {
           "Content-Type": "application/javascript",
-          "Access-Control-Allow-Origin": "*",
         },
       });
     } catch {
@@ -51,7 +53,6 @@ new Elysia()
       return new Response(new Uint8Array(content), {
         headers: {
           "Content-Type": "application/javascript",
-          "Access-Control-Allow-Origin": "*",
         },
       });
     } catch {
@@ -71,7 +72,6 @@ new Elysia()
       return new Response(new Uint8Array(content), {
         headers: {
           "Content-Type": "application/javascript",
-          "Access-Control-Allow-Origin": "*",
         },
       });
     } catch {
@@ -90,7 +90,6 @@ new Elysia()
       return new Response(new Uint8Array(content), {
         headers: {
           "Content-Type": "application/javascript",
-          "Access-Control-Allow-Origin": "*",
         },
       });
     } catch {
