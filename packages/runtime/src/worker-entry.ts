@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { WorkerChildIO, RPCChannel } from "kkrpc";
+import { WorkerChildIO, RPCChannel } from "kkrpc/browser";
 import type { HostToPluginAPI, PluginToHostAPI } from "@uniview/protocol";
 import { createPluginRuntime } from "./runtime";
 

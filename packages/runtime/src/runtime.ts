@@ -16,7 +16,6 @@ import {
   MutationCollector,
   setMutationCollector,
   type RenderBridge,
-  type InternalNode,
 } from "@uniview/react-renderer";
 
 interface RendererHandle extends RenderBridge {
@@ -59,11 +58,14 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
       }
       bridge = createRenderer();
 
-      bridge.subscribe((type, data) => {
+      bridge.subscribe((type: string, data: unknown) => {
         if (!bridge || !handlerRegistry || !rpc) return;
 
-        if (type === "full") {
-          const tree = data as InternalNode | null;
+        if (isFirstRender || type === "full") {
+          // On first render, send full tree — mutations don't include root node creation
+          isFirstRender = false;
+          handlerRegistry.clear();
+          const tree = bridge.rootInstance;
           const serializedTree = serializeTree(
             tree,
             handlerRegistry,
@@ -77,7 +79,6 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
 
       currentElement = createElement(App, (req.props ?? {}) as object);
       render(currentElement, bridge);
-      isFirstRender = false;
     },
 
     async updateProps(props: JSONValue) {

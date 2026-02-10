@@ -36,8 +36,6 @@
 	});
 
 	function applyMutations(mutations: TreeUpdate["mutations"]) {
-		if (!tree) return;
-		
 		for (const mutation of mutations) {
 			applyMutation(mutation);
 		}
