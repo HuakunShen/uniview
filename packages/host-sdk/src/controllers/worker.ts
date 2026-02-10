@@ -5,9 +5,11 @@ import type {
   HostToPluginAPI,
   PluginToHostAPI,
   HandlerId,
+  Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
+import { MutableTree, type TreeUpdate } from "../mutable-tree";
 
 export interface WorkerControllerOptions {
   pluginUrl: string;
@@ -21,15 +23,19 @@ export function createWorkerController(
 
   let worker: Worker | null = null;
   let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
-  let tree: UINode | null = null;
+  let mutableTree = new MutableTree();
   let connected = false;
   let lastError: string | undefined;
-  const subscribers = new Set<(tree: UINode | null) => void>();
+  const subscribers = new Set<(update: TreeUpdate) => void>();
 
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
-      tree = newTree;
-      subscribers.forEach((cb) => cb(tree));
+      mutableTree.init(newTree);
+      subscribers.forEach((cb) => cb({ type: "full", tree: newTree }));
+    },
+    applyMutations(mutations: Mutation[]) {
+      mutableTree.apply(mutations);
+      subscribers.forEach((cb) => cb({ type: "mutations", mutations }));
     },
     log(level, args) {
       console[level]("[Plugin]", ...args);
@@ -55,6 +61,11 @@ export function createWorkerController(
 
       worker = new Worker(blobURL, { type: "module" });
       URL.revokeObjectURL(blobURL);
+
+      worker.onerror = (e) => {
+        console.error("[Worker Error]", e.message, e);
+        lastError = e.message;
+      };
 
       const io = new WorkerParentIO(worker);
       rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(io, {
@@ -84,7 +95,7 @@ export function createWorkerController(
       }
       rpc = null;
       connected = false;
-      tree = null;
+      mutableTree = new MutableTree();
     },
 
     async updateProps(props: JSONValue) {
@@ -99,10 +110,10 @@ export function createWorkerController(
     },
 
     getTree() {
-      return tree;
+      return mutableTree.getRoot();
     },
 
-    subscribe(cb: (tree: UINode | null) => void) {
+    subscribe(cb: (update: TreeUpdate) => void) {
       subscribers.add(cb);
       return () => {
         subscribers.delete(cb);

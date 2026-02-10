@@ -17,3 +17,4 @@ export {
   createMainController,
   type MainControllerOptions,
 } from "./controllers/main";
+export { MutableTree, type TreeUpdate } from "./mutable-tree";

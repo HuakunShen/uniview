@@ -1,4 +1,5 @@
 import type { UINode, HandlerId, JSONValue } from "@uniview/protocol";
+import type { TreeUpdate } from "./mutable-tree";
 
 export type HostMode = "worker" | "websocket" | "main";
 
@@ -9,7 +10,7 @@ export interface PluginController {
   reload(): Promise<void>;
 
   getTree(): UINode | null;
-  subscribe(cb: (tree: UINode | null) => void): () => void;
+  subscribe(cb: (update: TreeUpdate) => void): () => void;
 
   execute(handlerId: HandlerId, args?: JSONValue[]): Promise<void>;
 

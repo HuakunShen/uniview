@@ -2,119 +2,126 @@ import type { Component } from "solid-js";
 import { createRoot } from "solid-js";
 import type { RPCChannel, DestroyableIoInterface } from "kkrpc";
 import type {
-  JSONValue,
-  UINode,
-  HostToPluginAPI,
-  PluginToHostAPI,
+	JSONValue,
+	UINode,
+	HostToPluginAPI,
+	PluginToHostAPI,
+	Mutation,
 } from "@uniview/protocol";
 import {
-  render,
-  setUpdateCallback,
-  setRootNode,
-  getRootNode,
-  serializeTree,
-  HandlerRegistry,
-  resetIdCounter,
-  type SolidNode,
+	render,
+	setUpdateCallback,
+	setRootNode,
+	getRootNode,
+	serializeTree,
+	HandlerRegistry,
+	resetIdCounter,
+	type SolidNode,
 } from "@uniview/solid-renderer";
 
 export interface SolidPluginRuntimeOptions<T extends DestroyableIoInterface> {
-  App: Component<Record<string, unknown>>;
-  io: T;
+	App: Component<Record<string, unknown>>;
+	io: T;
+	updateMode?: "full" | "incremental";
 }
 
 export interface SolidPluginRuntime {
-  start(): Promise<void>;
-  stop(): void;
+	start(): Promise<void>;
+	stop(): void;
 }
 
 export function createSolidPluginRuntime<T extends DestroyableIoInterface>(
-  options: SolidPluginRuntimeOptions<T>,
-  createChannel: (
-    io: T,
-    expose: HostToPluginAPI,
-  ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
+	opts: SolidPluginRuntimeOptions<T>,
+	createChannel: (
+		io: T,
+		expose: HostToPluginAPI,
+	) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
 ): SolidPluginRuntime {
-  const { App, io } = options;
+	const { App, io, updateMode = "incremental" } = opts;
 
-  let disposeRoot: (() => void) | null = null;
-  let handlerRegistry: HandlerRegistry | null = null;
-  let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+	let disposeRoot: (() => void) | null = null;
+	let handlerRegistry: HandlerRegistry | null = null;
+	let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+	let isFirstRender = true;
 
-  function resetState() {
-    if (disposeRoot) {
-      disposeRoot();
-      disposeRoot = null;
-    }
-    handlerRegistry?.clear();
-    handlerRegistry = null;
-    setRootNode(null);
-  }
+	function resetState() {
+		if (disposeRoot) {
+			disposeRoot();
+			disposeRoot = null;
+		}
+		handlerRegistry?.clear();
+		handlerRegistry = null;
+		setRootNode(null);
+		isFirstRender = true;
+	}
 
-  function setupRuntime(props: Record<string, unknown>) {
-    handlerRegistry = new HandlerRegistry();
-    resetIdCounter();
+	function setupRuntime(props: Record<string, unknown>) {
+		handlerRegistry = new HandlerRegistry();
+		resetIdCounter();
 
-    const rootNode: SolidNode = {
-      _type: "element",
-      id: "root",
-      type: "div",
-      props: {},
-      children: [],
-      parent: null,
-    };
-    setRootNode(rootNode);
+		const rootNode: SolidNode = {
+			_type: "element",
+			id: "root",
+			type: "div",
+			props: {},
+			children: [],
+			parent: null,
+		};
+		setRootNode(rootNode);
 
-    setUpdateCallback(() => {
-      if (!handlerRegistry || !rpc) return;
+		setUpdateCallback((mutations: Mutation[]) => {
+			if (!handlerRegistry || !rpc) return;
 
-      const currentRoot = getRootNode();
-      if (!currentRoot || currentRoot.children.length === 0) return;
+			if (isFirstRender || updateMode === "full") {
+				isFirstRender = false;
+				const currentRoot = getRootNode();
+				if (!currentRoot || currentRoot.children.length === 0) return;
 
-      handlerRegistry.clear();
+				handlerRegistry.clear();
+				const serializedTree = serializeTree(
+					currentRoot.children[0],
+					handlerRegistry,
+				) as UINode | null;
+				rpc.getAPI().updateTree(serializedTree);
+			} else {
+				rpc.getAPI().applyMutations(mutations);
+			}
+		});
 
-      const serializedTree = serializeTree(
-        currentRoot.children[0],
-        handlerRegistry,
-      ) as UINode | null;
+		disposeRoot = createRoot((dispose) => {
+			render(() => App(props), rootNode);
+			return dispose;
+		});
+	}
 
-      rpc.getAPI().updateTree(serializedTree);
-    });
+	const pluginAPI: HostToPluginAPI = {
+		async initialize(req) {
+			resetState();
+			setupRuntime((req.props ?? {}) as Record<string, unknown>);
+		},
 
-    disposeRoot = createRoot((dispose) => {
-      render(() => App(props), rootNode);
-      return dispose;
-    });
-  }
+		async updateProps(props: JSONValue) {
+			resetState();
+			setupRuntime((props ?? {}) as Record<string, unknown>);
+		},
 
-  const pluginAPI: HostToPluginAPI = {
-    async initialize(req) {
-      resetState();
-      setupRuntime((req.props ?? {}) as Record<string, unknown>);
-    },
+		async executeHandler(handlerId, args) {
+			if (!handlerRegistry) return;
+			await handlerRegistry.execute(handlerId, ...args);
+		},
 
-    async updateProps(props: JSONValue) {
-      resetState();
-      setupRuntime((props ?? {}) as Record<string, unknown>);
-    },
+		async destroy() {
+			resetState();
+			io.destroy();
+		},
+	};
 
-    async executeHandler(handlerId, args) {
-      if (!handlerRegistry) return;
-      await handlerRegistry.execute(handlerId, ...args);
-    },
-
-    async destroy() {
-      resetState();
-      io.destroy();
-    },
-  };
-
-  return {
-    async start() {
-      rpc = createChannel(io, pluginAPI);
-    },
-    stop() {
-      io.destroy();
-    },
-  };
+	return {
+		async start() {
+			rpc = createChannel(io, pluginAPI);
+		},
+		stop() {
+			io.destroy();
+		},
+	};
 }

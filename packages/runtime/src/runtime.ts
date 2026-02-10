@@ -6,12 +6,15 @@ import type {
   UINode,
   HostToPluginAPI,
   PluginToHostAPI,
+  Mutation,
 } from "@uniview/protocol";
 import {
   createRenderer,
   render,
   serializeTree,
   HandlerRegistry,
+  MutationCollector,
+  setMutationCollector,
   type RenderBridge,
 } from "@uniview/react-renderer";
 
@@ -22,6 +25,7 @@ interface RendererHandle extends RenderBridge {
 export interface PluginRuntimeOptions<T extends DestroyableIoInterface> {
   App: ComponentType<unknown>;
   io: T;
+  updateMode?: "full" | "incremental";
 }
 
 export interface PluginRuntime {
@@ -30,33 +34,47 @@ export interface PluginRuntime {
 }
 
 export function createPluginRuntime<T extends DestroyableIoInterface>(
-  options: PluginRuntimeOptions<T>,
+  opts: PluginRuntimeOptions<T>,
   createChannel: (
     io: T,
     expose: HostToPluginAPI,
   ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
 ): PluginRuntime {
-  const { App, io } = options;
+  const { App, io, updateMode = "incremental" } = opts;
 
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
+  let mutationCollector: MutationCollector | null = null;
   let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+  let isFirstRender = true;
 
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
       handlerRegistry = new HandlerRegistry();
+      mutationCollector = new MutationCollector(handlerRegistry);
+      if (updateMode !== "full") {
+        setMutationCollector(mutationCollector);
+      }
       bridge = createRenderer();
 
-      bridge.subscribe(() => {
+      bridge.subscribe((type: string, data: unknown) => {
         if (!bridge || !handlerRegistry || !rpc) return;
 
-        const serializedTree = serializeTree(
-          bridge.rootInstance,
-          handlerRegistry,
-        ) as UINode | null;
-
-        rpc.getAPI().updateTree(serializedTree);
+        if (isFirstRender || type === "full") {
+          // On first render, send full tree — mutations don't include root node creation
+          isFirstRender = false;
+          handlerRegistry.clear();
+          const tree = bridge.rootInstance;
+          const serializedTree = serializeTree(
+            tree,
+            handlerRegistry,
+          ) as UINode | null;
+          rpc.getAPI().updateTree(serializedTree);
+        } else if (type === "mutations") {
+          const mutations = data as Mutation[];
+          rpc.getAPI().applyMutations(mutations);
+        }
       });
 
       currentElement = createElement(App, (req.props ?? {}) as object);
@@ -80,10 +98,12 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
     },
 
     async destroy() {
+      setMutationCollector(null);
       bridge = null;
       currentElement = null;
       handlerRegistry?.clear();
       handlerRegistry = null;
+      mutationCollector = null;
       io.destroy();
     },
   };

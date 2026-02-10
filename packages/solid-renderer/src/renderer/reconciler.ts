@@ -1,24 +1,26 @@
 import type { AnyNode, SolidNode, SolidTextNode, SolidSlotNode } from "./types";
 import { generateId } from "./types";
 import { createRenderer } from "./universal";
+import type { Mutation } from "@uniview/protocol";
 
-// Module-level state
-let updateCallback: ((root: SolidNode | null) => void) | null = null;
+let updateCallback: ((mutations: Mutation[]) => void) | null = null;
 let rootNode: SolidNode | null = null;
 let scheduled = false;
+const pendingMutations: Mutation[] = [];
 
 function scheduleUpdate() {
 	if (scheduled) return;
 	scheduled = true;
 	queueMicrotask(() => {
 		scheduled = false;
-		if (updateCallback && rootNode) {
-			updateCallback(rootNode);
+		if (updateCallback && pendingMutations.length > 0) {
+			const mutations = pendingMutations.splice(0);
+			updateCallback(mutations);
 		}
 	});
 }
 
-export function setUpdateCallback(cb: (root: SolidNode | null) => void): void {
+export function setUpdateCallback(cb: (mutations: Mutation[]) => void): void {
 	updateCallback = cb;
 }
 
@@ -28,6 +30,10 @@ export function getRootNode(): SolidNode | null {
 
 export function setRootNode(node: SolidNode | null): void {
 	rootNode = node;
+}
+
+function getIndexInParent(parent: SolidNode, node: AnyNode): number {
+	return parent.children.indexOf(node as SolidNode | SolidTextNode | SolidSlotNode);
 }
 
 function _createElement(tagName: string): SolidNode {
@@ -64,21 +70,50 @@ function _isTextNode(node: AnyNode): boolean {
 
 function _replaceText(textNode: SolidTextNode, value: string): void {
 	textNode.value = value;
+	pendingMutations.push({
+		type: "setText",
+		nodeId: textNode.id,
+		text: value,
+	});
 	scheduleUpdate();
 }
 
 function _insertNode(parent: SolidNode, node: AnyNode, anchor?: AnyNode): void {
 	node.parent = parent;
 
+	let index: number;
 	if (anchor) {
 		const anchorIndex = parent.children.indexOf(anchor as SolidNode | SolidTextNode | SolidSlotNode);
 		if (anchorIndex !== -1) {
 			parent.children.splice(anchorIndex, 0, node as SolidNode | SolidTextNode | SolidSlotNode);
+			index = anchorIndex;
 		} else {
 			parent.children.push(node as SolidNode | SolidTextNode | SolidSlotNode);
+			index = parent.children.length - 1;
 		}
 	} else {
 		parent.children.push(node as SolidNode | SolidTextNode | SolidSlotNode);
+		index = parent.children.length - 1;
+	}
+
+	if (node._type === "element") {
+		pendingMutations.push({
+			type: "create",
+			nodeId: node.id,
+			nodeType: node.type,
+			parentId: parent.id,
+			index,
+			props: {},
+		});
+	} else if (node._type === "text") {
+		pendingMutations.push({
+			type: "create",
+			nodeId: node.id,
+			nodeType: "text",
+			parentId: parent.id,
+			index,
+			props: { text: node.value },
+		});
 	}
 
 	scheduleUpdate();
@@ -90,6 +125,15 @@ function _removeNode(parent: SolidNode, node: AnyNode): void {
 		parent.children.splice(index, 1);
 	}
 	node.parent = null;
+
+	if (node._type === "element" || node._type === "text") {
+		pendingMutations.push({
+			type: "remove",
+			nodeId: node.id,
+			parentId: parent.id,
+		});
+	}
+
 	scheduleUpdate();
 }
 
@@ -101,8 +145,19 @@ function _setProperty(
 ): void {
 	if (value === undefined) {
 		delete node.props[name];
+		pendingMutations.push({
+			type: "removeProp",
+			nodeId: node.id,
+			key: name,
+		});
 	} else {
 		node.props[name] = value;
+		pendingMutations.push({
+			type: "setProp",
+			nodeId: node.id,
+			key: name,
+			value: value as string | number | boolean | null | object,
+		});
 	}
 	scheduleUpdate();
 }

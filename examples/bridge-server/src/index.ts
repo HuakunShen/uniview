@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { cors } from "@elysiajs/cors";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { fileURLToPath } from "url";
@@ -19,6 +20,47 @@ function normalizeMessage(message: unknown): string {
 }
 
 new Elysia()
+  .use(cors())
+
+  // Serve React plugins from /plugins/react/:filename
+  .get("/plugins/react/:filename", async ({ params }) => {
+    try {
+      const filePath = join(
+        __dirname,
+        "../../plugin-example/dist",
+        params.filename,
+      );
+      const content = await readFile(filePath);
+      return new Response(new Uint8Array(content), {
+        headers: {
+          "Content-Type": "application/javascript",
+        },
+      });
+    } catch {
+      return new Response("Not found", { status: 404 });
+    }
+  })
+
+  // Serve Solid plugins from /plugins/solid/:filename
+  .get("/plugins/solid/:filename", async ({ params }) => {
+    try {
+      const filePath = join(
+        __dirname,
+        "../../plugin-solid-example/dist",
+        params.filename,
+      );
+      const content = await readFile(filePath);
+      return new Response(new Uint8Array(content), {
+        headers: {
+          "Content-Type": "application/javascript",
+        },
+      });
+    } catch {
+      return new Response("Not found", { status: 404 });
+    }
+  })
+
+  // Legacy routes for backward compatibility
   .get("/solid/:filename", async ({ params }) => {
     try {
       const filePath = join(
@@ -30,7 +72,6 @@ new Elysia()
       return new Response(new Uint8Array(content), {
         headers: {
           "Content-Type": "application/javascript",
-          "Access-Control-Allow-Origin": "*",
         },
       });
     } catch {
@@ -49,7 +90,6 @@ new Elysia()
       return new Response(new Uint8Array(content), {
         headers: {
           "Content-Type": "application/javascript",
-          "Access-Control-Allow-Origin": "*",
         },
       });
     } catch {

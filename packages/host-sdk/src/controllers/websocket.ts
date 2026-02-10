@@ -1,132 +1,129 @@
 import { RPCChannel, WebSocketClientIO } from "kkrpc/browser";
 import type {
-  UINode,
-  JSONValue,
-  HostToPluginAPI,
-  PluginToHostAPI,
-  HandlerId,
+	UINode,
+	JSONValue,
+	HostToPluginAPI,
+	PluginToHostAPI,
+	HandlerId,
+	Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
+import { MutableTree, type TreeUpdate } from "../mutable-tree";
 
 export interface WebSocketControllerOptions {
-  serverUrl: string;
-  pluginId: string;
-  initialProps?: JSONValue;
+	serverUrl: string;
+	pluginId: string;
+	initialProps?: JSONValue;
 }
 
 export function createWebSocketController(
-  opts: WebSocketControllerOptions,
+	opts: WebSocketControllerOptions,
 ): PluginController {
-  const { serverUrl, pluginId, initialProps } = opts;
+	const { serverUrl, pluginId, initialProps } = opts;
 
-  let io: WebSocketClientIO | null = null;
-  let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
-  let tree: UINode | null = null;
-  let connected = false;
-  let lastError: string | undefined;
-  const subscribers = new Set<(tree: UINode | null) => void>();
+	let io: WebSocketClientIO | null = null;
+	let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
+	let mutableTree = new MutableTree();
+	let connected = false;
+	let lastError: string | undefined;
+	const subscribers = new Set<(update: TreeUpdate) => void>();
 
-  const hostAPI: PluginToHostAPI = {
-    updateTree(newTree: UINode | null) {
-      console.log("[WS Host] Received updateTree:", newTree ? "tree" : "null");
-      tree = newTree;
-      subscribers.forEach((cb) => cb(tree));
-    },
-    log(level, args) {
-      console[level]("[Plugin WS]", ...args);
-    },
-    reportError(err) {
-      lastError = err.message;
-      console.error("[Plugin WS Error]", err.message, err.stack);
-    },
-  };
+	const hostAPI: PluginToHostAPI = {
+		updateTree(newTree: UINode | null) {
+			mutableTree.init(newTree);
+			subscribers.forEach((cb) => cb({ type: "full", tree: newTree }));
+		},
+		applyMutations(mutations: Mutation[]) {
+			mutableTree.apply(mutations);
+			subscribers.forEach((cb) =>
+				cb({ type: "mutations", mutations }),
+			);
+		},
+		log(level, args) {
+			console[level]("[Plugin WS]", ...args);
+		},
+		reportError(err) {
+			lastError = err.message;
+			console.error("[Plugin WS Error]", err.message, err.stack);
+		},
+	};
 
-  return {
-    async connect() {
-      try {
-        const url = `${serverUrl}/host/${pluginId}`;
-        console.log("[WS Host] Connecting to:", url);
-        io = new WebSocketClientIO({ url });
-        console.log("[WS Host] WebSocketClientIO created");
+	return {
+		async connect() {
+			try {
+				const url = `${serverUrl}/host/${pluginId}`;
+				io = new WebSocketClientIO({ url });
 
-        rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(io, {
-          expose: hostAPI,
-        });
-        console.log(
-          "[WS Host] RPC channel created with exposed methods:",
-          Object.keys(hostAPI),
-        );
+				rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(io, {
+					expose: hostAPI,
+				});
 
-        connected = true;
-        lastError = undefined;
+				connected = true;
+				lastError = undefined;
 
-        console.log("[WS Host] Calling initialize...");
-        const api = rpc.getAPI();
-        console.log("[WS Host] Got API proxy, calling initialize method...");
-        await api.initialize({
-          protocolVersion: PROTOCOL_VERSION,
-          props: initialProps,
-        });
-        console.log("[WS Host] Initialize complete!");
-      } catch (err) {
-        console.error("[WS Host] Connect error:", err);
-        lastError = err instanceof Error ? err.message : String(err);
-        connected = false;
-        throw err;
-      }
-    },
+				const api = rpc.getAPI();
+				await api.initialize({
+					protocolVersion: PROTOCOL_VERSION,
+					props: initialProps,
+				});
+			} catch (err) {
+				lastError = err instanceof Error ? err.message : String(err);
+				connected = false;
+				throw err;
+			}
+		},
 
-    async disconnect() {
-      if (rpc) {
-        try {
-          const api = rpc.getAPI();
-          await api.destroy();
-        } catch {}
-      }
-      if (io) {
-        io.destroy();
-        io = null;
-      }
-      rpc = null;
-      connected = false;
-      tree = null;
-    },
+		async disconnect() {
+			if (rpc) {
+				try {
+					const api = rpc.getAPI();
+					await api.destroy();
+				} catch {}
+			}
+			if (io) {
+				io.destroy();
+				io = null;
+			}
+			rpc = null;
+			connected = false;
+			mutableTree = new MutableTree();
+		},
 
-    async updateProps(props: JSONValue) {
-      if (!rpc) return;
-      const api = rpc.getAPI();
-      await api.updateProps(props);
-    },
+		async updateProps(props: JSONValue) {
+			if (!rpc) return;
+			const api = rpc.getAPI();
+			await api.updateProps(props);
+		},
 
-    async reload() {
-      await this.disconnect();
-      await this.connect();
-    },
+		async reload() {
+			await this.disconnect();
+			await this.connect();
+		},
 
-    getTree() {
-      return tree;
-    },
+		getTree() {
+			return mutableTree.getRoot();
+		},
 
-    subscribe(cb: (tree: UINode | null) => void) {
-      subscribers.add(cb);
-      return () => {
-        subscribers.delete(cb);
-      };
-    },
+		subscribe(cb: (update: TreeUpdate) => void) {
+			subscribers.add(cb);
+			return () => {
+				subscribers.delete(cb);
+			};
+		},
 
-    async execute(handlerId: HandlerId, args?: JSONValue[]) {
-      if (!rpc) return;
-      const api = rpc.getAPI();
-      await api.executeHandler(handlerId, args ?? []);
-    },
+		async execute(handlerId: HandlerId, args?: JSONValue[]) {
+			if (!rpc) return;
+			const api = rpc.getAPI();
+			await api.executeHandler(handlerId, args ?? []);
+		},
 
-    getStatus(): { mode: HostMode; connected: boolean; lastError?: string } {
-      return {
-        mode: "websocket",
-        connected,
-        lastError,
-      };
-    },
-  };
+		getStatus(): { mode: HostMode; connected: boolean; lastError?: string } {
+			return {
+				mode: "websocket",
+				connected,
+				lastError,
+			};
+		},
+	};
 }
