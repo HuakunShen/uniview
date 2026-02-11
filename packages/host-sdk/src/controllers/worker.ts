@@ -5,9 +5,11 @@ import type {
   HostToPluginAPI,
   PluginToHostAPI,
   HandlerId,
+  Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
+import { MutableTree } from "../mutable-tree";
 
 export interface WorkerControllerOptions {
   pluginUrl: string;
@@ -22,6 +24,7 @@ export function createWorkerController(
   let worker: Worker | null = null;
   let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
   let tree: UINode | null = null;
+  let mutableTree = new MutableTree();
   let connected = false;
   let lastError: string | undefined;
   const subscribers = new Set<(tree: UINode | null) => void>();
@@ -29,6 +32,11 @@ export function createWorkerController(
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
       tree = newTree;
+      mutableTree.init(newTree);
+      subscribers.forEach((cb) => cb(tree));
+    },
+    applyMutations(mutations: Mutation[]) {
+      tree = mutableTree.applyMutations(mutations);
       subscribers.forEach((cb) => cb(tree));
     },
     log(level, args) {
@@ -85,6 +93,7 @@ export function createWorkerController(
       rpc = null;
       connected = false;
       tree = null;
+      mutableTree = new MutableTree();
     },
 
     async updateProps(props: JSONValue) {

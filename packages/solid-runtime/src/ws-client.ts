@@ -6,22 +6,40 @@ import type {
 	UINode,
 	HostToPluginAPI,
 	PluginToHostAPI,
+	UpdateMode,
+	Mutation,
 } from "@uniview/protocol"
 import {
 	render,
 	setUpdateCallback,
+	setMutationUpdateCallback,
+	setMutationCollector,
 	setRootNode,
 	getRootNode,
 	serializeTree,
 	HandlerRegistry,
 	resetIdCounter,
+	SolidMutationCollector,
 	type SolidNode,
 } from "@uniview/solid-renderer"
+
+// Stats tracking for benchmarks
+interface Stats {
+	bytesSent: number
+	messagesSent: number
+}
+
+declare global {
+	// eslint-disable-next-line no-var
+	var __uniview_stats: Stats | undefined
+}
 
 export interface SolidWebSocketPluginClientOptions {
 	App: Component<Record<string, unknown>>
 	serverUrl: string
 	pluginId: string
+	/** Update mode: "full" sends entire tree, "incremental" sends mutations */
+	mode?: UpdateMode
 	/** Reconnection delay in ms (default: 1000) */
 	reconnectDelay?: number
 	/** Max reconnection attempts (default: Infinity) */
@@ -50,9 +68,14 @@ export function createSolidWebSocketPluginClient(
 		App,
 		serverUrl,
 		pluginId,
+		mode = "full",
 		reconnectDelay = 1000,
 		maxReconnectAttempts = Infinity,
 	} = opts
+
+	// Stats tracking
+	const stats: Stats = { bytesSent: 0, messagesSent: 0 }
+	globalThis.__uniview_stats = stats
 
 	const wsUrl = `${serverUrl}/plugins/${pluginId}`
 	let closed = false
@@ -66,12 +89,15 @@ export function createSolidWebSocketPluginClient(
 
 	let disposeRoot: (() => void) | null = null
 	let handlerRegistry: HandlerRegistry | null = null
+	let mutationCollector: SolidMutationCollector | null = null
 
 	function resetRuntimeState() {
 		if (disposeRoot) {
 			disposeRoot()
 			disposeRoot = null
 		}
+		setMutationCollector(null)
+		mutationCollector = null
 		handlerRegistry?.clear()
 		handlerRegistry = null
 		setRootNode(null)
@@ -95,21 +121,66 @@ export function createSolidWebSocketPluginClient(
 				}
 				setRootNode(rootNode)
 
-				setUpdateCallback(() => {
-					if (!handlerRegistry || !currentRpc) return
+				if (mode === "incremental") {
+					// Set up mutation collection
+					mutationCollector = new SolidMutationCollector(handlerRegistry)
+					setMutationCollector(mutationCollector)
 
-					const currentRoot = getRootNode()
-					if (!currentRoot || currentRoot.children.length === 0) return
+					setMutationUpdateCallback((mutations: Mutation[]) => {
+						if (!currentRpc) return
 
-					handlerRegistry.clear()
+						// Track stats
+						const bytes = JSON.stringify(mutations).length
+						stats.bytesSent += bytes
+						stats.messagesSent++
 
-					const serializedTree = serializeTree(
-						currentRoot.children[0],
-						handlerRegistry,
-					) as UINode | null
+						currentRpc.getAPI().applyMutations(mutations)
+					})
 
-					currentRpc.getAPI().updateTree(serializedTree)
-				})
+					// Also send full tree for initial render
+					setUpdateCallback(() => {
+						if (!handlerRegistry || !currentRpc) return
+
+						const currentRoot = getRootNode()
+						if (!currentRoot || currentRoot.children.length === 0) return
+
+						// Don't clear handler registry in incremental mode
+
+						const serializedTree = serializeTree(
+							currentRoot.children[0],
+							handlerRegistry,
+						) as UINode | null
+
+						// Track stats
+						const bytes = JSON.stringify(serializedTree).length
+						stats.bytesSent += bytes
+						stats.messagesSent++
+
+						currentRpc.getAPI().updateTree(serializedTree)
+					})
+				} else {
+					// Full tree mode (default)
+					setUpdateCallback(() => {
+						if (!handlerRegistry || !currentRpc) return
+
+						const currentRoot = getRootNode()
+						if (!currentRoot || currentRoot.children.length === 0) return
+
+						handlerRegistry.clear()
+
+						const serializedTree = serializeTree(
+							currentRoot.children[0],
+							handlerRegistry,
+						) as UINode | null
+
+						// Track stats
+						const bytes = JSON.stringify(serializedTree).length
+						stats.bytesSent += bytes
+						stats.messagesSent++
+
+						currentRpc.getAPI().updateTree(serializedTree)
+					})
+				}
 
 				disposeRoot = createRoot((dispose) => {
 					render(
@@ -136,21 +207,66 @@ export function createSolidWebSocketPluginClient(
 				}
 				setRootNode(rootNode)
 
-				setUpdateCallback(() => {
-					if (!handlerRegistry || !currentRpc) return
+				if (mode === "incremental") {
+					// Set up mutation collection
+					mutationCollector = new SolidMutationCollector(handlerRegistry)
+					setMutationCollector(mutationCollector)
 
-					const currentRoot = getRootNode()
-					if (!currentRoot || currentRoot.children.length === 0) return
+					setMutationUpdateCallback((mutations: Mutation[]) => {
+						if (!currentRpc) return
 
-					handlerRegistry.clear()
+						// Track stats
+						const bytes = JSON.stringify(mutations).length
+						stats.bytesSent += bytes
+						stats.messagesSent++
 
-					const serializedTree = serializeTree(
-						currentRoot.children[0],
-						handlerRegistry,
-					) as UINode | null
+						currentRpc.getAPI().applyMutations(mutations)
+					})
 
-					currentRpc.getAPI().updateTree(serializedTree)
-				})
+					// Also send full tree for initial render
+					setUpdateCallback(() => {
+						if (!handlerRegistry || !currentRpc) return
+
+						const currentRoot = getRootNode()
+						if (!currentRoot || currentRoot.children.length === 0) return
+
+						// Don't clear handler registry in incremental mode
+
+						const serializedTree = serializeTree(
+							currentRoot.children[0],
+							handlerRegistry,
+						) as UINode | null
+
+						// Track stats
+						const bytes = JSON.stringify(serializedTree).length
+						stats.bytesSent += bytes
+						stats.messagesSent++
+
+						currentRpc.getAPI().updateTree(serializedTree)
+					})
+				} else {
+					// Full tree mode (default)
+					setUpdateCallback(() => {
+						if (!handlerRegistry || !currentRpc) return
+
+						const currentRoot = getRootNode()
+						if (!currentRoot || currentRoot.children.length === 0) return
+
+						handlerRegistry.clear()
+
+						const serializedTree = serializeTree(
+							currentRoot.children[0],
+							handlerRegistry,
+						) as UINode | null
+
+						// Track stats
+						const bytes = JSON.stringify(serializedTree).length
+						stats.bytesSent += bytes
+						stats.messagesSent++
+
+						currentRpc.getAPI().updateTree(serializedTree)
+					})
+				}
 
 				disposeRoot = createRoot((dispose) => {
 					render(

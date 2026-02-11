@@ -6,12 +6,15 @@ import type {
   UINode,
   HostToPluginAPI,
   PluginToHostAPI,
+  UpdateMode,
+  Mutation,
 } from "@uniview/protocol";
 import {
   createRenderer,
   render,
   serializeTree,
   HandlerRegistry,
+  MutationCollector,
   type RenderBridge,
 } from "@uniview/react-renderer";
 
@@ -22,11 +25,23 @@ interface RendererHandle extends RenderBridge {
 export interface PluginRuntimeOptions<T extends IoInterface> {
   App: ComponentType<unknown>;
   io: T;
+  mode?: UpdateMode;
 }
 
 export interface PluginRuntime {
   start(): Promise<void>;
   stop(): void;
+}
+
+// Stats tracking for benchmarks
+interface Stats {
+  bytesSent: number;
+  messagesSent: number;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __uniview_stats: Stats | undefined;
 }
 
 export function createPluginRuntime<T extends IoInterface>(
@@ -36,28 +51,73 @@ export function createPluginRuntime<T extends IoInterface>(
     expose: HostToPluginAPI,
   ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
 ): PluginRuntime {
-  const { App, io } = options;
+  const { App, io, mode = "full" } = options;
 
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
+  let mutationCollector: MutationCollector | null = null;
   let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+
+  // Stats tracking
+  const stats: Stats = { bytesSent: 0, messagesSent: 0 };
+  globalThis.__uniview_stats = stats;
 
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderer();
 
-      bridge.subscribe(() => {
-        if (!bridge || !handlerRegistry || !rpc) return;
+      if (mode === "incremental") {
+        // Set up mutation collection
+        mutationCollector = new MutationCollector(handlerRegistry);
+        bridge.mutationCollector = mutationCollector;
 
-        const serializedTree = serializeTree(
-          bridge.rootInstance,
-          handlerRegistry,
-        ) as UINode | null;
+        bridge.subscribeMutations((mutations: Mutation[]) => {
+          if (!rpc) return;
 
-        rpc.getAPI().updateTree(serializedTree);
-      });
+          // Track stats
+          const bytes = JSON.stringify(mutations).length;
+          stats.bytesSent += bytes;
+          stats.messagesSent++;
+
+          rpc.getAPI().applyMutations(mutations);
+        });
+
+        // Also send full tree for initial render
+        bridge.subscribe(() => {
+          if (!bridge || !handlerRegistry || !rpc) return;
+
+          const serializedTree = serializeTree(
+            bridge.rootInstance,
+            handlerRegistry,
+          ) as UINode | null;
+
+          // Track stats
+          const bytes = JSON.stringify(serializedTree).length;
+          stats.bytesSent += bytes;
+          stats.messagesSent++;
+
+          rpc.getAPI().updateTree(serializedTree);
+        });
+      } else {
+        // Full tree mode (default)
+        bridge.subscribe(() => {
+          if (!bridge || !handlerRegistry || !rpc) return;
+
+          const serializedTree = serializeTree(
+            bridge.rootInstance,
+            handlerRegistry,
+          ) as UINode | null;
+
+          // Track stats
+          const bytes = JSON.stringify(serializedTree).length;
+          stats.bytesSent += bytes;
+          stats.messagesSent++;
+
+          rpc.getAPI().updateTree(serializedTree);
+        });
+      }
 
       currentElement = createElement(App, (req.props ?? {}) as object);
       render(currentElement, bridge);
@@ -82,6 +142,7 @@ export function createPluginRuntime<T extends IoInterface>(
     async destroy() {
       bridge = null;
       currentElement = null;
+      mutationCollector = null;
       handlerRegistry?.clear();
       handlerRegistry = null;
       io.destroy?.();

@@ -5,9 +5,11 @@ import type {
   HostToPluginAPI,
   PluginToHostAPI,
   HandlerId,
+  Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
+import { MutableTree } from "../mutable-tree";
 
 export interface WebSocketControllerOptions {
   serverUrl: string;
@@ -23,6 +25,7 @@ export function createWebSocketController(
   let io: WebSocketClientIO | null = null;
   let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
   let tree: UINode | null = null;
+  let mutableTree = new MutableTree();
   let connected = false;
   let lastError: string | undefined;
   const subscribers = new Set<(tree: UINode | null) => void>();
@@ -31,6 +34,12 @@ export function createWebSocketController(
     updateTree(newTree: UINode | null) {
       console.log("[WS Host] Received updateTree:", newTree ? "tree" : "null");
       tree = newTree;
+      mutableTree.init(newTree);
+      subscribers.forEach((cb) => cb(tree));
+    },
+    applyMutations(mutations: Mutation[]) {
+      console.log("[WS Host] Received applyMutations:", mutations.length, "mutations");
+      tree = mutableTree.applyMutations(mutations);
       subscribers.forEach((cb) => cb(tree));
     },
     log(level, args) {
@@ -91,6 +100,7 @@ export function createWebSocketController(
       rpc = null;
       connected = false;
       tree = null;
+      mutableTree = new MutableTree();
     },
 
     async updateProps(props: JSONValue) {

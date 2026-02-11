@@ -1,9 +1,13 @@
+import type { Mutation } from "@uniview/protocol";
 import type { AnyNode, SolidNode, SolidTextNode, SolidSlotNode } from "./types";
 import { generateId } from "./types";
 import { createRenderer } from "./universal";
+import type { SolidMutationCollector } from "../mutation/mutation-collector";
 
 // Module-level state
 let updateCallback: ((root: SolidNode | null) => void) | null = null;
+let mutationUpdateCallback: ((mutations: Mutation[]) => void) | null = null;
+let mutationCollector: SolidMutationCollector | null = null;
 let rootNode: SolidNode | null = null;
 let scheduled = false;
 
@@ -12,6 +16,16 @@ function scheduleUpdate() {
 	scheduled = true;
 	queueMicrotask(() => {
 		scheduled = false;
+
+		// Flush mutations if collector is active
+		if (mutationCollector && mutationUpdateCallback) {
+			const mutations = mutationCollector.flushCommit();
+			if (mutations.length > 0) {
+				mutationUpdateCallback(mutations);
+			}
+		}
+
+		// Always notify full-mode subscribers
 		if (updateCallback && rootNode) {
 			updateCallback(rootNode);
 		}
@@ -20,6 +34,14 @@ function scheduleUpdate() {
 
 export function setUpdateCallback(cb: (root: SolidNode | null) => void): void {
 	updateCallback = cb;
+}
+
+export function setMutationUpdateCallback(cb: (mutations: Mutation[]) => void): void {
+	mutationUpdateCallback = cb;
+}
+
+export function setMutationCollector(collector: SolidMutationCollector | null): void {
+	mutationCollector = collector;
 }
 
 export function getRootNode(): SolidNode | null {
@@ -64,6 +86,7 @@ function _isTextNode(node: AnyNode): boolean {
 
 function _replaceText(textNode: SolidTextNode, value: string): void {
 	textNode.value = value;
+	mutationCollector?.collectSetText(textNode);
 	scheduleUpdate();
 }
 
@@ -74,11 +97,14 @@ function _insertNode(parent: SolidNode, node: AnyNode, anchor?: AnyNode): void {
 		const anchorIndex = parent.children.indexOf(anchor as SolidNode | SolidTextNode | SolidSlotNode);
 		if (anchorIndex !== -1) {
 			parent.children.splice(anchorIndex, 0, node as SolidNode | SolidTextNode | SolidSlotNode);
+			mutationCollector?.collectInsertBefore(parent, node, anchor);
 		} else {
 			parent.children.push(node as SolidNode | SolidTextNode | SolidSlotNode);
+			mutationCollector?.collectAppendChild(parent, node);
 		}
 	} else {
 		parent.children.push(node as SolidNode | SolidTextNode | SolidSlotNode);
+		mutationCollector?.collectAppendChild(parent, node);
 	}
 
 	scheduleUpdate();
@@ -88,6 +114,7 @@ function _removeNode(parent: SolidNode, node: AnyNode): void {
 	const index = parent.children.indexOf(node as SolidNode | SolidTextNode | SolidSlotNode);
 	if (index !== -1) {
 		parent.children.splice(index, 1);
+		mutationCollector?.collectRemoveChild(parent, node);
 	}
 	node.parent = null;
 	scheduleUpdate();
@@ -104,6 +131,7 @@ function _setProperty(
 	} else {
 		node.props[name] = value;
 	}
+	mutationCollector?.collectSetProps(node);
 	scheduleUpdate();
 }
 

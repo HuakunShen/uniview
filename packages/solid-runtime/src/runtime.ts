@@ -6,21 +6,38 @@ import type {
   UINode,
   HostToPluginAPI,
   PluginToHostAPI,
+  UpdateMode,
+  Mutation,
 } from "@uniview/protocol";
 import {
   render,
   setUpdateCallback,
+  setMutationUpdateCallback,
+  setMutationCollector,
   setRootNode,
   getRootNode,
   serializeTree,
   HandlerRegistry,
   resetIdCounter,
+  SolidMutationCollector,
   type SolidNode,
 } from "@uniview/solid-renderer";
+
+// Stats tracking for benchmarks
+interface Stats {
+  bytesSent: number;
+  messagesSent: number;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __uniview_stats: Stats | undefined;
+}
 
 export interface SolidPluginRuntimeOptions<T extends IoInterface> {
   App: Component<Record<string, unknown>>;
   io: T;
+  mode?: UpdateMode;
 }
 
 export interface SolidPluginRuntime {
@@ -35,17 +52,24 @@ export function createSolidPluginRuntime<T extends IoInterface>(
     expose: HostToPluginAPI,
   ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
 ): SolidPluginRuntime {
-  const { App, io } = options;
+  const { App, io, mode = "full" } = options;
 
   let disposeRoot: (() => void) | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
+  let mutationCollector: SolidMutationCollector | null = null;
   let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+
+  // Stats tracking
+  const stats: Stats = { bytesSent: 0, messagesSent: 0 };
+  globalThis.__uniview_stats = stats;
 
   function resetState() {
     if (disposeRoot) {
       disposeRoot();
       disposeRoot = null;
     }
+    setMutationCollector(null);
+    mutationCollector = null;
     handlerRegistry?.clear();
     handlerRegistry = null;
     setRootNode(null);
@@ -65,21 +89,67 @@ export function createSolidPluginRuntime<T extends IoInterface>(
     };
     setRootNode(rootNode);
 
-    setUpdateCallback(() => {
-      if (!handlerRegistry || !rpc) return;
+    if (mode === "incremental") {
+      // Set up mutation collection
+      mutationCollector = new SolidMutationCollector(handlerRegistry);
+      setMutationCollector(mutationCollector);
 
-      const currentRoot = getRootNode();
-      if (!currentRoot || currentRoot.children.length === 0) return;
+      setMutationUpdateCallback((mutations: Mutation[]) => {
+        if (!rpc) return;
 
-      handlerRegistry.clear();
+        // Track stats
+        const bytes = JSON.stringify(mutations).length;
+        stats.bytesSent += bytes;
+        stats.messagesSent++;
 
-      const serializedTree = serializeTree(
-        currentRoot.children[0],
-        handlerRegistry,
-      ) as UINode | null;
+        rpc.getAPI().applyMutations(mutations);
+      });
 
-      rpc.getAPI().updateTree(serializedTree);
-    });
+      // Also send full tree for initial render
+      setUpdateCallback(() => {
+        if (!handlerRegistry || !rpc) return;
+
+        const currentRoot = getRootNode();
+        if (!currentRoot || currentRoot.children.length === 0) return;
+
+        // Don't clear handler registry in incremental mode
+        // The mutation collector manages handler lifecycle
+
+        const serializedTree = serializeTree(
+          currentRoot.children[0],
+          handlerRegistry,
+        ) as UINode | null;
+
+        // Track stats
+        const bytes = JSON.stringify(serializedTree).length;
+        stats.bytesSent += bytes;
+        stats.messagesSent++;
+
+        rpc.getAPI().updateTree(serializedTree);
+      });
+    } else {
+      // Full tree mode (default)
+      setUpdateCallback(() => {
+        if (!handlerRegistry || !rpc) return;
+
+        const currentRoot = getRootNode();
+        if (!currentRoot || currentRoot.children.length === 0) return;
+
+        handlerRegistry.clear();
+
+        const serializedTree = serializeTree(
+          currentRoot.children[0],
+          handlerRegistry,
+        ) as UINode | null;
+
+        // Track stats
+        const bytes = JSON.stringify(serializedTree).length;
+        stats.bytesSent += bytes;
+        stats.messagesSent++;
+
+        rpc.getAPI().updateTree(serializedTree);
+      });
+    }
 
     disposeRoot = createRoot((dispose) => {
       render(() => App(props), rootNode);

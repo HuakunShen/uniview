@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { browser } from "$app/environment";
+	import { page } from "$app/stores";
+	import { goto } from "$app/navigation";
 	import { PluginHost } from "@uniview/host-svelte";
 	import { createWorkerController, createWebSocketController, createMainController, createComponentRegistry } from "@uniview/host-sdk";
 	import type { PluginController } from "@uniview/host-sdk";
@@ -11,12 +13,45 @@
 	import PluginToggle from '$lib/components/plugin/PluginToggle.svelte';
 
 	type FrameworkType = 'react' | 'solid';
-	type DemoType = 'simple' | 'advanced';
+	type DemoType = 'simple' | 'advanced' | 'benchmark';
 	type RuntimeMode = 'worker' | 'main-thread' | 'node-server';
+	type UpdateMode = 'full' | 'incremental';
 
-	let framework: FrameworkType = $state('react');
-	let currentDemo: DemoType = $state('simple');
-	let runtimeMode: RuntimeMode = $state('worker');
+	// Read initial values from URL query params
+	function getInitialValues() {
+		if (!browser) {
+			return { framework: 'react', demo: 'simple', runtime: 'worker', update: 'full' };
+		}
+		const url = new URL(window.location.href);
+		const framework = (url.searchParams.get('framework') as FrameworkType) || 'react';
+		const demo = (url.searchParams.get('demo') as DemoType) || 'simple';
+		const runtime = (url.searchParams.get('runtime') as RuntimeMode) || 'worker';
+		const update = (url.searchParams.get('update') as UpdateMode) || 'full';
+		return {
+			framework: ['react', 'solid'].includes(framework) ? framework : 'react',
+			demo: ['simple', 'advanced', 'benchmark'].includes(demo) ? demo : 'simple',
+			runtime: ['worker', 'main-thread', 'node-server'].includes(runtime) ? runtime : 'worker',
+			update: ['full', 'incremental'].includes(update) ? update : 'full',
+		};
+	}
+
+	const initial = getInitialValues();
+
+	let framework: FrameworkType = $state(initial.framework as FrameworkType);
+	let currentDemo: DemoType = $state(initial.demo as DemoType);
+	let runtimeMode: RuntimeMode = $state(initial.runtime as RuntimeMode);
+	let updateMode: UpdateMode = $state(initial.update as UpdateMode);
+
+	// Update URL when state changes
+	$effect(() => {
+		if (!browser) return;
+		const url = new URL(window.location.href);
+		url.searchParams.set('framework', framework);
+		url.searchParams.set('demo', currentDemo);
+		url.searchParams.set('runtime', runtimeMode);
+		url.searchParams.set('update', updateMode);
+		goto(url.toString(), { replaceState: true, keepFocus: true });
+	});
 
 	// Reset to worker mode when switching to Solid (main-thread not supported)
 	$effect(() => {
@@ -27,6 +62,14 @@
 
 	// Plugin URLs - served from bridge server
 	let pluginUrl = $derived.by(() => {
+		if (currentDemo === 'benchmark') {
+			// Benchmark plugins have -full and -incremental variants
+			const mode = updateMode === 'full' ? 'full' : 'incremental';
+			if (framework === 'solid') {
+				return `http://localhost:3000/solid/benchmark-${mode}.worker.js`;
+			}
+			return `http://localhost:3000/benchmark-${mode}.worker.js`;
+		}
 		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
 		if (framework === 'solid') {
 			return `http://localhost:3000/solid/${demo}.worker.js`;
@@ -39,6 +82,10 @@
 
 	// Plugin ID based on current demo and framework
 	let pluginId = $derived.by(() => {
+		if (currentDemo === 'benchmark') {
+			const mode = updateMode === 'full' ? 'full' : 'incremental';
+			return framework === 'solid' ? `solid-benchmark-${mode}` : `benchmark-${mode}`;
+		}
 		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
 		return framework === 'solid' ? `solid-${demo}` : demo;
 	});
@@ -167,6 +214,31 @@
 							</div>
 						</div>
 
+						<!-- Update Mode Toggle (only for worker/websocket modes) -->
+						{#if runtimeMode !== 'main-thread'}
+							<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+								<div class="text-sm font-medium text-zinc-400">Update Mode:</div>
+								<div class="flex gap-1 rounded-lg bg-zinc-800 p-1">
+									<button
+										class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {updateMode === 'full'
+											? 'bg-zinc-700 text-zinc-50 shadow-sm'
+											: 'text-zinc-400 hover:text-zinc-300'}"
+										onclick={() => (updateMode = 'full')}
+									>
+										Full Tree
+									</button>
+									<button
+										class="inline-flex h-8 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {updateMode === 'incremental'
+											? 'bg-zinc-700 text-zinc-50 shadow-sm'
+											: 'text-zinc-400 hover:text-zinc-300'}"
+										onclick={() => (updateMode = 'incremental')}
+									>
+										Incremental
+									</button>
+								</div>
+							</div>
+						{/if}
+
 						<!-- Demo Tabs -->
 						<div class="flex gap-1 rounded-lg bg-zinc-800 p-1">
 							<button
@@ -184,6 +256,14 @@
 								onclick={() => (currentDemo = 'advanced')}
 							>
 								Advanced Demo
+							</button>
+							<button
+								class="inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-all focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none {currentDemo === 'benchmark'
+									? 'bg-zinc-700 text-zinc-50 shadow-sm'
+									: 'text-zinc-400 hover:text-zinc-300'}"
+								onclick={() => (currentDemo = 'benchmark')}
+							>
+								Benchmark
 							</button>
 						</div>
 
@@ -206,7 +286,7 @@
 						<!-- Plugin Container -->
 						<div class="min-h-[300px] rounded-lg bg-zinc-950/50 p-4">
 							{#if browser && controller && registry}
-								{#key framework + runtimeMode + currentDemo}
+								{#key framework + runtimeMode + currentDemo + updateMode}
 									<PluginHost {controller} {registry}>
 										{#snippet loading()}
 											<div class="flex h-[200px] items-center justify-center">
@@ -235,17 +315,25 @@
 			<div class="mt-8 space-y-2 text-center text-sm text-zinc-500">
 				<p>Built with Svelte 5, {framework === 'solid' ? 'Solid' : 'React'}, and @uniview</p>
 				<p class="text-xs">
-					{currentDemo === 'simple'
-						? 'Showing: Basic Button and Input components'
-						: 'Showing: Form, Switch, and Toggle components'}
+					{currentDemo === 'benchmark'
+						? 'Showing: Performance benchmark with 1000 list items (max 2000)'
+						: currentDemo === 'simple'
+							? 'Showing: Basic Button and Input components'
+							: 'Showing: Form, Switch, and Toggle components'}
 				</p>
 				{#if runtimeMode === 'worker'}
 					<p class="text-xs text-violet-400">
 						⚡ {framework === 'solid' ? 'Solid' : 'React'} plugin running in Web Worker (sandboxed)
+						{#if currentDemo === 'benchmark'}
+							• {updateMode === 'incremental' ? 'Incremental updates' : 'Full tree updates'}
+						{/if}
 					</p>
 				{:else if runtimeMode === 'node-server'}
 					<p class="text-xs text-purple-400">
 						🖥️ {framework === 'solid' ? 'Solid' : 'React'} plugin running in Node.js (WebSocket)
+						{#if currentDemo === 'benchmark'}
+							• {updateMode === 'incremental' ? 'Incremental updates' : 'Full tree updates'}
+						{/if}
 					</p>
 				{:else}
 					<p class="text-xs text-emerald-400">

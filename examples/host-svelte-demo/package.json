@@ -25,7 +25,8 @@
     "@uniview/host-sdk": "workspace:*",
     "@uniview/host-svelte": "workspace:*",
     "@uniview/protocol": "workspace:*",
-    "mode-watcher": "^1.1.0"
+    "mode-watcher": "^1.1.0",
+    "svelte-inspect-value": "^0.10.0"
   },
   "devDependencies": {
     "@lucide/svelte": "^0.563.1",

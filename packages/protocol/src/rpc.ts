@@ -1,5 +1,6 @@
 import type { JSONValue, UINode } from "./tree";
 import type { HandlerId } from "./events";
+import type { Mutation } from "./mutations";
 
 /**
  * API that the host exposes to the plugin
@@ -41,8 +42,16 @@ export interface PluginToHostAPI {
   /**
    * Update the UI tree
    * Called after every React render in the plugin
+   * Used in "full" update mode (default, backward compatible)
    */
   updateTree(tree: UINode | null): void;
+
+  /**
+   * Apply incremental mutations to the UI tree
+   * Called after every render in "incremental" update mode
+   * More efficient than updateTree for large trees with small changes
+   */
+  applyMutations(mutations: Mutation[]): void;
 
   /**
    * Log a message from the plugin

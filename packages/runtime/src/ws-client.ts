@@ -6,12 +6,15 @@ import type {
   UINode,
   HostToPluginAPI,
   PluginToHostAPI,
+  UpdateMode,
+  Mutation,
 } from "@uniview/protocol";
 import {
   createRenderer,
   render,
   serializeTree,
   HandlerRegistry,
+  MutationCollector,
   type RenderBridge,
 } from "@uniview/react-renderer";
 
@@ -19,6 +22,8 @@ export interface WebSocketPluginClientOptions {
   App: ComponentType<unknown>;
   serverUrl: string;
   pluginId: string;
+  /** Update mode: "full" sends entire tree, "incremental" sends mutations */
+  mode?: UpdateMode;
   /** Reconnection delay in ms (default: 1000) */
   reconnectDelay?: number;
   /** Max reconnection attempts (default: Infinity) */
@@ -44,6 +49,17 @@ interface RendererHandle extends RenderBridge {
  * 3. If connection drops, automatically reconnects
  * 4. State resets on each new connection (host re-initializes)
  */
+// Stats tracking for benchmarks
+interface Stats {
+  bytesSent: number;
+  messagesSent: number;
+}
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __uniview_stats: Stats | undefined;
+}
+
 export function createWebSocketPluginClient(
   opts: WebSocketPluginClientOptions,
 ): WebSocketPluginClient {
@@ -51,9 +67,14 @@ export function createWebSocketPluginClient(
     App,
     serverUrl,
     pluginId,
+    mode = "full",
     reconnectDelay = 1000,
     maxReconnectAttempts = Infinity,
   } = opts;
+
+  // Stats tracking
+  const stats: Stats = { bytesSent: 0, messagesSent: 0 };
+  globalThis.__uniview_stats = stats;
 
   const wsUrl = `${serverUrl}/plugins/${pluginId}`;
   let closed = false;
@@ -68,10 +89,12 @@ export function createWebSocketPluginClient(
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
+  let mutationCollector: MutationCollector | null = null;
 
   function resetRuntimeState() {
     bridge = null;
     currentElement = null;
+    mutationCollector = null;
     handlerRegistry?.clear();
     handlerRegistry = null;
   }
@@ -84,16 +107,56 @@ export function createWebSocketPluginClient(
         handlerRegistry = new HandlerRegistry();
         bridge = createRenderer();
 
-        bridge.subscribe(() => {
-          if (!bridge || !handlerRegistry || !currentRpc) return;
+        if (mode === "incremental") {
+          // Set up mutation collection
+          mutationCollector = new MutationCollector(handlerRegistry);
+          bridge.mutationCollector = mutationCollector;
 
-          const serializedTree = serializeTree(
-            bridge.rootInstance,
-            handlerRegistry,
-          ) as UINode | null;
+          bridge.subscribeMutations((mutations: Mutation[]) => {
+            if (!currentRpc) return;
 
-          currentRpc.getAPI().updateTree(serializedTree);
-        });
+            // Track stats
+            const bytes = JSON.stringify(mutations).length;
+            stats.bytesSent += bytes;
+            stats.messagesSent++;
+
+            currentRpc.getAPI().applyMutations(mutations);
+          });
+
+          // Also send full tree for initial render
+          bridge.subscribe(() => {
+            if (!bridge || !handlerRegistry || !currentRpc) return;
+
+            const serializedTree = serializeTree(
+              bridge.rootInstance,
+              handlerRegistry,
+            ) as UINode | null;
+
+            // Track stats
+            const bytes = JSON.stringify(serializedTree).length;
+            stats.bytesSent += bytes;
+            stats.messagesSent++;
+
+            currentRpc.getAPI().updateTree(serializedTree);
+          });
+        } else {
+          // Full tree mode (default)
+          bridge.subscribe(() => {
+            if (!bridge || !handlerRegistry || !currentRpc) return;
+
+            const serializedTree = serializeTree(
+              bridge.rootInstance,
+              handlerRegistry,
+            ) as UINode | null;
+
+            // Track stats
+            const bytes = JSON.stringify(serializedTree).length;
+            stats.bytesSent += bytes;
+            stats.messagesSent++;
+
+            currentRpc.getAPI().updateTree(serializedTree);
+          });
+        }
 
         currentElement = createElement(App, (req.props ?? {}) as object);
         render(currentElement, bridge);

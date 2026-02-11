@@ -4,4 +4,15 @@ export {
 	type SolidPluginRuntime,
 } from "./runtime"
 
-export { startSolidWorkerPlugin } from "./worker-entry"
+export { startSolidWorkerPlugin, type StartSolidWorkerPluginOptions } from "./worker-entry"
+
+export {
+	createSolidWebSocketPluginClient,
+	type SolidWebSocketPluginClientOptions,
+	type SolidWebSocketPluginClient,
+} from "./ws-client"
+
+export {
+	connectSolidToHostServer,
+	type ConnectSolidToHostServerOptions,
+} from "./ws-client-entry"

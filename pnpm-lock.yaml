@@ -213,6 +213,9 @@ importers:
       mode-watcher:
         specifier: ^1.1.0
         version: 1.1.0(svelte@5.48.3)
+      svelte-inspect-value:
+        specifier: ^0.10.0
+        version: 0.10.0(svelte@5.48.3)
     devDependencies:
       '@lucide/svelte':
         specifier: ^0.563.1
@@ -357,6 +360,31 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+
+  examples/plugin-benchmark:
+    dependencies:
+      '@uniview/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@uniview/solid-runtime':
+        specifier: workspace:*
+        version: link:../../packages/solid-runtime
+      react:
+        specifier: 'catalog:'
+        version: 19.2.4
+      solid-js:
+        specifier: ^1.9.5
+        version: 1.9.11
+    devDependencies:
+      '@types/bun':
+        specifier: ^1.0.0
+        version: 1.3.9
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.10
+      npm-run-all2:
+        specifier: ^8.0.4
+        version: 8.0.4
 
   examples/plugin-example:
     dependencies:
@@ -3903,6 +3931,10 @@ packages:
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
 
+  highlight.js@11.11.1:
+    resolution: {integrity: sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w==}
+    engines: {node: '>=12.0.0'}
+
   hookable@6.0.1:
     resolution: {integrity: sha512-uKGyY8BuzN/a5gvzvA+3FVWo0+wUjgtfSdnmjtrOVwQCZPHpHDH2WRO3VZSOeluYrHoDCiXFffZXs8Dj1ULWtw==}
 
@@ -4204,6 +4236,9 @@ packages:
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
+  many-keys-map@2.0.1:
+    resolution: {integrity: sha512-DHnZAD4phTbZ+qnJdjoNEVU1NecYoSdbOOoVmTDH46AuxDkEVh3MxTVpXq10GtcTC6mndN9dkv1rNfpjRcLnOw==}
+
   markdown-extensions@2.0.0:
     resolution: {integrity: sha512-o5vL7aDWatOTX8LzaS1WMoaoxIiLRQJuIKKe2wAw6IeULDHaqbiqiggmx+pKvZDb1Sj+pE46Sn1T7lCqfFtg1Q==}
     engines: {node: '>=16'}
@@ -4269,6 +4304,10 @@ packages:
 
   memoize-weak@1.0.2:
     resolution: {integrity: sha512-gj39xkrjEw7nCn4nJ1M5ms6+MyMlyiGmttzsqAUsAKn6bYKwuTHh/AO3cKPF8IBrTIYTxb0wWXFs3E//Y8VoWQ==}
+
+  memoize@10.2.0:
+    resolution: {integrity: sha512-DeC6b7QBrZsRs3Y02A6A7lQyzFbsQbqgjI6UW0GigGWV+u1s25TycMr0XHZE4cJce7rY/vyw2ctMQqfDkIhUEA==}
+    engines: {node: '>=18'}
 
   memorystream@0.3.1:
     resolution: {integrity: sha512-S3UwM3yj5mtUSEfP41UZmt/0SCoVYUcU1rkXv+BQ5Ig8ndL4sPoJNBUJERafdPb5jjHJGuMgytgKvKIf58XNBw==}
@@ -4400,6 +4439,10 @@ packages:
   mimic-fn@2.1.0:
     resolution: {integrity: sha512-OqbOk5oEQeAZ8WXWydlu9HJjz9WVdEIvamMCcXmuqUYjTknH/sqsWvhQ3vgwKFRR1HpjvNBKQ37nbJgYzGqGcg==}
     engines: {node: '>=6'}
+
+  mimic-function@5.0.1:
+    resolution: {integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==}
+    engines: {node: '>=18'}
 
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
@@ -5066,6 +5109,11 @@ packages:
     peerDependencies:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: '>=5.0.0'
+
+  svelte-inspect-value@0.10.0:
+    resolution: {integrity: sha512-yLpXL+GEu9fPCKL7FqfjEoVVWz6rsMZDPd45UmuV8fTXB7L5Qk/T+IfCeZAsUn8fAiaLyeDLG3zSHEVesMjCsQ==}
+    peerDependencies:
+      svelte: ^5.29.0
 
   svelte-preprocess@6.0.3:
     resolution: {integrity: sha512-PLG2k05qHdhmRG7zR/dyo5qKvakhm8IJ+hD2eFRQmMLHp7X3eJnjeupUtvuRpbNiF31RjVw45W+abDwHEmP5OA==}
@@ -8736,6 +8784,8 @@ snapshots:
     dependencies:
       '@types/hast': 3.0.4
 
+  highlight.js@11.11.1: {}
+
   hookable@6.0.1: {}
 
   html-entities@2.3.3: {}
@@ -8949,6 +8999,8 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  many-keys-map@2.0.1: {}
+
   markdown-extensions@2.0.0: {}
 
   markdown-table@3.0.4: {}
@@ -9121,6 +9173,10 @@ snapshots:
   memoirist@0.4.0: {}
 
   memoize-weak@1.0.2: {}
+
+  memoize@10.2.0:
+    dependencies:
+      mimic-function: 5.0.1
 
   memorystream@0.3.1: {}
 
@@ -9422,6 +9478,8 @@ snapshots:
       mime-db: 1.33.0
 
   mimic-fn@2.1.0: {}
+
+  mimic-function@5.0.1: {}
 
   minimatch@3.1.2:
     dependencies:
@@ -10186,6 +10244,15 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - picomatch
+
+  svelte-inspect-value@0.10.0(svelte@5.48.3):
+    dependencies:
+      esm-env: 1.2.2
+      fast-deep-equal: 3.1.3
+      highlight.js: 11.11.1
+      many-keys-map: 2.0.1
+      memoize: 10.2.0
+      svelte: 5.48.3
 
   svelte-preprocess@6.0.3(@babel/core@7.28.6)(postcss@8.5.6)(svelte@5.48.3)(typescript@5.9.2):
     dependencies:

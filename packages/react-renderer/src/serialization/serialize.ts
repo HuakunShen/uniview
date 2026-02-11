@@ -1,7 +1,7 @@
-import type { UINode, JSONValue } from "@uniview/protocol";
-import { EVENT_PROPS, handlerIdProp } from "@uniview/protocol";
+import type { UINode } from "@uniview/protocol";
 import type { InternalNode, TextNode } from "../reconciler/types";
 import type { HandlerRegistry } from "./handler-registry";
+import { serializeProps } from "./serialize-props";
 
 function isTextNode(node: unknown): node is TextNode {
   return (
@@ -24,34 +24,6 @@ export function serializeTree(
     return instance.text;
   }
 
-  const serializedProps: Record<string, JSONValue> = {};
-
-  for (const [key, value] of Object.entries(instance.props)) {
-    if (key === "children" || key === "key" || key === "ref") {
-      continue;
-    }
-
-    if (
-      EVENT_PROPS.includes(key as (typeof EVENT_PROPS)[number]) &&
-      typeof value === "function"
-    ) {
-      const handlerId = registry.register(
-        value as (...args: unknown[]) => unknown,
-      );
-      serializedProps[handlerIdProp(key as (typeof EVENT_PROPS)[number])] =
-        handlerId;
-    } else if (typeof value === "function") {
-      continue;
-    } else if (value !== undefined && value !== null) {
-      try {
-        JSON.stringify(value);
-        serializedProps[key] = value as JSONValue;
-      } catch {
-        continue;
-      }
-    }
-  }
-
   const serializedChildren: (UINode | string)[] = [];
   for (const child of instance.children) {
     const serializedChild = serializeTree(
@@ -65,7 +37,7 @@ export function serializeTree(
 
   return {
     type: instance.type,
-    props: serializedProps,
+    props: serializeProps(instance.props, registry),
     children: serializedChildren,
     id: instance.id,
   };

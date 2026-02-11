@@ -9,4 +9,6 @@ export interface InternalNode {
 export interface TextNode {
   _isTextNode: true;
   text: string;
+  id: string; // Stable ID for mutation-based updates
+  parent: InternalNode | null; // Parent reference for mutations
 }

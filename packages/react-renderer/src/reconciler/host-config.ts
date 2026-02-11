@@ -19,9 +19,15 @@ type NoTimeout = -1;
 
 let instanceCounter = 0;
 let currentUpdatePriority = NoEventPriority;
+let activeContainer: Container | null = null;
+let textNodeCounter = 0;
 
 function generateId(): string {
   return `node-${instanceCounter++}`;
+}
+
+function generateTextNodeId(): string {
+  return `text-${textNodeCounter++}`;
 }
 
 export const hostConfig: HostConfig<
@@ -52,12 +58,23 @@ export const hostConfig: HostConfig<
     return parentHostContext;
   },
 
-  prepareForCommit(): null {
+  prepareForCommit(container: Container): null {
+    activeContainer = container;
+    container.mutationCollector?.beginCommit();
     return null;
   },
 
   resetAfterCommit(container: Container): void {
+    // Flush mutations if collector is active
+    if (container.mutationCollector) {
+      const mutations = container.mutationCollector.flushCommit();
+      if (mutations.length > 0) {
+        container.mutationSubscribers.forEach((cb) => cb(mutations));
+      }
+    }
+    // Always notify full-mode subscribers
     container.update();
+    activeContainer = null;
   },
 
   createInstance(
@@ -80,29 +97,34 @@ export const hostConfig: HostConfig<
     _rootContainer: Container,
     _hostContext: HostContext,
   ): TextInstance {
-    return { _isTextNode: true, text };
+    return { _isTextNode: true, text, id: generateTextNodeId(), parent: null };
   },
 
   appendInitialChild(parent: Instance, child: Instance | TextInstance): void {
     if ("_isTextNode" in child) {
+      child.parent = parent;
       parent.children.push(child);
     } else {
       child.parent = parent;
       parent.children.push(child);
     }
+    activeContainer?.mutationCollector?.collectAppendChild(parent, child);
   },
 
   appendChild(parent: Instance, child: Instance | TextInstance): void {
     if ("_isTextNode" in child) {
+      child.parent = parent;
       parent.children.push(child);
     } else {
       child.parent = parent;
       parent.children.push(child);
     }
+    activeContainer?.mutationCollector?.collectAppendChild(parent, child);
   },
 
   appendChildToContainer(container: Container, child: Instance): void {
     container.rootInstance = child;
+    activeContainer?.mutationCollector?.collectSetRoot(child);
   },
 
   insertBefore(
@@ -112,10 +134,13 @@ export const hostConfig: HostConfig<
   ): void {
     const index = parent.children.indexOf(beforeChild);
     if (index !== -1) {
-      if (!("_isTextNode" in child)) {
+      if ("_isTextNode" in child) {
+        child.parent = parent;
+      } else {
         child.parent = parent;
       }
       parent.children.splice(index, 0, child);
+      activeContainer?.mutationCollector?.collectInsertBefore(parent, child, beforeChild);
     }
   },
 
@@ -123,15 +148,19 @@ export const hostConfig: HostConfig<
     const index = parent.children.indexOf(child);
     if (index !== -1) {
       parent.children.splice(index, 1);
-      if (!("_isTextNode" in child)) {
+      if ("_isTextNode" in child) {
+        child.parent = null;
+      } else {
         child.parent = null;
       }
+      activeContainer?.mutationCollector?.collectRemoveChild(parent, child);
     }
   },
 
   removeChildFromContainer(container: Container, child: Instance): void {
     if (container.rootInstance === child) {
       container.rootInstance = null;
+      activeContainer?.mutationCollector?.collectSetRoot(null);
     }
   },
 
@@ -142,6 +171,7 @@ export const hostConfig: HostConfig<
     newProps: Props,
   ): void {
     instance.props = { ...newProps };
+    activeContainer?.mutationCollector?.collectSetProps(instance);
   },
 
   commitTextUpdate(
@@ -150,6 +180,7 @@ export const hostConfig: HostConfig<
     newText: string,
   ): void {
     textInstance.text = newText;
+    activeContainer?.mutationCollector?.collectSetText(textInstance);
   },
 
   finalizeInitialChildren(): boolean {
@@ -162,6 +193,7 @@ export const hostConfig: HostConfig<
 
   clearContainer(container: Container): void {
     container.rootInstance = null;
+    activeContainer?.mutationCollector?.collectSetRoot(null);
   },
 
   getPublicInstance(instance: Instance): PublicInstance {

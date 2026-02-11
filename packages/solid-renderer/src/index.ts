@@ -13,6 +13,8 @@ export {
 	mergeProps,
 	use,
 	setUpdateCallback,
+	setMutationUpdateCallback,
+	setMutationCollector,
 	getRootNode,
 	setRootNode,
 } from "./renderer/reconciler";
@@ -29,6 +31,10 @@ export { generateId, resetIdCounter } from "./renderer/types";
 // Serialization
 export { HandlerRegistry } from "./serialization/handler-registry";
 export { serializeTree } from "./serialization/serialize";
+export { serializeProps } from "./serialization/serialize-props";
+
+// Mutation
+export { SolidMutationCollector } from "./mutation/mutation-collector";
 
 // Re-exports from solid-js
 export {

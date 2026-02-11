@@ -3,11 +3,15 @@ import { serve } from "bun";
 const workerEntrypoints = [
   "./src/simple-demo.worker.ts",
   "./src/advanced-demo.worker.ts",
+  "./src/benchmark-full.worker.ts",
+  "./src/benchmark-incremental.worker.ts",
 ];
 
 const clientEntrypoints = [
   "./src/simple-demo.client.ts",
   "./src/advanced-demo.client.ts",
+  "./src/benchmark-full.client.ts",
+  "./src/benchmark-incremental.client.ts",
 ];
 
 const workerResults = await Promise.all(
@@ -92,4 +96,6 @@ if (process.argv.includes("--serve")) {
   console.log("Available plugins:");
   console.log(`  - http://localhost:${PORT}/simple-demo.worker.js`);
   console.log(`  - http://localhost:${PORT}/advanced-demo.worker.js`);
+  console.log(`  - http://localhost:${PORT}/benchmark-full.worker.js`);
+  console.log(`  - http://localhost:${PORT}/benchmark-incremental.worker.js`);
 }

@@ -1,28 +1,39 @@
 import type { ComponentType, ReactElement } from "react";
 import { createElement } from "react";
-import type { UINode, JSONValue, HandlerId } from "@uniview/protocol";
+import type { UINode, JSONValue, HandlerId, Mutation } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
 import {
   createRenderBridge,
   render,
   serializeTree,
   HandlerRegistry,
+  MutationCollector,
 } from "@uniview/react-renderer";
+import { MutableTree } from "../mutable-tree";
 
 export interface MainControllerOptions {
   App: ComponentType<unknown>;
   initialProps?: JSONValue;
+  mode?: "full" | "incremental";
+}
+
+export interface MainControllerOptions {
+  App: ComponentType<unknown>;
+  initialProps?: JSONValue;
+  mode?: "full" | "incremental";
 }
 
 export function createMainController(
   opts: MainControllerOptions,
 ): PluginController {
-  const { App, initialProps } = opts;
+  const { App, initialProps, mode = "full" } = opts;
 
   let bridge: ReturnType<typeof createRenderBridge> | null = null;
   let currentElement: ReactElement | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
+  let mutationCollector: MutationCollector | null = null;
   let tree: UINode | null = null;
+  let mutableTree = new MutableTree();
   let connected = false;
   const subscribers = new Set<(tree: UINode | null) => void>();
 
@@ -31,16 +42,37 @@ export function createMainController(
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderBridge();
 
-      bridge.subscribe(() => {
-        if (!bridge || !handlerRegistry) return;
+      if (mode === "incremental") {
+        // Set up mutation collection
+        mutationCollector = new MutationCollector(handlerRegistry);
+        bridge.mutationCollector = mutationCollector;
 
-        tree = serializeTree(
-          bridge.rootInstance,
-          handlerRegistry,
-        ) as UINode | null;
+        bridge.subscribeMutations((mutations: Mutation[]) => {
+          tree = mutableTree.applyMutations(mutations);
+          subscribers.forEach((cb) => cb(tree));
+        });
 
-        subscribers.forEach((cb) => cb(tree));
-      });
+        // Also subscribe to full tree for initial render
+        bridge.subscribe(() => {
+          if (!bridge || !handlerRegistry) return;
+          tree = serializeTree(
+            bridge.rootInstance,
+            handlerRegistry,
+          ) as UINode | null;
+          mutableTree.init(tree);
+          subscribers.forEach((cb) => cb(tree));
+        });
+      } else {
+        // Full tree mode
+        bridge.subscribe(() => {
+          if (!bridge || !handlerRegistry) return;
+          tree = serializeTree(
+            bridge.rootInstance,
+            handlerRegistry,
+          ) as UINode | null;
+          subscribers.forEach((cb) => cb(tree));
+        });
+      }
 
       currentElement = createElement(App, (initialProps ?? {}) as object);
       render(currentElement, bridge);
@@ -52,8 +84,10 @@ export function createMainController(
       currentElement = null;
       handlerRegistry?.clear();
       handlerRegistry = null;
+      mutationCollector = null;
       connected = false;
       tree = null;
+      mutableTree = new MutableTree();
     },
 
     async updateProps(props: JSONValue) {
