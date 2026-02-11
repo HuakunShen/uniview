@@ -16,7 +16,7 @@ export interface WebSocketPluginServer {
 }
 
 /**
- * @deprecated Use `connectToHostServer` from `@uniview/runtime/ws-client` instead.
+ * @deprecated Use `connectToHostServer` from `@uniview/react-runtime/ws-client` instead.
  * This server mode will be removed in a future version.
  * See the Bridge architecture for the recommended approach.
  */

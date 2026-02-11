@@ -17,7 +17,7 @@ Install the core packages:
 
 ```bash
 # For React plugin development
-pnpm add @uniview/runtime @uniview/react-renderer @uniview/protocol react
+pnpm add @uniview/react-runtime @uniview/react-renderer @uniview/protocol react
 
 # For Solid plugin development
 pnpm add @uniview/solid-runtime @uniview/solid-renderer @uniview/protocol solid-js
@@ -93,7 +93,7 @@ export default function App() {
 Bootstrap your plugin using the runtime:
 
 ```typescript title="src/worker.ts"
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./App";
 
 startWorkerPlugin({ App });

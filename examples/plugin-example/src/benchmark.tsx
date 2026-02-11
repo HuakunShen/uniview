@@ -17,46 +17,83 @@ interface OperationMetrics {
 	totalMessagesAtStart: number;
 }
 
-// Generate lorem ipsum text
-function generateLorem(length: number): string {
-	const words = [
-		"lorem",
-		"ipsum",
-		"dolor",
-		"sit",
-		"amet",
-		"consectetur",
-		"adipiscing",
-		"elit",
-		"sed",
-		"do",
-		"eiusmod",
-		"tempor",
-		"incididunt",
-		"ut",
-		"labore",
-		"et",
-		"dolore",
-		"magna",
-		"aliqua",
-	];
-	let result = "";
-	for (let i = 0; i < length; i++) {
-		result += words[Math.floor(Math.random() * words.length)] + " ";
+// Extended lorem ipsum word list for longer text
+const LOREM_WORDS = [
+	"lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
+	"sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore",
+	"magna", "aliqua", "enim", "ad", "minim", "veniam", "quis", "nostrud",
+	"exercitation", "ullamco", "laboris", "nisi", "aliquip", "ex", "ea", "commodo",
+	"consequat", "duis", "aute", "irure", "in", "reprehenderit", "voluptate",
+	"velit", "esse", "cillum", "fugiat", "nulla", "pariatur", "excepteur", "sint",
+	"occaecat", "cupidatat", "non", "proident", "sunt", "culpa", "qui", "officia",
+	"deserunt", "mollit", "anim", "id", "est", "laborum", "perspiciatis", "unde",
+	"omnis", "iste", "natus", "error", "voluptatem", "accusantium", "doloremque",
+	"laudantium", "totam", "rem", "aperiam", "eaque", "ipsa", "quae", "ab", "illo",
+	"inventore", "veritatis", "quasi", "architecto", "beatae", "vitae", "dicta",
+	"sunt", "explicabo", "nemo", "ipsam", "voluptas", "sint", "obcaecati", "aut",
+	"odit", "aut", "fugit", "sed", "quia", "consequuntur", "magni", "dolores",
+	"eos", "ratione", "sequi", "nesciunt", "neque", "porro", "quisquam", "dolorem",
+];
+
+// Deterministic pseudo-random number generator using a simple LCG
+// This ensures the same sequence of "random" operations every run
+class SeededRandom {
+	private seed: number;
+
+	constructor(seed: number = 12345) {
+		this.seed = seed;
 	}
-	return result.trim();
+
+	// Linear Congruential Generator
+	next(): number {
+		this.seed = (this.seed * 1664525 + 1013904223) % 4294967296;
+		return this.seed / 4294967296;
+	}
+
+	// Get random integer in range [min, max)
+	nextInt(min: number, max: number): number {
+		return Math.floor(this.next() * (max - min)) + min;
+	}
+
+	// Get random item from array
+	pick<T>(arr: T[]): T {
+		return arr[this.nextInt(0, arr.length)];
+	}
 }
 
-const MAX_ITEMS = 2000;
+const rng = new SeededRandom(12345);
+
+// Generate lorem ipsum text with deterministic "randomness"
+function generateLorem(wordCount: number): string {
+	const words: string[] = [];
+	for (let i = 0; i < wordCount; i++) {
+		words.push(rng.pick(LOREM_WORDS));
+	}
+	return words.join(" ");
+}
+
+// Configuration for stress testing
+const CONFIG = {
+	INITIAL_ITEMS: 5000,
+	MAX_ITEMS: 10000,
+	WORDS_PER_ITEM: 100, // Much longer text (was 20)
+	BATCH_SIZE: 50, // Insert/remove 50 items at a time (was 10)
+	AUTO_BENCHMARK_INTERVAL: 50, // Faster interval (was 100ms)
+	AUTO_BENCHMARK_CYCLES: 200, // More cycles (was 50)
+	ITEMS_PER_AUTO_OP: 25, // More items per auto operation (was 5)
+};
 
 export function BenchmarkApp() {
-	// Initialize with 1000 items
+	// Reset RNG for consistent initial state
+	rng["seed"] = 12345;
+
+	// Initialize with configured number of items
 	const [items, setItems] = useState<BenchmarkItem[]>(() => {
 		const initial: BenchmarkItem[] = [];
-		for (let i = 0; i < 1000; i++) {
+		for (let i = 0; i < CONFIG.INITIAL_ITEMS; i++) {
 			initial.push({
 				id: i,
-				text: generateLorem(20),
+				text: generateLorem(CONFIG.WORDS_PER_ITEM),
 			});
 		}
 		return initial;
@@ -82,7 +119,7 @@ export function BenchmarkApp() {
 	});
 	const lastOpMessagesRef = useRef(0);
 
-	const nextIdRef = useRef(1000);
+	const nextIdRef = useRef(CONFIG.INITIAL_ITEMS);
 	const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	// Read stats from global
@@ -112,29 +149,79 @@ export function BenchmarkApp() {
 		setIsRunning(false);
 	}, []);
 
+	// Insert items at random positions
 	const addItems = useCallback(() => {
 		const start = performance.now();
 		const newItems: BenchmarkItem[] = [];
-		for (let i = 0; i < 10; i++) {
+		for (let i = 0; i < CONFIG.BATCH_SIZE; i++) {
 			newItems.push({
 				id: nextIdRef.current++,
-				text: generateLorem(20),
+				text: generateLorem(CONFIG.WORDS_PER_ITEM),
 			});
 		}
 		setItems((prev) => {
-			const updated = [...prev, ...newItems];
-			// Auto-stop if we hit the max
-			if (updated.length >= MAX_ITEMS && intervalRef.current) {
-				stopBenchmark();
+			if (prev.length >= CONFIG.MAX_ITEMS) return prev;
+
+			// Create a copy and insert at random positions
+			const updated = [...prev];
+			for (const item of newItems) {
+				if (updated.length >= CONFIG.MAX_ITEMS) break;
+				// Insert at random position
+				const insertPos = rng.nextInt(0, updated.length + 1);
+				updated.splice(insertPos, 0, item);
 			}
-			return updated.slice(0, MAX_ITEMS);
+			return updated;
 		});
 		setTimeout(() => updateStats(performance.now() - start), 0);
-	}, [updateStats, stopBenchmark]);
+	}, [updateStats]);
 
+	// Remove items from random positions
 	const removeItems = useCallback(() => {
 		const start = performance.now();
-		setItems((prev) => prev.slice(0, -10));
+		setItems((prev) => {
+			if (prev.length === 0) return prev;
+			const updated = [...prev];
+			const removeCount = Math.min(CONFIG.BATCH_SIZE, updated.length);
+
+			// Remove from random positions
+			for (let i = 0; i < removeCount; i++) {
+				if (updated.length === 0) break;
+				const removePos = rng.nextInt(0, updated.length);
+				updated.splice(removePos, 1);
+			}
+			return updated;
+		});
+		setTimeout(() => updateStats(performance.now() - start), 0);
+	}, [updateStats]);
+
+	// Mixed operation: add AND remove simultaneously (high stress)
+	const mixedOperation = useCallback(() => {
+		const start = performance.now();
+		setItems((prev) => {
+			const updated = [...prev];
+
+			// First remove some items from random positions
+			const removeCount = Math.min(CONFIG.BATCH_SIZE, updated.length);
+			for (let i = 0; i < removeCount; i++) {
+				if (updated.length === 0) break;
+				const removePos = rng.nextInt(0, updated.length);
+				updated.splice(removePos, 1);
+			}
+
+			// Then add new items at random positions
+			const addCount = CONFIG.BATCH_SIZE;
+			for (let i = 0; i < addCount; i++) {
+				if (updated.length >= CONFIG.MAX_ITEMS) break;
+				const newItem = {
+					id: nextIdRef.current++,
+					text: generateLorem(CONFIG.WORDS_PER_ITEM),
+				};
+				const insertPos = rng.nextInt(0, updated.length + 1);
+				updated.splice(insertPos, 0, newItem);
+			}
+
+			return updated;
+		});
 		setTimeout(() => updateStats(performance.now() - start), 0);
 	}, [updateStats]);
 
@@ -143,7 +230,7 @@ export function BenchmarkApp() {
 		setItems((prev) =>
 			prev.map((item) => ({
 				...item,
-				text: generateLorem(20),
+				text: generateLorem(CONFIG.WORDS_PER_ITEM),
 			})),
 		);
 		setTimeout(() => updateStats(performance.now() - start), 0);
@@ -153,9 +240,9 @@ export function BenchmarkApp() {
 		const start = performance.now();
 		setItems((prev) => {
 			if (prev.length === 0) return prev;
-			const index = Math.floor(Math.random() * prev.length);
+			const index = rng.nextInt(0, prev.length);
 			return prev.map((item, i) =>
-				i === index ? { ...item, text: generateLorem(20) } : item,
+				i === index ? { ...item, text: generateLorem(CONFIG.WORDS_PER_ITEM) } : item,
 			);
 		});
 		setTimeout(() => updateStats(performance.now() - start), 0);
@@ -169,46 +256,74 @@ export function BenchmarkApp() {
 
 		setIsRunning(true);
 		let cycles = 0;
-		const maxCycles = 50;
+		const maxCycles = CONFIG.AUTO_BENCHMARK_CYCLES;
 
 		intervalRef.current = setInterval(() => {
-			// Stop if we've reached max cycles or max items
+			// Stop if we've reached max cycles
 			if (cycles >= maxCycles) {
 				stopBenchmark();
 				return;
 			}
 
-			// Alternate between add and modify
-			if (cycles % 2 === 0) {
-				const start = performance.now();
-				const newItems: BenchmarkItem[] = [];
-				for (let i = 0; i < 5; i++) {
-					newItems.push({
-						id: nextIdRef.current++,
-						text: generateLorem(20),
-					});
-				}
-				setItems((prev) => {
-					const updated = [...prev, ...newItems];
-					if (updated.length >= MAX_ITEMS) {
-						stopBenchmark();
+			const start = performance.now();
+
+			// Cycle through different operations for variety
+			const operationType = cycles % 5;
+
+			setItems((prev) => {
+				const updated = [...prev];
+
+				switch (operationType) {
+					case 0: // Random position insert
+					case 1: {
+						for (let i = 0; i < CONFIG.ITEMS_PER_AUTO_OP; i++) {
+							if (updated.length >= CONFIG.MAX_ITEMS) break;
+							const newItem = {
+								id: nextIdRef.current++,
+								text: generateLorem(CONFIG.WORDS_PER_ITEM),
+							};
+							const insertPos = rng.nextInt(0, updated.length + 1);
+							updated.splice(insertPos, 0, newItem);
+						}
+						break;
 					}
-					return updated.slice(0, MAX_ITEMS);
-				});
-				setTimeout(() => updateStats(performance.now() - start), 0);
-			} else {
-				const start = performance.now();
-				setItems((prev) => {
-					if (prev.length === 0) return prev;
-					const index = Math.floor(Math.random() * prev.length);
-					return prev.map((item, i) =>
-						i === index ? { ...item, text: generateLorem(20) } : item,
-					);
-				});
-				setTimeout(() => updateStats(performance.now() - start), 0);
-			}
+					case 2: // Random position remove
+					case 3: {
+						for (let i = 0; i < CONFIG.ITEMS_PER_AUTO_OP; i++) {
+							if (updated.length === 0) break;
+							const removePos = rng.nextInt(0, updated.length);
+							updated.splice(removePos, 1);
+						}
+						break;
+					}
+					case 4: // Mixed: remove then insert
+					default: {
+						// Remove some
+						for (let i = 0; i < CONFIG.ITEMS_PER_AUTO_OP / 2; i++) {
+							if (updated.length === 0) break;
+							const removePos = rng.nextInt(0, updated.length);
+							updated.splice(removePos, 1);
+						}
+						// Insert some
+						for (let i = 0; i < CONFIG.ITEMS_PER_AUTO_OP / 2; i++) {
+							if (updated.length >= CONFIG.MAX_ITEMS) break;
+							const newItem = {
+								id: nextIdRef.current++,
+								text: generateLorem(CONFIG.WORDS_PER_ITEM),
+							};
+							const insertPos = rng.nextInt(0, updated.length + 1);
+							updated.splice(insertPos, 0, newItem);
+						}
+						break;
+					}
+				}
+
+				return updated;
+			});
+
+			setTimeout(() => updateStats(performance.now() - start), 0);
 			cycles++;
-		}, 100);
+		}, CONFIG.AUTO_BENCHMARK_INTERVAL);
 	}, [stopBenchmark, updateStats]);
 
 	useEffect(() => {
@@ -247,10 +362,13 @@ export function BenchmarkApp() {
 
 	return (
 		<div style={{ padding: "20px", fontFamily: "system-ui, sans-serif" }}>
-			<h1>React Benchmark</h1>
+			<h1>React Benchmark (High Stress)</h1>
 
 			<div style={{ marginBottom: "20px" }}>
-				<div>Item count: {items.length} / {MAX_ITEMS} (max)</div>
+				<div>Item count: {items.length} / {CONFIG.MAX_ITEMS} (max)</div>
+				<div style={{ fontSize: "12px", color: "#666" }}>
+					Initial: {CONFIG.INITIAL_ITEMS} | Batch: {CONFIG.BATCH_SIZE} | Text: {CONFIG.WORDS_PER_ITEM} words/item
+				</div>
 			</div>
 
 			{/* Operation-Level Metrics */}
@@ -278,8 +396,9 @@ export function BenchmarkApp() {
 			</div>
 
 			<div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
-				<Button title="Add 10 Items" variant="primary" onClick={addItems} />
-				<Button title="Remove 10 Items" variant="secondary" onClick={removeItems} />
+				<Button title={`Add ${CONFIG.BATCH_SIZE} Items (Random Pos)`} variant="primary" onClick={addItems} />
+				<Button title={`Remove ${CONFIG.BATCH_SIZE} Items (Random Pos)`} variant="secondary" onClick={removeItems} />
+				<Button title="Mixed: Remove+Insert" variant="primary" onClick={mixedOperation} />
 				<Button title="Update All Texts" variant="outline" onClick={updateAllTexts} />
 				<Button title="Update Single Item" variant="outline" onClick={updateSingleItem} />
 				<Button

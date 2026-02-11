@@ -15,7 +15,7 @@ uniview/
 ├── packages/
 │   ├── protocol/         # RPC types, UINode schemas, event definitions
 │   ├── react-renderer/   # Custom React reconciler → UINode tree
-│   ├── runtime/          # Plugin bootstrap (worker entry points)
+│   ├── react-runtime/    # React plugin bootstrap (worker entry points)
 │   ├── host-sdk/         # Framework-agnostic host controller
 │   └── host-svelte/      # Svelte 5 adapter (runes)
 ├── examples/             # Demo apps (full-stack implementations)
@@ -40,7 +40,7 @@ uniview/
 | Task                  | Location                                         | Notes                                  |
 | --------------------- | ------------------------------------------------ | -------------------------------------- |
 | Plugin React code     | `packages/react-renderer/src/`                   | Custom reconciler, UINode conversion   |
-| Plugin runtime init   | `packages/runtime/src/`                          | Worker bootstrap, environment adapters |
+| Plugin runtime init   | `packages/react-runtime/src/`                    | Worker bootstrap, environment adapters |
 | RPC protocol          | `packages/protocol/src/`                         | Type definitions, Zod schemas          |
 | Host controller logic | `packages/host-sdk/src/`                         | Lifecycle, state management            |
 | Svelte adapter        | `packages/host-svelte/src/`                      | Svelte 5 renderer, components          |
@@ -53,7 +53,7 @@ uniview/
 
 | Symbol                 | Type      | Location                                  | Role                               |
 | ---------------------- | --------- | ----------------------------------------- | ---------------------------------- |
-| startWorkerPlugin      | Function  | runtime/src/worker-entry.ts               | Plugin bootstrap in Web Worker     |
+| startWorkerPlugin      | Function  | react-runtime/src/worker-entry.ts         | Plugin bootstrap in Web Worker     |
 | createWorkerController | Function  | host-sdk/src/index.ts                     | Host controller for worker plugins |
 | PluginHost             | Component | host-svelte/src/PluginHost.svelte         | Svelte 5 plugin renderer           |
 | UINode                 | Type      | protocol/src/types.ts                     | Serializable UI tree node          |
@@ -112,7 +112,7 @@ uniview/
 
 ### Multi-Entry Runtime Package
 
-`@uniview/runtime` exports multiple entry points for different environments:
+`@uniview/react-runtime` exports multiple entry points for different environments:
 
 ```json
 {

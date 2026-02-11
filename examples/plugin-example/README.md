@@ -126,7 +126,7 @@ export default function MyPlugin() {
 
 ```typescript
 // src/my-plugin.worker.ts
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./my-plugin";
 
 startWorkerPlugin({ App });
@@ -136,7 +136,7 @@ startWorkerPlugin({ App });
 
 ```typescript
 // src/my-plugin.client.ts
-import { connectToHostServer } from "@uniview/runtime/ws-client";
+import { connectToHostServer } from "@uniview/react-runtime/ws-client";
 import App from "./my-plugin";
 
 connectToHostServer({

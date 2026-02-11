@@ -1,8 +1,8 @@
 {
-  "name": "@uniview/runtime",
+  "name": "@uniview/react-runtime",
   "type": "module",
   "version": "0.0.1",
-  "description": "Plugin-side runtime for the Uniview plugin system",
+  "description": "React plugin-side runtime for the Uniview plugin system",
   "license": "MIT",
   "exports": {
     ".": "./dist/index.mjs",

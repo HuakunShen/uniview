@@ -1,4 +1,4 @@
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import SimpleDemo from "./simple-demo";
 
 startWorkerPlugin({ App: SimpleDemo });

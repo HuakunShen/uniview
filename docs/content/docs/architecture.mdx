@@ -24,7 +24,7 @@ flowchart TB
     end
 
     subgraph Plugin["PLUGIN (Web Worker/Node.js)"]
-        Runtime["@uniview/runtime<br/>or @uniview/solid-runtime"]
+        Runtime["@uniview/react-runtime<br/>or @uniview/solid-runtime"]
         PluginRuntime["PluginRuntime<br/>(RPC Handler)"]
         ReactRenderer["@uniview/react-renderer<br/>or @uniview/solid-renderer<br/>Reconciler → UINode"]
         PluginCode["PLUGIN CODE<br/>(React or Solid)<br/>function App()"]
@@ -172,14 +172,14 @@ Both renderers produce identical `UINode` output — hosts don't need to know wh
   Deno, and Bun.
 </Callout>
 
-### @uniview/runtime & @uniview/solid-runtime
+### @uniview/react-runtime & @uniview/solid-runtime
 
 Plugin bootstrap and lifecycle management. Both packages follow the same API pattern.
 
-**React (`@uniview/runtime`):**
+**React (`@uniview/react-runtime`):**
 
 ```typescript
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 startWorkerPlugin({ App });
 ```
 

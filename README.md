@@ -27,16 +27,16 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 
 ## Packages
 
-| Package                                              | Description                                            |
-| ---------------------------------------------------- | ------------------------------------------------------ |
-| [@uniview/protocol](./packages/protocol)             | Core types, UINode schema, RPC interfaces              |
-| [@uniview/react-renderer](./packages/react-renderer) | Custom React reconciler producing UINode trees         |
-| [@uniview/solid-renderer](./packages/solid-renderer) | Solid universal renderer producing UINode trees        |
-| [@uniview/runtime](./packages/runtime)               | React plugin bootstrap for Worker/WebSocket            |
-| [@uniview/solid-runtime](./packages/solid-runtime)   | Solid plugin bootstrap for Worker/WebSocket            |
-| [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                     |
-| [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                             |
-| [@uniview/tui-renderer](./packages/tui-renderer)     | Terminal UI renderer (non-DOM, like React Native)      |
+| Package                                              | Description                                       |
+| ---------------------------------------------------- | ------------------------------------------------- |
+| [@uniview/protocol](./packages/protocol)             | Core types, UINode schema, RPC interfaces         |
+| [@uniview/react-renderer](./packages/react-renderer) | Custom React reconciler producing UINode trees    |
+| [@uniview/solid-renderer](./packages/solid-renderer) | Solid universal renderer producing UINode trees   |
+| [@uniview/react-runtime](./packages/react-runtime)   | React plugin bootstrap for Worker/WebSocket       |
+| [@uniview/solid-runtime](./packages/solid-runtime)   | Solid plugin bootstrap for Worker/WebSocket       |
+| [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                |
+| [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                        |
+| [@uniview/tui-renderer](./packages/tui-renderer)     | Terminal UI renderer (non-DOM, like React Native) |
 
 ## Quick Start
 
@@ -71,6 +71,7 @@ pnpm dev:all
 ```
 
 The benchmark starts with 1000 items (max 2000) and shows:
+
 - Operation metrics (time per click, messages per operation)
 - Message metrics (bytes per message, total bandwidth)
 - Real-time comparison between full-tree and incremental modes
@@ -137,7 +138,7 @@ Create a React component and bootstrap it with the runtime:
 
 ```typescript
 // worker.ts
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./App";
 
 startWorkerPlugin({ App });
@@ -245,7 +246,7 @@ For server-side plugins, Uniview uses a **Bridge Server** pattern:
 
 ```typescript
 // Plugin connects as client
-import { connectToHostServer } from "@uniview/runtime/ws-client";
+import { connectToHostServer } from "@uniview/react-runtime/ws-client";
 
 connectToHostServer({
   App: MyPlugin,
@@ -264,9 +265,9 @@ const controller = createWebSocketController({
 
 Uniview supports two update strategies for sending UI changes from plugin to host:
 
-| Mode | Description | Best For |
-|------|-------------|----------|
-| **Full Tree** | Sends entire UINode tree on every render | Small trees, simple apps |
+| Mode            | Description                                   | Best For                      |
+| --------------- | --------------------------------------------- | ----------------------------- |
+| **Full Tree**   | Sends entire UINode tree on every render      | Small trees, simple apps      |
 | **Incremental** | Sends only mutations (append, remove, update) | Large lists, frequent updates |
 
 ### Incremental Updates
@@ -288,6 +289,7 @@ startWorkerPlugin({
 ```
 
 **Performance comparison** (1000 items):
+
 - Full Tree: ~87KB/message, 8-10ms operation time
 - Incremental: ~69KB/message, 6-7ms operation time
 
@@ -326,7 +328,7 @@ uniview/
 │   ├── protocol/           # Shared types and contracts
 │   ├── react-renderer/     # Custom React reconciler
 │   ├── solid-renderer/     # Solid universal renderer
-│   ├── runtime/            # React plugin bootstrap (worker + ws-client)
+│   ├── react-runtime/      # React plugin bootstrap (worker + ws-client)
 │   ├── solid-runtime/      # Solid plugin bootstrap (worker + ws-client)
 │   ├── host-sdk/           # Host controller logic
 │   ├── host-svelte/        # Svelte 5 adapter
@@ -415,14 +417,14 @@ Plugin (React or Solid)
 
 Uniview plugins render on any target that implements the UINode protocol:
 
-| Target | Example | Rendering Approach |
-|---|---|---|
-| **Svelte** (Web) | `host-svelte-demo` | Svelte 5 `ComponentRenderer` |
-| **React** (Web) | `host-react-demo` | React component tree |
-| **Vue** (Web) | `host-vue-demo` | Vue component tree |
-| **SwiftUI** (macOS) | `host-macos-demo` | Declarative SwiftUI views |
-| **AppKit** (macOS) | `host-appkit-demo` | Imperative NSViews with diff reconciler |
-| **Terminal** | `tui-demo` | ANSI escape codes (standalone) |
+| Target              | Example            | Rendering Approach                      |
+| ------------------- | ------------------ | --------------------------------------- |
+| **Svelte** (Web)    | `host-svelte-demo` | Svelte 5 `ComponentRenderer`            |
+| **React** (Web)     | `host-react-demo`  | React component tree                    |
+| **Vue** (Web)       | `host-vue-demo`    | Vue component tree                      |
+| **SwiftUI** (macOS) | `host-macos-demo`  | Declarative SwiftUI views               |
+| **AppKit** (macOS)  | `host-appkit-demo` | Imperative NSViews with diff reconciler |
+| **Terminal**        | `tui-demo`         | ANSI escape codes (standalone)          |
 
 The AppKit demo uses a view model layer with dirty-tracking bitfields and a tree reconciler that matches nodes by stable ID for O(1) diffing — the same architecture used by React Native. See `examples/host-appkit-demo/README.md` for a full design guide on building this kind of system.
 

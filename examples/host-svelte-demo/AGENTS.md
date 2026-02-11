@@ -45,6 +45,6 @@ registry.register('Input', PluginInput);
 ## ANTI-PATTERNS
 
 - ❌ **NEVER** bypass bridge - ALL WebSocket traffic (host ↔ plugin) must flow through `:3000`
-- ❌ **NEVER** hardcode bridge URLs in plugin code - use `connectToHostServer()` from `@uniview/runtime`
+- ❌ **NEVER** hardcode bridge URLs in plugin code - use `connectToHostServer()` from `@uniview/react-runtime`
 - ❌ **NEVER** spawn separate servers per plugin - multiplex through single bridge port
 - ❌ **NEVER** forget `controller.disconnect()` - leaks connections on mode switch

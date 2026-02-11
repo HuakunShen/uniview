@@ -1,4 +1,4 @@
-import { startWebSocketPluginServer } from "@uniview/runtime/ws-server";
+import { startWebSocketPluginServer } from "@uniview/react-runtime/ws-server";
 import SimpleDemo from "./simple-demo";
 
 startWebSocketPluginServer({

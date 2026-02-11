@@ -26,12 +26,12 @@ open http://localhost:5173?demo=benchmark&update=full
 
 The benchmark supports query parameters for quick access:
 
-| Parameter | Values | Description |
-|-----------|--------|-------------|
-| `demo` | `benchmark` | Select benchmark demo |
-| `update` | `full` \| `incremental` | Update mode |
-| `framework` | `react` \| `solid` | Plugin framework |
-| `runtime` | `worker` \| `node-server` | Runtime mode |
+| Parameter   | Values                    | Description           |
+| ----------- | ------------------------- | --------------------- |
+| `demo`      | `benchmark`               | Select benchmark demo |
+| `update`    | `full` \| `incremental`   | Update mode           |
+| `framework` | `react` \| `solid`        | Plugin framework      |
+| `runtime`   | `worker` \| `node-server` | Runtime mode          |
 
 Example: `http://localhost:5173?demo=benchmark&framework=react&update=incremental&runtime=worker`
 
@@ -40,6 +40,7 @@ Example: `http://localhost:5173?demo=benchmark&framework=react&update=incrementa
 ### Test Load
 
 The benchmark initializes with **1000 items** and allows up to **2000 items maximum**. Each item contains:
+
 - Unique ID
 - 20 words of lorem ipsum text (~100-150 characters)
 
@@ -48,12 +49,14 @@ This provides sufficient stress for modern computers while remaining responsive.
 ### Operations
 
 **Manual Operations:**
+
 - **Add 10 Items** - Appends 10 new items to the list
 - **Remove 10 Items** - Removes last 10 items
 - **Update All Texts** - Changes text on all items (stress test)
 - **Update Single Item** - Modifies one random item
 
 **Auto-Benchmark:**
+
 - Runs 50 cycles alternating between add and modify
 - Auto-stops at 500 cycles or when reaching max items
 - Measures sustained performance under load
@@ -64,33 +67,34 @@ This provides sufficient stress for modern computers while remaining responsive.
 
 These metrics measure performance from the user's perspective (each button click):
 
-| Metric | Description | Typical Values |
-|--------|-------------|----------------|
-| Operations performed | Total button clicks | User-dependent |
-| Last operation | Time for most recent operation | 5-15ms |
-| Avg time/operation | Mean operation latency | 6-10ms |
-| Messages in last op | RPC messages sent | 1-5 (incremental), 1 (full) |
-| Avg messages/op | Mean messages per operation | 1.5-3 (incremental) |
-| Avg bytes/op | Mean bandwidth per operation | 50-200KB |
+| Metric               | Description                    | Typical Values              |
+| -------------------- | ------------------------------ | --------------------------- |
+| Operations performed | Total button clicks            | User-dependent              |
+| Last operation       | Time for most recent operation | 5-15ms                      |
+| Avg time/operation   | Mean operation latency         | 6-10ms                      |
+| Messages in last op  | RPC messages sent              | 1-5 (incremental), 1 (full) |
+| Avg messages/op      | Mean messages per operation    | 1.5-3 (incremental)         |
+| Avg bytes/op         | Mean bandwidth per operation   | 50-200KB                    |
 
 ### Message Metrics (Per Message)
 
 These metrics measure the RPC communication efficiency:
 
-| Metric | Description | Full Tree | Incremental |
-|--------|-------------|-----------|-------------|
-| Total messages | Cumulative RPC calls | Lower | Higher |
-| Total bytes | Cumulative bandwidth | Higher | Lower* |
-| Bytes/message | Average message size | ~87KB | ~69KB |
-| Time/message | Serialization overhead | ~0.1μs | ~0.08μs |
+| Metric         | Description            | Full Tree | Incremental |
+| -------------- | ---------------------- | --------- | ----------- |
+| Total messages | Cumulative RPC calls   | Lower     | Higher      |
+| Total bytes    | Cumulative bandwidth   | Higher    | Lower\*     |
+| Bytes/message  | Average message size   | ~87KB     | ~69KB       |
+| Time/message   | Serialization overhead | ~0.1μs    | ~0.08μs     |
 
-*Note: Incremental mode may show higher total bytes in some scenarios due to message overhead. This is more noticeable with small trees.
+\*Note: Incremental mode may show higher total bytes in some scenarios due to message overhead. This is more noticeable with small trees.
 
 ## Performance Comparison
 
 ### Typical Results (1000 items, React)
 
 **Full Tree Mode:**
+
 ```
 Last operation: 8.10ms
 Total messages: 101
@@ -100,6 +104,7 @@ Avg messages/op: 1.0
 ```
 
 **Incremental Mode:**
+
 ```
 Last operation: 6.30ms
 Total messages: 202
@@ -111,12 +116,14 @@ Avg messages/op: 2.0
 ### Analysis
 
 **When Incremental is Better:**
+
 - Large lists with frequent small updates
 - Adding/removing individual items
 - Text updates on existing nodes
 - Bandwidth-constrained environments
 
 **When Full Tree is Better:**
+
 - Small trees (< 100 items)
 - Complete re-renders (theming, layout changes)
 - Simple apps with minimal updates
@@ -173,6 +180,7 @@ mutableTree.applyMutations(mutations);
 ```
 
 The tree uses indexing for O(1) lookups:
+
 - `nodeIndex: Map<string, UINode>` - Element lookups
 - `textIndex: Map<string, TextInfo>` - Text node tracking
 
@@ -181,12 +189,14 @@ The tree uses indexing for O(1) lookups:
 ### Choosing Update Mode
 
 **Use Incremental When:**
+
 - List has 100+ items
 - Frequent individual item updates
 - Network bandwidth is limited
 - Latency matters (real-time apps)
 
 **Use Full Tree When:**
+
 - Simple forms or small UIs
 - Complete re-renders are common
 - Debugging rendering issues
@@ -202,11 +212,13 @@ The tree uses indexing for O(1) lookups:
 ### Debugging
 
 **High message count?**
+
 - Check for unstable component keys
 - Look for unnecessary re-renders
 - Consider batching state updates
 
 **Large message sizes?**
+
 - Reduce prop payload sizes
 - Avoid passing large objects
 - Use references/IDs instead of data
@@ -217,7 +229,7 @@ The tree uses indexing for O(1) lookups:
 
 ```typescript
 // Enable incremental mode
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 
 startWorkerPlugin({
   App: MyBenchmarkApp,

@@ -1,4 +1,4 @@
-# @uniview/runtime
+# @uniview/react-runtime
 
 **Parent:** [../../AGENTS.md](../../AGENTS.md)
 

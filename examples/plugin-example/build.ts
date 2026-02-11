@@ -24,6 +24,7 @@ const workerResults = await Promise.all(
       minify: false,
       sourcemap: "external",
       naming: "[name].js",
+      external: ["ioredis", "kafkajs", "amqplib"],
     });
     return { entry, result };
   }),
@@ -39,6 +40,7 @@ const clientResults = await Promise.all(
       minify: false,
       sourcemap: "external",
       naming: "[name].js",
+      external: ["ioredis", "kafkajs", "amqplib"],
     });
     return { entry, result };
   }),

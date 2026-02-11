@@ -107,7 +107,7 @@ interface TextNode {
 
 ## Usage with Runtime
 
-This package is typically used internally by `@uniview/runtime`. Direct usage is only needed for advanced customization:
+This package is typically used internally by `@uniview/react-runtime`. Direct usage is only needed for advanced customization:
 
 ```typescript
 import { createRenderBridge, render, serializeTree, HandlerRegistry } from '@uniview/react-renderer';

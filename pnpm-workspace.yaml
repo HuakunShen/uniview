@@ -5,6 +5,6 @@ packages:
   - docs
 
 catalog:
-  kkrpc: ^0.6.5
+  kkrpc: ^0.6.7
   react: ^19.2.4
   react-reconciler: ^0.33.0

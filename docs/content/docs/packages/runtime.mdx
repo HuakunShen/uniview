@@ -1,16 +1,16 @@
 ---
-title: "@uniview/runtime"
-description: Plugin-side runtime for bootstrapping plugins in Web Workers and server environments
+title: "@uniview/react-runtime"
+description: Plugin-side runtime for bootstrapping React plugins in Web Workers and server environments
 icon: Play
 ---
 
-The runtime package bootstraps plugins in isolated environments (Web Workers, Node.js, Deno, Bun). There are two variants: `@uniview/runtime` for React plugins and `@uniview/solid-runtime` for Solid plugins. Both follow the same API pattern.
+The runtime package bootstraps plugins in isolated environments (Web Workers, Node.js, Deno, Bun). There are two variants: `@uniview/react-runtime` for React plugins and `@uniview/solid-runtime` for Solid plugins. Both follow the same API pattern.
 
 ## Installation
 
 ```bash
 # React plugins
-pnpm add @uniview/runtime
+pnpm add @uniview/react-runtime
 
 # Solid plugins
 pnpm add @uniview/solid-runtime
@@ -26,7 +26,7 @@ pnpm add @uniview/solid-runtime
 
 ```typescript
 // worker.ts
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./App";
 
 startWorkerPlugin({ App });
@@ -106,7 +106,7 @@ This function:
 For advanced use cases, create a runtime with custom transport:
 
 ```typescript
-import { createPluginRuntime } from "@uniview/runtime";
+import { createPluginRuntime } from "@uniview/react-runtime";
 import type { PluginToHostAPI } from "@uniview/protocol";
 
 interface PluginRuntimeOptions {
@@ -137,11 +137,11 @@ runtime.start();
 
 The package provides multiple entry points for different environments:
 
-| Entry            | Import                       | Environment                             |
-| ---------------- | ---------------------------- | --------------------------------------- |
-| Default          | `@uniview/runtime`           | Web Worker, Main thread                 |
-| WebSocket Client | `@uniview/runtime/ws-client` | Node.js, Deno, Bun (connects to Bridge) |
-| WebSocket Server | `@uniview/runtime/ws-server` | Node.js, Deno, Bun (Deprecated)         |
+| Entry            | Import                             | Environment                             |
+| ---------------- | ---------------------------------- | --------------------------------------- |
+| Default          | `@uniview/react-runtime`           | Web Worker, Main thread                 |
+| WebSocket Client | `@uniview/react-runtime/ws-client` | Node.js, Deno, Bun (connects to Bridge) |
+| WebSocket Server | `@uniview/react-runtime/ws-server` | Node.js, Deno, Bun (Deprecated)         |
 
 ### WebSocket Client Plugin (Recommended)
 
@@ -153,7 +153,7 @@ For server-side plugins that connect to a Bridge server:
 
 ```typescript
 // server-plugin.ts
-import { connectToHostServer } from "@uniview/runtime/ws-client";
+import { connectToHostServer } from "@uniview/react-runtime/ws-client";
 import App from "./App";
 
 connectToHostServer({
@@ -180,8 +180,9 @@ createSolidWebSocketPluginClient({
 ```
 
 <Callout type="warn">
-  Solid WebSocket plugins must be **built first** (Babel transform), then the built output is run with Bun.
-  Use `conditions: ["browser"]` in the Bun build config to avoid resolving to solid-js's SSR build.
+  Solid WebSocket plugins must be **built first** (Babel transform), then the
+  built output is run with Bun. Use `conditions: ["browser"]` in the Bun build
+  config to avoid resolving to solid-js's SSR build.
 </Callout>
 
 </Tab>
@@ -194,7 +195,7 @@ The plugin connects to `{serverUrl}/plugins/{pluginId}` and waits for a host to 
 
 <Callout type="warn">
   **Deprecated**: Running plugins as WebSocket servers is deprecated. Use
-  `@uniview/runtime/ws-client` to connect to a Bridge server instead. This
+  `@uniview/react-runtime/ws-client` to connect to a Bridge server instead. This
   approach simplifies deployment and port management.
 </Callout>
 
@@ -202,7 +203,7 @@ For server-side plugins that communicate over WebSocket:
 
 ```typescript
 // server-plugin.ts
-import { startWSServerPlugin } from "@uniview/runtime/ws-server";
+import { startWSServerPlugin } from "@uniview/react-runtime/ws-server";
 import App from "./App";
 
 startWSServerPlugin({

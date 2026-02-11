@@ -28,8 +28,8 @@ Demo plugins demonstrating Worker and WebSocket modes for Uniview plugin system.
 
 ### Runtime Modes
 
-- **Worker mode**: `*.worker.ts` imports `startWorkerPlugin()` from `@uniview/runtime`
-- **WebSocket mode**: `*.client.ts` imports `connectToHostServer()` from `@uniview/runtime/ws-client`
+- **Worker mode**: `*.worker.ts` imports `startWorkerPlugin()` from `@uniview/react-runtime`
+- **WebSocket mode**: `*.client.ts` imports `connectToHostServer()` from `@uniview/react-runtime/ws-client`
 - **Shared React**: `*.tsx` components work identically in both modes
 - **Triple runtime support**: Worker (browser), WebSocket (Node.js/Deno/Bun), Main Thread (dev)
 
@@ -37,12 +37,12 @@ Demo plugins demonstrating Worker and WebSocket modes for Uniview plugin system.
 
 ```typescript
 // Worker mode (browser Web Worker)
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./my-plugin";
 startWorkerPlugin({ App });
 
 // WebSocket mode (Node.js/Deno/Bun client)
-import { connectToHostServer } from "@uniview/runtime/ws-client";
+import { connectToHostServer } from "@uniview/react-runtime/ws-client";
 import App from "./my-plugin";
 connectToHostServer({
   App,

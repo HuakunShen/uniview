@@ -1,4 +1,4 @@
-import { connectToHostServer } from "@uniview/runtime/ws-client";
+import { connectToHostServer } from "@uniview/react-runtime/ws-client";
 import AdvancedDemo from "./advanced-demo";
 
 connectToHostServer({

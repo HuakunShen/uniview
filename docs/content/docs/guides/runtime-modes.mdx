@@ -32,7 +32,7 @@ The default and recommended mode for browser plugins.
 
 ```typescript
 // worker.ts
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./App";
 
 startWorkerPlugin({
@@ -98,7 +98,7 @@ The bridge server manages the pairing and ensures that RPC messages are forwarde
 
 ```typescript
 // server-plugin.ts (Recommended)
-import { connectToHostServer } from "@uniview/runtime/ws-client";
+import { connectToHostServer } from "@uniview/react-runtime/ws-client";
 import App from "./App";
 
 connectToHostServer({
@@ -112,7 +112,7 @@ connectToHostServer({
   **Deprecated Approach**
   The old method where the plugin runs its own server is still supported but deprecated:
   ```typescript
-  import { startWSServerPlugin } from "@uniview/runtime/ws-server";
+  import { startWSServerPlugin } from "@uniview/react-runtime/ws-server";
   startWSServerPlugin({ App, port: 3001 });
   ```
 </Callout>

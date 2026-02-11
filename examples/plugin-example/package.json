@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@uniview/example-plugin-api": "workspace:*",
-    "@uniview/runtime": "workspace:*",
+    "@uniview/react-runtime": "workspace:*",
     "is-what": "^5.5.0",
     "react": "catalog:",
     "ws": "^8.18.0"

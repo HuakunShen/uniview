@@ -1,7 +1,7 @@
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import { BenchmarkApp } from "./benchmark";
 
 startWorkerPlugin({
-	App: BenchmarkApp,
-	mode: "full",
+  App: BenchmarkApp,
+  mode: "full",
 });

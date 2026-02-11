@@ -1,11 +1,11 @@
-# @uniview/runtime
+# @uniview/react-runtime
 
-Plugin-side runtime for Uniview that bootstraps React plugins in various environments.
+React plugin-side runtime for Uniview that bootstraps React plugins in various environments.
 
 ## Installation
 
 ```bash
-pnpm add @uniview/runtime
+pnpm add @uniview/react-runtime
 ```
 
 ## Overview
@@ -25,7 +25,7 @@ The simplest way to create a worker-based plugin:
 
 ```typescript
 // worker.ts
-import { startWorkerPlugin } from "@uniview/runtime";
+import { startWorkerPlugin } from "@uniview/react-runtime";
 import App from "./App";
 
 startWorkerPlugin({ App });
@@ -38,7 +38,7 @@ That's it! The runtime handles all communication with the host.
 For more control, use `createPluginRuntime`:
 
 ```typescript
-import { createPluginRuntime } from "@uniview/runtime";
+import { createPluginRuntime } from "@uniview/react-runtime";
 import type { PluginToHostAPI } from "@uniview/protocol";
 
 const hostApi: PluginToHostAPI = {
