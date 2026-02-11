@@ -18,6 +18,8 @@
     "client": "bun build.ts && run-p client:simple client:advanced",
     "client:simple": "bun dist/simple-demo.client.js",
     "client:advanced": "bun dist/advanced-demo.client.js",
+    "client:benchmark-full": "bun dist/benchmark-full.client.js",
+    "client:benchmark-incremental": "bun dist/benchmark-incremental.client.js",
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },

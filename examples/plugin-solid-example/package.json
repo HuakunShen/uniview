@@ -9,7 +9,9 @@
     "dev": "bun run build.ts --watch",
     "client": "bun run client:simple & bun run client:advanced",
     "client:simple": "bun dist/simple-demo.client.js",
-    "client:advanced": "bun dist/advanced-demo.client.js"
+    "client:advanced": "bun dist/advanced-demo.client.js",
+    "client:benchmark-full": "bun dist/benchmark-full.client.js",
+    "client:benchmark-incremental": "bun dist/benchmark-incremental.client.js"
   },
   "dependencies": {
     "@uniview/example-solid-plugin-api": "workspace:*",
