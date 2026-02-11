@@ -7,8 +7,8 @@ settings:
 catalogs:
   default:
     kkrpc:
-      specifier: ^0.6.4
-      version: 0.6.4
+      specifier: ^0.6.5
+      version: 0.6.5
     react:
       specifier: ^19.2.4
       version: 19.2.4
@@ -459,7 +459,7 @@ importers:
         version: link:../react-renderer
       kkrpc:
         specifier: 'catalog:'
-        version: 0.6.4(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(typescript@5.9.2)(ws@8.19.0)
+        version: 0.6.5(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(typescript@5.9.2)(ws@8.19.0)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -589,7 +589,7 @@ importers:
         version: link:../react-renderer
       kkrpc:
         specifier: 'catalog:'
-        version: 0.6.4(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(typescript@5.9.2)(ws@8.19.0)
+        version: 0.6.5(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(typescript@5.9.2)(ws@8.19.0)
       ws:
         specifier: ^8.18.0
         version: 8.19.0
@@ -648,7 +648,7 @@ importers:
         version: link:../solid-renderer
       kkrpc:
         specifier: 'catalog:'
-        version: 0.6.4(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.3))(typescript@5.9.3)(ws@8.19.0)
+        version: 0.6.5(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.3))(typescript@5.9.3)(ws@8.19.0)
       solid-js:
         specifier: ^1.9.0
         version: 1.9.11
@@ -4042,8 +4042,8 @@ packages:
   khroma@2.1.0:
     resolution: {integrity: sha512-Ls993zuzfayK269Svk9hzpeGUKob/sIgZzyHYdjQoAdQetRKpOLj+k/QQQ/6Qi0Yz65mlROrfd+Ev+1+7dz9Kw==}
 
-  kkrpc@0.6.4:
-    resolution: {integrity: sha512-vYfl4qSRX+Acu9l+cD0gdxqySCFvkgDt2mNvZOfjIGx9xWNSQnCgYDcDoB8ZIlj3nOQMJ9TQJLYYO4ub9cltEQ==}
+  kkrpc@0.6.5:
+    resolution: {integrity: sha512-EC0MqIOxePuJoidwfq+jZF4wJhB5hDQbQF3QZIH3Geu5TvExXrqluqxwaH1oI7YsMTON8BsNjaPthKVka2byWg==}
     peerDependencies:
       '@nats-io/transport-node': ^3.3.0
       '@tauri-apps/plugin-shell': ^2.2.0
@@ -8837,7 +8837,7 @@ snapshots:
 
   khroma@2.1.0: {}
 
-  kkrpc@0.6.4(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(typescript@5.9.2)(ws@8.19.0):
+  kkrpc@0.6.5(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(typescript@5.9.2)(ws@8.19.0):
     dependencies:
       superjson: 2.2.6
       typescript: 5.9.2
@@ -8846,7 +8846,7 @@ snapshots:
       elysia: 1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2)
       ws: 8.19.0
 
-  kkrpc@0.6.4(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.3))(typescript@5.9.3)(ws@8.19.0):
+  kkrpc@0.6.5(@tauri-apps/plugin-shell@2.3.4)(elysia@1.4.22(@sinclair/typebox@0.34.48)(@types/bun@1.3.9)(exact-mirror@0.2.6(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.3))(typescript@5.9.3)(ws@8.19.0):
     dependencies:
       superjson: 2.2.6
       typescript: 5.9.3
