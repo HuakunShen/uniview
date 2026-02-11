@@ -20,6 +20,8 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 - Write plugins in React or Solid, render anywhere
 - Sandboxed execution in Web Workers for security
 - Server-side plugins via Node.js/Deno/Bun with WebSocket Bridge
+- **Incremental updates** - Only changed nodes are sent over RPC (not full tree)
+- **Benchmark mode** - Compare full-tree vs incremental performance
 - Framework-agnostic protocol - hosts implement their own adapters
 - Type-safe RPC communication via kkrpc
 
@@ -57,6 +59,21 @@ pnpm dev:all
 ```
 
 Then open `http://localhost:5173` and try both Worker and Node.js modes.
+
+**Benchmark Mode:**
+
+Select "Benchmark" demo to compare full-tree vs incremental update performance:
+
+```bash
+cd examples/host-svelte-demo
+pnpm dev:all
+# Open http://localhost:5173?demo=benchmark&update=incremental
+```
+
+The benchmark starts with 1000 items (max 2000) and shows:
+- Operation metrics (time per click, messages per operation)
+- Message metrics (bytes per message, total bandwidth)
+- Real-time comparison between full-tree and incremental modes
 
 **Solid Plugin Example:**
 
@@ -243,6 +260,39 @@ const controller = createWebSocketController({
 });
 ```
 
+## Update Modes
+
+Uniview supports two update strategies for sending UI changes from plugin to host:
+
+| Mode | Description | Best For |
+|------|-------------|----------|
+| **Full Tree** | Sends entire UINode tree on every render | Small trees, simple apps |
+| **Incremental** | Sends only mutations (append, remove, update) | Large lists, frequent updates |
+
+### Incremental Updates
+
+Incremental mode tracks individual mutations during the render phase:
+
+- `appendChild` - New nodes added to parent
+- `removeChild` - Nodes removed from parent
+- `insertBefore` - Nodes inserted at specific position
+- `setText` - Text content changed
+- `setProps` - Props changed on existing node
+
+```typescript
+// Plugin side - enable incremental mode
+startWorkerPlugin({
+  App: MyApp,
+  mode: "incremental", // or "full" (default)
+});
+```
+
+**Performance comparison** (1000 items):
+- Full Tree: ~87KB/message, 8-10ms operation time
+- Incremental: ~69KB/message, 6-7ms operation time
+
+See [Benchmark](#benchmark) section for detailed metrics.
+
 ## Runtime Modes
 
 | Mode            | Environment      | Isolation        | Use Case                         |
@@ -329,6 +379,7 @@ See the [docs](./docs) folder or visit the documentation site for:
 - [Architecture](./docs/content/docs/architecture.mdx) - System design and data flow
 - [Runtime Modes](./docs/content/docs/guides/runtime-modes.mdx) - Worker, WebSocket, Main Thread
 - [Getting Started](./docs/content/docs/getting-started.mdx) - Build your first plugin
+- [Benchmark](./docs/content/docs/guides/benchmark.mdx) - Performance testing and comparison
 
 ## How It Works
 

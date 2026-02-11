@@ -24,6 +24,7 @@ The default and recommended mode for browser plugins.
 - **Secure**: Safe to run untrusted third-party plugins
 - **Async only**: All communication via `postMessage`
 - **Browser-compatible**: Works in all modern browsers
+- **Update modes**: Supports both full-tree and incremental updates
 
 ### Setup
 
@@ -34,7 +35,10 @@ The default and recommended mode for browser plugins.
 import { startWorkerPlugin } from "@uniview/runtime";
 import App from "./App";
 
-startWorkerPlugin({ App });
+startWorkerPlugin({
+  App,
+  mode: "incremental", // "full" (default) or "incremental"
+});
 ```
 
 **Host side:**

@@ -65,16 +65,10 @@
 		if (currentDemo === 'benchmark') {
 			// Benchmark plugins have -full and -incremental variants
 			const mode = updateMode === 'full' ? 'full' : 'incremental';
-			if (framework === 'solid') {
-				return `http://localhost:3000/solid/benchmark-${mode}.worker.js`;
-			}
-			return `http://localhost:3000/benchmark-${mode}.worker.js`;
+			return `http://localhost:3000/${framework}/benchmark-${mode}.worker.js`;
 		}
 		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
-		if (framework === 'solid') {
-			return `http://localhost:3000/solid/${demo}.worker.js`;
-		}
-		return `http://localhost:3000/${demo}.worker.js`;
+		return `http://localhost:3000/${framework}/${demo}.worker.js`;
 	});
 
 	// Bridge server URL for Node.js mode (single server for all plugins)

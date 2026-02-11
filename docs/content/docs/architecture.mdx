@@ -60,6 +60,8 @@ sequenceDiagram
 
 When a user interacts with the rendered UI:
 
+**Full Tree Mode:**
+
 ```mermaid
 sequenceDiagram
     participant Host
@@ -70,6 +72,21 @@ sequenceDiagram
     Note over Plugin: Plugin executes handler<br/>State changes (React/Solid)<br/>Reconciler produces new tree
     Plugin->>Host: updateTree(UINode)
     Note over Host: Host re-renders tree
+```
+
+**Incremental Mode:**
+
+```mermaid
+sequenceDiagram
+    participant Host
+    participant Plugin
+
+    Note over Host: User clicks button
+    Host->>Plugin: executeHandler(id, args)
+    Note over Plugin: Plugin executes handler<br/>State changes (React/Solid)
+    Note over Plugin: MutationCollector tracks changes
+    Plugin->>Host: applyMutations(Mutation[])
+    Note over Host: Host applies mutations to existing tree
 ```
 
 ### Props Update (Host-Initiated)
@@ -95,6 +112,7 @@ The shared contract between plugin and host.
 **Exports:**
 
 - `UINode` - Serializable tree structure
+- `Mutation` - Incremental update mutations (appendChild, removeChild, setText, etc.)
 - `HostToPluginAPI` / `PluginToHostAPI` - RPC interfaces
 - `LAYOUT_TAGS` - Built-in HTML elements
 - `handlerIdProp()` - Handler ID convention
@@ -118,6 +136,7 @@ Custom React reconciler that produces serializable trees.
 - **HostConfig** - React reconciler configuration
 - **InternalNode** - In-memory tree representation
 - **serializeTree()** - Converts to protocol UINode
+- **MutationCollector** - Collects incremental mutations during commit
 - **HandlerRegistry** - Maps functions to IDs
 
 ```typescript
@@ -143,6 +162,7 @@ Solid universal renderer that produces the same serializable trees. Uses Babel w
 - **createRenderer()** - Universal renderer (insert, spread, createElement)
 - **SolidNode** - In-memory tree representation (same shape as InternalNode)
 - **serializeTree()** - Converts to protocol UINode
+- **SolidMutationCollector** - Collects incremental mutations
 - **HandlerRegistry** - Maps functions to IDs
 
 Both renderers produce identical `UINode` output — hosts don't need to know which framework the plugin uses.
@@ -183,6 +203,7 @@ Framework-agnostic host infrastructure.
 - `createWebSocketController()` - WebSocket mode
 - `createMainController()` - Main thread mode
 - `createComponentRegistry()` - Custom component mapping
+- `MutableTree` - Applies incremental mutations to UINode tree
 
 ```typescript
 const controller = createWorkerController({

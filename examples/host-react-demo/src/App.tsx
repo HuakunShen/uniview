@@ -30,8 +30,8 @@ function App() {
 
   const pluginUrl =
     currentDemo === "simple"
-      ? "http://localhost:3000/simple-demo.worker.js"
-      : "http://localhost:3000/advanced-demo.worker.js";
+      ? "http://localhost:3000/react/simple-demo.worker.js"
+      : "http://localhost:3000/react/advanced-demo.worker.js";
 
   const bridgeServerUrl = "ws://localhost:3000";
 

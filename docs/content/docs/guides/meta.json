@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "runtime-modes",
+    "benchmark",
     "advanced-host",
     "bridge-server",
     "custom-components",
