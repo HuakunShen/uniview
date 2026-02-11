@@ -1,4 +1,4 @@
-import { RPCChannel, WebSocketClientIO } from "kkrpc";
+import { RPCChannel, WebSocketClientIO } from "kkrpc/browser";
 import type {
   UINode,
   JSONValue,

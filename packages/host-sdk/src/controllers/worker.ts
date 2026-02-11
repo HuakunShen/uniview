@@ -1,4 +1,4 @@
-import { RPCChannel, WorkerParentIO } from "kkrpc";
+import { RPCChannel, WorkerParentIO } from "kkrpc/browser";
 import type {
   UINode,
   JSONValue,
