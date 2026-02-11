@@ -105,7 +105,8 @@ export function createSolidPluginRuntime<T extends IoInterface>(
         rpc.getAPI().applyMutations(mutations);
       });
 
-      // Also send full tree for initial render
+      // Also set up full tree callback for initial render
+      // Mutations only capture changes, not initial state
       setUpdateCallback(() => {
         if (!handlerRegistry || !rpc) return;
 
@@ -172,6 +173,26 @@ export function createSolidPluginRuntime<T extends IoInterface>(
       if (!handlerRegistry) return;
       await handlerRegistry.execute(handlerId, ...args);
     },
+
+    async syncTree() {
+      if (!rpc || !handlerRegistry) return;
+
+      const currentRoot = getRootNode();
+      if (!currentRoot || currentRoot.children.length === 0) return;
+
+      const serializedTree = serializeTree(
+        currentRoot.children[0],
+        handlerRegistry,
+      ) as UINode | null;
+
+      const bytes = JSON.stringify(serializedTree).length;
+      stats.bytesSent += bytes;
+      stats.messagesSent++;
+
+      rpc.getAPI().updateTree(serializedTree);
+    },
+
+    async updateItem() {},
 
     async destroy() {
       resetState();

@@ -33,11 +33,11 @@ export function createWorkerController(
     updateTree(newTree: UINode | null) {
       tree = newTree;
       mutableTree.init(newTree);
-      subscribers.forEach((cb) => cb(tree));
+      subscribers.forEach((cb) => void cb(tree));
     },
     applyMutations(mutations: Mutation[]) {
       tree = mutableTree.applyMutations(mutations);
-      subscribers.forEach((cb) => cb(tree));
+      subscribers.forEach((cb) => void cb(tree));
     },
     log(level, args) {
       console[level]("[Plugin]", ...args);
@@ -96,17 +96,30 @@ export function createWorkerController(
       mutableTree = new MutableTree();
     },
 
+    async destroy() {
+      await this.disconnect();
+    },
+
     async updateProps(props: JSONValue) {
       if (!rpc) return;
       const api = rpc.getAPI();
       await api.updateProps(props);
     },
 
-    async reload() {
-      await this.disconnect();
-      await this.connect();
+    /**
+     * Request plugin to send current full tree
+     * Used for recovery from drift or explicit sync request
+     */
+    async syncTree(): Promise<void> {
+      if (!connected || !rpc) return;
+
+      const api = rpc.getAPI();
+      await api.syncTree();
     },
 
+    /**
+     * Get current status
+     */
     getTree() {
       return tree;
     },
@@ -118,7 +131,7 @@ export function createWorkerController(
       };
     },
 
-    async execute(handlerId: HandlerId, args?: JSONValue[]) {
+    async executeHandler(handlerId: HandlerId, args?: JSONValue[]) {
       if (!rpc) return;
       const api = rpc.getAPI();
       await api.executeHandler(handlerId, args ?? []);

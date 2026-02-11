@@ -35,12 +35,16 @@ export function createWebSocketController(
       console.log("[WS Host] Received updateTree:", newTree ? "tree" : "null");
       tree = newTree;
       mutableTree.init(newTree);
-      subscribers.forEach((cb) => cb(tree));
+      subscribers.forEach((cb) => void cb(tree));
     },
     applyMutations(mutations: Mutation[]) {
-      console.log("[WS Host] Received applyMutations:", mutations.length, "mutations");
+      console.log(
+        "[WS Host] Received applyMutations:",
+        mutations.length,
+        "mutations",
+      );
       tree = mutableTree.applyMutations(mutations);
-      subscribers.forEach((cb) => cb(tree));
+      subscribers.forEach((cb) => void cb(tree));
     },
     log(level, args) {
       console[level]("[Plugin WS]", ...args);
@@ -70,18 +74,14 @@ export function createWebSocketController(
         connected = true;
         lastError = undefined;
 
-        console.log("[WS Host] Calling initialize...");
         const api = rpc.getAPI();
-        console.log("[WS Host] Got API proxy, calling initialize method...");
         await api.initialize({
           protocolVersion: PROTOCOL_VERSION,
           props: initialProps,
         });
-        console.log("[WS Host] Initialize complete!");
       } catch (err) {
-        console.error("[WS Host] Connect error:", err);
         lastError = err instanceof Error ? err.message : String(err);
-        connected = false;
+        console.error("[WS Host] Connection failed:", err);
         throw err;
       }
     },
@@ -93,11 +93,8 @@ export function createWebSocketController(
           await api.destroy();
         } catch {}
       }
-      if (io) {
-        io.destroy();
-        io = null;
-      }
       rpc = null;
+      io = null;
       connected = false;
       tree = null;
       mutableTree = new MutableTree();
@@ -109,26 +106,32 @@ export function createWebSocketController(
       await api.updateProps(props);
     },
 
-    async reload() {
+    async executeHandler(handlerId: HandlerId, args?: JSONValue[]) {
+      if (!rpc) return;
+      const api = rpc.getAPI();
+      await api.executeHandler(handlerId, args ?? []);
+    },
+
+    async destroy() {
       await this.disconnect();
-      await this.connect();
+    },
+
+    async syncTree(): Promise<void> {
+      if (!connected || !rpc) return;
+
+      const api = rpc.getAPI();
+      await api.syncTree();
     },
 
     getTree() {
       return tree;
     },
 
-    subscribe(cb: (tree: UINode | null) => void) {
+    subscribe(cb: (tree: UINode | null) => void): () => void {
       subscribers.add(cb);
       return () => {
         subscribers.delete(cb);
       };
-    },
-
-    async execute(handlerId: HandlerId, args?: JSONValue[]) {
-      if (!rpc) return;
-      const api = rpc.getAPI();
-      await api.executeHandler(handlerId, args ?? []);
     },
 
     getStatus(): { mode: HostMode; connected: boolean; lastError?: string } {

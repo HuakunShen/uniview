@@ -35,7 +35,7 @@ interface TransformedProps {
 
 function createHandler(handlerId: string): EventHandler {
   return async (...args: unknown[]) => {
-    await controller.execute(handlerId, args as JSONValue[]);
+    await controller.executeHandler(handlerId, args as JSONValue[]);
   };
 }
 

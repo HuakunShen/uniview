@@ -32,6 +32,19 @@ export interface HostToPluginAPI {
    * Destroy the plugin and clean up resources
    */
   destroy(): Promise<void>;
+
+  /**
+   * Update a single list item for benchmarking
+   * Designed for testing incremental mode efficiency
+   * Triggers setText mutation on specific child by itemId
+   */
+  updateItem(itemId: string, text: string): Promise<void>;
+
+  /**
+   * Request plugin to send current full tree
+   * Used for recovery from drift or explicit sync request
+   */
+  syncTree(): Promise<void>;
 }
 
 /**
@@ -40,8 +53,8 @@ export interface HostToPluginAPI {
  */
 export interface PluginToHostAPI {
   /**
-   * Update the UI tree
-   * Called after every React render in the plugin
+   * Update UI tree
+   * Called after every React render in plugin
    * Used in "full" update mode (default, backward compatible)
    */
   updateTree(tree: UINode | null): void;
@@ -55,7 +68,7 @@ export interface PluginToHostAPI {
 
   /**
    * Log a message from the plugin
-   * Allows plugins to write to host console
+   * Allows plugins to write to the host console
    */
   log(level: "log" | "info" | "warn" | "error", args: JSONValue[]): void;
 

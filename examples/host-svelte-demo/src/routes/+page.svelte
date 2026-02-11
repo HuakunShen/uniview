@@ -262,19 +262,31 @@
 						</div>
 
 						<!-- Window Chrome -->
-						<div class="flex items-center gap-2 border-b border-zinc-800 pb-4">
-							<div class="h-3 w-3 rounded-full bg-red-500"></div>
-							<div class="h-3 w-3 rounded-full bg-yellow-500"></div>
-							<div class="h-3 w-3 rounded-full bg-green-500"></div>
-							<span class="ml-4 font-mono text-sm text-zinc-500">
-								{#if runtimeMode === 'worker'}
-									{pluginUrl}
-								{:else if runtimeMode === 'node-server'}
-									{bridgeServerUrl}/host/{pluginId}
-								{:else}
-									{currentDemo}-demo.tsx (local)
-								{/if}
-							</span>
+						<div class="flex items-center justify-between gap-2 border-b border-zinc-800 pb-4">
+							<div class="flex items-center gap-2">
+								<div class="h-3 w-3 rounded-full bg-red-500"></div>
+								<div class="h-3 w-3 rounded-full bg-yellow-500"></div>
+								<div class="h-3 w-3 rounded-full bg-green-500"></div>
+								<span class="ml-4 font-mono text-sm text-zinc-500">
+									{#if runtimeMode === 'worker'}
+										{pluginUrl}
+									{:else if runtimeMode === 'node-server'}
+										{bridgeServerUrl}/host/{pluginId}
+									{:else}
+										{currentDemo}-demo.tsx (local)
+									{/if}
+								</span>
+							</div>
+							{#if runtimeMode !== 'main-thread'}
+								<button
+									onclick={async () => {
+										if (controller) await controller.syncTree();
+									}}
+									class="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-violet-50 transition-colors hover:bg-violet-500 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900 focus-visible:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									↻ Resync
+								</button>
+							{/if}
 						</div>
 
 						<!-- Plugin Container -->

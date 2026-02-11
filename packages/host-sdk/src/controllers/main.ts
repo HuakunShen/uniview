@@ -17,12 +17,6 @@ export interface MainControllerOptions {
   mode?: "full" | "incremental";
 }
 
-export interface MainControllerOptions {
-  App: ComponentType<unknown>;
-  initialProps?: JSONValue;
-  mode?: "full" | "incremental";
-}
-
 export function createMainController(
   opts: MainControllerOptions,
 ): PluginController {
@@ -43,16 +37,14 @@ export function createMainController(
       bridge = createRenderBridge();
 
       if (mode === "incremental") {
-        // Set up mutation collection
         mutationCollector = new MutationCollector(handlerRegistry);
         bridge.mutationCollector = mutationCollector;
 
         bridge.subscribeMutations((mutations: Mutation[]) => {
           tree = mutableTree.applyMutations(mutations);
-          subscribers.forEach((cb) => cb(tree));
+          subscribers.forEach((cb) => void cb(tree));
         });
 
-        // Also subscribe to full tree for initial render
         bridge.subscribe(() => {
           if (!bridge || !handlerRegistry) return;
           tree = serializeTree(
@@ -60,17 +52,16 @@ export function createMainController(
             handlerRegistry,
           ) as UINode | null;
           mutableTree.init(tree);
-          subscribers.forEach((cb) => cb(tree));
+          subscribers.forEach((cb) => void cb(tree));
         });
       } else {
-        // Full tree mode
         bridge.subscribe(() => {
           if (!bridge || !handlerRegistry) return;
           tree = serializeTree(
             bridge.rootInstance,
             handlerRegistry,
           ) as UINode | null;
-          subscribers.forEach((cb) => cb(tree));
+          subscribers.forEach((cb) => void cb(tree));
         });
       }
 
@@ -101,25 +92,30 @@ export function createMainController(
       render(newElement, bridge);
     },
 
-    async reload() {
+    async executeHandler(handlerId: HandlerId, args?: JSONValue[]) {
+      if (!handlerRegistry) return;
+      await handlerRegistry.execute(handlerId, ...(args ?? []));
+    },
+
+    async destroy() {
       await this.disconnect();
-      await this.connect();
+    },
+
+    async syncTree(): Promise<void> {
+      if (!connected) return;
+
+      subscribers.forEach((cb) => void cb(tree));
     },
 
     getTree() {
       return tree;
     },
 
-    subscribe(cb: (tree: UINode | null) => void) {
+    subscribe(cb: (tree: UINode | null) => void): () => void {
       subscribers.add(cb);
       return () => {
         subscribers.delete(cb);
       };
-    },
-
-    async execute(handlerId: HandlerId, args?: JSONValue[]) {
-      if (!handlerRegistry) return;
-      await handlerRegistry.execute(handlerId, ...(args ?? []));
     },
 
     getStatus(): { mode: HostMode; connected: boolean; lastError?: string } {

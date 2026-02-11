@@ -1,6 +1,9 @@
 import { createContext } from "react";
 import type { HostConfig, ReactContext } from "react-reconciler";
-import { DefaultEventPriority, NoEventPriority } from "react-reconciler/constants";
+import {
+  DefaultEventPriority,
+  NoEventPriority,
+} from "react-reconciler/constants";
 import type { InternalNode, TextNode } from "./types";
 import type { RenderBridge } from "./bridge";
 
@@ -50,6 +53,10 @@ export const hostConfig: HostConfig<
   supportsPersistence: false,
   supportsHydration: false,
 
+  shouldSetTextContent(_type: Type, _props: Props): boolean {
+    return false;
+  },
+
   getRootHostContext(): HostContext {
     return {};
   },
@@ -69,7 +76,7 @@ export const hostConfig: HostConfig<
     if (container.mutationCollector) {
       const mutations = container.mutationCollector.flushCommit();
       if (mutations.length > 0) {
-        container.mutationSubscribers.forEach((cb) => cb(mutations));
+        container.mutationSubscribers.forEach((cb) => void cb(mutations));
       }
     }
     // Always notify full-mode subscribers
@@ -140,7 +147,11 @@ export const hostConfig: HostConfig<
         child.parent = parent;
       }
       parent.children.splice(index, 0, child);
-      activeContainer?.mutationCollector?.collectInsertBefore(parent, child, beforeChild);
+      activeContainer?.mutationCollector?.collectInsertBefore(
+        parent,
+        child,
+        beforeChild,
+      );
     }
   },
 
@@ -184,10 +195,6 @@ export const hostConfig: HostConfig<
   },
 
   finalizeInitialChildren(): boolean {
-    return false;
-  },
-
-  shouldSetTextContent(_type: Type, _props: Props): boolean {
     return false;
   },
 

@@ -4,8 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "dev:all": "run-p bridge plugins:all svelte",
+    "dev": "run-p bridge plugins:all svelte",
     "bridge": "cd ../bridge-server && bun src/index.ts",
     "plugins:all": "pnpm run plugins:build && sleep 1 && pnpm run plugins:run",
     "plugins:build": "pnpm --filter @uniview/example-plugin build && pnpm --filter @uniview/plugin-solid-example build",

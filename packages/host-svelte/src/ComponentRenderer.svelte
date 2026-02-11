@@ -17,7 +17,7 @@
 
 	function createHandler(handlerId: string) {
 		return async (...args: unknown[]) => {
-			await controller.execute(handlerId, args as JSONValue[]);
+			await controller.executeHandler(handlerId, args as JSONValue[]);
 		};
 	}
 
@@ -138,7 +138,7 @@
 		return {
 			update(newHandlers: TransformedProps) {
 				// Remove old handlers
-				cleanup.forEach(fn => fn());
+				cleanup.forEach(fn => void fn());
 				cleanup.length = 0;
 
 				// Add new handlers
@@ -147,12 +147,12 @@
 					if (handler) {
 						const listener = wrapEventListener(event, handler, el);
 						el.addEventListener(event, listener);
-						cleanup.push(() => el.removeEventListener(event, listener));
+						cleanup.push(() => void el.removeEventListener(event, listener));
 					}
 				}
 			},
 			destroy() {
-				cleanup.forEach(fn => fn());
+				cleanup.forEach(fn => void fn());
 			}
 		};
 	}
