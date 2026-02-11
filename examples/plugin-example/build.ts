@@ -1,12 +1,30 @@
-import { serve } from "bun";
+import { serve, type BunPlugin } from "bun";
 
-const entrypoints = [
+// Force all react imports to resolve from this package's node_modules,
+// preventing multiple React copies when pnpm creates separate copies
+// across the dependency tree (e.g. react-reconciler/node_modules/react).
+const reactDedup: BunPlugin = {
+	name: "react-dedup",
+	setup(build) {
+		const cwd = process.cwd();
+		build.onResolve({ filter: /^react(\/.*)?$/ }, (args) => {
+			return { path: Bun.resolveSync(args.path, cwd) };
+		});
+	},
+};
+
+const workerEntrypoints = [
   "./src/simple-demo.worker.ts",
   "./src/advanced-demo.worker.ts",
 ];
 
-const results = await Promise.all(
-  entrypoints.map(async (entry) => {
+const clientEntrypoints = [
+  "./src/simple-demo.client.ts",
+  "./src/advanced-demo.client.ts",
+];
+
+const workerResults = await Promise.all(
+  workerEntrypoints.map(async (entry) => {
     const result = await Bun.build({
       entrypoints: [entry],
       outdir: "./dist",
@@ -15,10 +33,29 @@ const results = await Promise.all(
       minify: false,
       sourcemap: "external",
       naming: "[name].js",
+      plugins: [reactDedup],
     });
     return { entry, result };
   }),
 );
+
+const clientResults = await Promise.all(
+  clientEntrypoints.map(async (entry) => {
+    const result = await Bun.build({
+      entrypoints: [entry],
+      outdir: "./dist",
+      target: "bun",
+      format: "esm",
+      minify: false,
+      sourcemap: "external",
+      naming: "[name].js",
+      plugins: [reactDedup],
+    });
+    return { entry, result };
+  }),
+);
+
+const results = [...workerResults, ...clientResults];
 
 let allSuccess = true;
 for (const { entry, result } of results) {
