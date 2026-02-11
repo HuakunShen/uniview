@@ -1,6 +1,6 @@
 import type { Component } from "solid-js";
 import { createRoot } from "solid-js";
-import type { RPCChannel, DestroyableIoInterface } from "kkrpc";
+import type { RPCChannel, IoInterface } from "kkrpc";
 import type {
   JSONValue,
   UINode,
@@ -18,7 +18,7 @@ import {
   type SolidNode,
 } from "@uniview/solid-renderer";
 
-export interface SolidPluginRuntimeOptions<T extends DestroyableIoInterface> {
+export interface SolidPluginRuntimeOptions<T extends IoInterface> {
   App: Component<Record<string, unknown>>;
   io: T;
 }
@@ -28,7 +28,7 @@ export interface SolidPluginRuntime {
   stop(): void;
 }
 
-export function createSolidPluginRuntime<T extends DestroyableIoInterface>(
+export function createSolidPluginRuntime<T extends IoInterface>(
   options: SolidPluginRuntimeOptions<T>,
   createChannel: (
     io: T,
@@ -105,7 +105,7 @@ export function createSolidPluginRuntime<T extends DestroyableIoInterface>(
 
     async destroy() {
       resetState();
-      io.destroy();
+      io.destroy?.();
     },
   };
 
@@ -114,7 +114,7 @@ export function createSolidPluginRuntime<T extends DestroyableIoInterface>(
       rpc = createChannel(io, pluginAPI);
     },
     stop() {
-      io.destroy();
+      io.destroy?.();
     },
   };
 }

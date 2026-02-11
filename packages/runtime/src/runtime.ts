@@ -1,6 +1,6 @@
 import type { ReactElement, ComponentType } from "react";
 import { createElement } from "react";
-import type { RPCChannel, DestroyableIoInterface } from "kkrpc";
+import type { RPCChannel, IoInterface } from "kkrpc";
 import type {
   JSONValue,
   UINode,
@@ -19,7 +19,7 @@ interface RendererHandle extends RenderBridge {
   _container?: unknown;
 }
 
-export interface PluginRuntimeOptions<T extends DestroyableIoInterface> {
+export interface PluginRuntimeOptions<T extends IoInterface> {
   App: ComponentType<unknown>;
   io: T;
 }
@@ -29,7 +29,7 @@ export interface PluginRuntime {
   stop(): void;
 }
 
-export function createPluginRuntime<T extends DestroyableIoInterface>(
+export function createPluginRuntime<T extends IoInterface>(
   options: PluginRuntimeOptions<T>,
   createChannel: (
     io: T,
@@ -84,7 +84,7 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
       currentElement = null;
       handlerRegistry?.clear();
       handlerRegistry = null;
-      io.destroy();
+      io.destroy?.();
     },
   };
 
@@ -93,7 +93,7 @@ export function createPluginRuntime<T extends DestroyableIoInterface>(
       rpc = createChannel(io, pluginAPI);
     },
     stop() {
-      io.destroy();
+      io.destroy?.();
     },
   };
 }
