@@ -68,8 +68,8 @@ function generateLorem(wordCount: number): string {
 
 // Configuration for stress testing
 const CONFIG = {
-	INITIAL_ITEMS: 5000,
-	MAX_ITEMS: 10000,
+	INITIAL_ITEMS: 500,
+	MAX_ITEMS: 1000,
 	WORDS_PER_ITEM: 100, // Much longer text (was 20)
 	BATCH_SIZE: 50, // Insert/remove 50 items at a time (was 10)
 	AUTO_BENCHMARK_INTERVAL: 50, // Faster interval (was 100ms)
