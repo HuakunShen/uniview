@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import ReactReconciler from "react-reconciler";
+import { ConcurrentRoot } from "react-reconciler/constants";
 import {
   createTerminalRenderer,
   type TerminalRendererOptions,
@@ -26,12 +27,15 @@ export function createTuiRoot(options: TuiRootOptions = {}): TuiRoot {
 
   const root = reconciler.createContainer(
     container,
-    0,
+    ConcurrentRoot,
     null,
     false,
     null,
     "",
-    () => {},
+    console.error,
+    console.error,
+    console.error,
+    console.error,
     null,
   );
 

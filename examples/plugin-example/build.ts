@@ -1,17 +1,4 @@
-import { serve, type BunPlugin } from "bun";
-
-// Force all react imports to resolve from this package's node_modules,
-// preventing multiple React copies when pnpm creates separate copies
-// across the dependency tree (e.g. react-reconciler/node_modules/react).
-const reactDedup: BunPlugin = {
-	name: "react-dedup",
-	setup(build) {
-		const cwd = process.cwd();
-		build.onResolve({ filter: /^react(\/.*)?$/ }, (args) => {
-			return { path: Bun.resolveSync(args.path, cwd) };
-		});
-	},
-};
+import { serve } from "bun";
 
 const workerEntrypoints = [
   "./src/simple-demo.worker.ts",
@@ -33,7 +20,6 @@ const workerResults = await Promise.all(
       minify: false,
       sourcemap: "external",
       naming: "[name].js",
-      plugins: [reactDedup],
     });
     return { entry, result };
   }),
@@ -49,7 +35,6 @@ const clientResults = await Promise.all(
       minify: false,
       sourcemap: "external",
       naming: "[name].js",
-      plugins: [reactDedup],
     });
     return { entry, result };
   }),

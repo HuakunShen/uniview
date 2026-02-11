@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import ReactReconciler from "react-reconciler";
+import { ConcurrentRoot } from "react-reconciler/constants";
 import { hostConfig } from "./host-config";
 import { createRenderBridge, type RenderBridge } from "./bridge";
 
@@ -18,12 +19,15 @@ export function render(element: ReactElement, handle: RendererHandle): void {
   if (!handle._container) {
     handle._container = reconciler.createContainer(
       handle,
-      0,
+      ConcurrentRoot,
       null,
       false,
       null,
       "",
-      () => {},
+      console.error,
+      console.error,
+      console.error,
+      console.error,
       null,
     );
   }

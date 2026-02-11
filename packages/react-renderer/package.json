@@ -27,17 +27,17 @@
   },
   "dependencies": {
     "@uniview/protocol": "workspace:*",
-    "react-reconciler": "^0.29.2"
+    "react-reconciler": "catalog:"
   },
   "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0"
+    "react": "^19.0.0"
   },
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.8",
     "@types/node": "^22.0.0",
-    "@types/react": "^18.3.0",
-    "@types/react-reconciler": "^0.28.0",
-    "react": "^18.3.0",
+    "@types/react": "^19.0.0",
+    "@types/react-reconciler": "^0.32.0",
+    "react": "catalog:",
     "tsdown": "^0.18.1",
     "typescript": "^5.7.0",
     "vitest": "^2.0.0"

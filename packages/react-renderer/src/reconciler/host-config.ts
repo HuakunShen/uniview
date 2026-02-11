@@ -1,4 +1,6 @@
-import type { HostConfig } from "react-reconciler";
+import { createContext } from "react";
+import type { HostConfig, ReactContext } from "react-reconciler";
+import { DefaultEventPriority, NoEventPriority } from "react-reconciler/constants";
 import type { InternalNode, TextNode } from "./types";
 import type { RenderBridge } from "./bridge";
 
@@ -11,12 +13,12 @@ type SuspenseInstance = never;
 type HydratableInstance = never;
 type PublicInstance = Instance;
 type HostContext = Record<string, never>;
-type UpdatePayload = Record<string, unknown>;
 type ChildSet = never;
 type TimeoutHandle = ReturnType<typeof setTimeout>;
 type NoTimeout = -1;
 
 let instanceCounter = 0;
+let currentUpdatePriority = NoEventPriority;
 
 function generateId(): string {
   return `node-${instanceCounter++}`;
@@ -30,12 +32,13 @@ export const hostConfig: HostConfig<
   TextInstance,
   SuspenseInstance,
   HydratableInstance,
+  never, // FormInstance
   PublicInstance,
   HostContext,
-  UpdatePayload,
   ChildSet,
   TimeoutHandle,
-  NoTimeout
+  NoTimeout,
+  null // TransitionStatus
 > = {
   supportsMutation: true,
   supportsPersistence: false,
@@ -134,7 +137,6 @@ export const hostConfig: HostConfig<
 
   commitUpdate(
     instance: Instance,
-    _updatePayload: UpdatePayload,
     _type: Type,
     _oldProps: Props,
     newProps: Props,
@@ -152,28 +154,6 @@ export const hostConfig: HostConfig<
 
   finalizeInitialChildren(): boolean {
     return false;
-  },
-
-  prepareUpdate(
-    _instance: Instance,
-    _type: Type,
-    oldProps: Props,
-    newProps: Props,
-  ): UpdatePayload | null {
-    const oldKeys = Object.keys(oldProps);
-    const newKeys = Object.keys(newProps);
-
-    if (oldKeys.length !== newKeys.length) {
-      return newProps;
-    }
-
-    for (const key of newKeys) {
-      if (oldProps[key] !== newProps[key]) {
-        return newProps;
-      }
-    }
-
-    return null;
   },
 
   shouldSetTextContent(_type: Type, _props: Props): boolean {
@@ -195,7 +175,31 @@ export const hostConfig: HostConfig<
   noTimeout: -1 as NoTimeout,
   isPrimaryRenderer: false,
 
-  getCurrentEventPriority: () => 99 as unknown as number,
+  setCurrentUpdatePriority(newPriority: number) {
+    currentUpdatePriority = newPriority;
+  },
+  getCurrentUpdatePriority: () => currentUpdatePriority,
+  resolveUpdatePriority() {
+    if (currentUpdatePriority !== NoEventPriority) {
+      return currentUpdatePriority;
+    }
+    return DefaultEventPriority;
+  },
+
+  shouldAttemptEagerTransition: () => false,
+  maySuspendCommit: () => false,
+  NotPendingTransition: null,
+  HostTransitionContext: createContext(null) as unknown as ReactContext<null>,
+  resetFormInstance() {},
+  requestPostPaintCallback() {},
+  trackSchedulerEvent() {},
+  resolveEventType: () => null,
+  resolveEventTimeStamp: () => -1.1,
+  preloadInstance: () => true,
+  startSuspendingCommit() {},
+  suspendInstance() {},
+  waitForCommitToBeReady: () => null,
+
   getInstanceFromNode: () => null,
   beforeActiveInstanceBlur: () => {},
   afterActiveInstanceBlur: () => {},
