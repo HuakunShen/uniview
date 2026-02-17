@@ -1,0 +1,257 @@
+{
+  "knowledge_relations": [
+    {
+      "id": 1,
+      "source_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "target_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: System Overview -> Getting Started Guide",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 2,
+      "source_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "target_id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: System Overview -> Development Guidelines",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 3,
+      "source_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "target_id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: System Overview -> Architecture",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 4,
+      "source_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "target_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: System Overview -> Packages",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 5,
+      "source_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "target_id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: System Overview -> Examples",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 6,
+      "source_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "target_id": "a7b8c9d0-e1f2-3456-1234-567890123456",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: System Overview -> Vendors",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 7,
+      "source_id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "target_id": "11111111-2222-3333-4444-555555555555",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Architecture -> Monorepo Architecture",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 8,
+      "source_id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "target_id": "22222222-3333-4444-5555-666666666666",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Architecture -> RPC Protocol",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 9,
+      "source_id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "target_id": "33333333-4444-5555-6666-777777777777",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Architecture -> Data Flow",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 10,
+      "source_id": "d4e5f6a7-b8c9-0123-def1-234567890123",
+      "target_id": "44444444-5555-6666-7777-888888888888",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Architecture -> Runtime Modes",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 11,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "55555555-6666-7777-8888-999999999999",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> Protocol",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 12,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "66666666-7777-8888-9999-000000000000",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> React Renderer",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 13,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "77777777-8888-9999-0000-111111111111",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> Solid Renderer",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 14,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "88888888-9999-0000-1111-222222222222",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> React Runtime",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 15,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "99999999-0000-1111-2222-333333333333",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> Solid Runtime",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 16,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "00000000-1111-2222-3333-444444444444",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> Host SDK",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 17,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "11112222-3333-4444-5555-666677778888",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> Host Svelte",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 18,
+      "source_id": "e5f6a7b8-c9d0-1234-ef12-345678901234",
+      "target_id": "22223333-4444-5555-6666-777788889999",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Packages -> TUI Renderer",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 19,
+      "source_id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "target_id": "33334444-5555-6666-7777-888899990000",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Examples -> Overview",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 20,
+      "source_id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "target_id": "44445555-6666-7777-8888-999900001111",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Examples -> Host Demos",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 21,
+      "source_id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "target_id": "55556666-7777-8888-9999-000011112222",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Examples -> Plugin Examples",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 22,
+      "source_id": "f6a7b8c9-d0e1-2345-f123-456789012345",
+      "target_id": "66667777-8888-9999-0000-111122223333",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Examples -> Bridge Server",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    },
+    {
+      "id": 23,
+      "source_id": "a7b8c9d0-e1f2-3456-1234-567890123456",
+      "target_id": "77778888-9999-0000-1111-222233334444",
+      "source_type": "WIKI_ITEM",
+      "target_type": "WIKI_ITEM",
+      "relationship_type": "PARENT_CHILD",
+      "extra": "Wiki parent-child relationship: Vendors -> Vendor Dependencies",
+      "gmt_create": "2026-02-17T03:50:00.000Z",
+      "gmt_modified": "2026-02-17T03:50:00.000Z"
+    }
+  ]
+}
