@@ -67,7 +67,15 @@
 						result.onmouseenter = handler;
 					} else if (eventName === "onMouseLeave") {
 						result.onmouseleave = handler;
+					} else {
+						// Non-standard event handler — preserve raw handler ID string
+						// so registered components can call controller.execute() directly
+						attrs[key] = value;
 					}
+				} else if (typeof value === "string") {
+					// Custom event handler ID (e.g., _onActionHandlerId) — pass through
+					// so registered components can read the handler ID and call controller.execute()
+					attrs[key] = value;
 				}
 				continue;
 			}
@@ -212,6 +220,8 @@
 		...p.attrs,
 		// For Button-like components, use text children as title fallback
 		title: textChildren || p.attrs.title,
+		// Raw UINode children for complex components (List, ActionPanel, etc.)
+		_childNodes: node.children,
 		onclick: p.onclick,
 		oninput: p.oninput,
 		onchange: p.onchange,

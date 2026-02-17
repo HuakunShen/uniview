@@ -1,7 +1,17 @@
 import type { Mutation, JSONValue } from "@uniview/protocol";
-import { EVENT_PROPS, handlerIdProp } from "@uniview/protocol";
 import type { HandlerRegistry } from "./handler-registry";
 import type { InternalNode, TextNode } from "../reconciler/types";
+
+/**
+ * Check if a prop name looks like an event handler (starts with "on" followed by uppercase).
+ */
+function isEventProp(key: string): boolean {
+  return key.length > 2 && key.startsWith("on") && key[2] === key[2].toUpperCase();
+}
+
+function toHandlerIdProp(eventProp: string): string {
+  return `_${eventProp}HandlerId`;
+}
 
 export class MutationCollector {
   private mutations: Mutation[] = [];
@@ -22,10 +32,7 @@ export class MutationCollector {
       const oldValue = oldProps[key];
       if (newValue === oldValue) continue;
 
-      if (
-        EVENT_PROPS.includes(key as (typeof EVENT_PROPS)[number]) &&
-        typeof newValue === "function"
-      ) {
+      if (isEventProp(key) && typeof newValue === "function") {
         const handlerId = this.registry.register(
           newValue as (...args: unknown[]) => unknown,
         );
@@ -39,7 +46,7 @@ export class MutationCollector {
         this.mutations.push({
           type: "setProp",
           nodeId: instance.id,
-          key: handlerIdProp(key as (typeof EVENT_PROPS)[number]),
+          key: toHandlerIdProp(key),
           value: handlerId,
         });
       } else if (typeof newValue !== "function") {
@@ -171,15 +178,12 @@ export class MutationCollector {
     const props: Record<string, JSONValue> = {};
     for (const [key, value] of Object.entries(node.props)) {
       if (key === "children" || key === "key" || key === "ref") continue;
-      if (
-        EVENT_PROPS.includes(key as (typeof EVENT_PROPS)[number]) &&
-        typeof value === "function"
-      ) {
+      if (isEventProp(key) && typeof value === "function") {
         const handlerId = this.registry.register(
           value as (...args: unknown[]) => unknown,
         );
         this.previousHandlers.set(`${node.id}:${key}`, handlerId);
-        props[handlerIdProp(key as (typeof EVENT_PROPS)[number])] = handlerId;
+        props[toHandlerIdProp(key)] = handlerId;
       } else if (typeof value !== "function") {
         props[key] = value as JSONValue;
       }

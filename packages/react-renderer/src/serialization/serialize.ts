@@ -1,5 +1,4 @@
 import type { UINode, JSONValue } from "@uniview/protocol";
-import { EVENT_PROPS, handlerIdProp } from "@uniview/protocol";
 import type { InternalNode, TextNode } from "../reconciler/types";
 import type { HandlerRegistry } from "./handler-registry";
 
@@ -10,6 +9,22 @@ function isTextNode(node: unknown): node is TextNode {
     "_isTextNode" in node &&
     (node as TextNode)._isTextNode === true
   );
+}
+
+/**
+ * Check if a prop name looks like an event handler (starts with "on" followed by uppercase).
+ * e.g., "onClick", "onAction", "onSearchTextChange"
+ */
+function isEventProp(key: string): boolean {
+  return key.length > 2 && key.startsWith("on") && key[2] === key[2].toUpperCase();
+}
+
+/**
+ * Convert an event prop name to its handler ID prop name.
+ * e.g., "onClick" → "_onClickHandlerId", "onAction" → "_onActionHandlerId"
+ */
+function toHandlerIdProp(eventProp: string): string {
+  return `_${eventProp}HandlerId`;
 }
 
 export function serializeTree(
@@ -31,15 +46,11 @@ export function serializeTree(
       continue;
     }
 
-    if (
-      EVENT_PROPS.includes(key as (typeof EVENT_PROPS)[number]) &&
-      typeof value === "function"
-    ) {
+    if (isEventProp(key) && typeof value === "function") {
       const handlerId = registry.register(
         value as (...args: unknown[]) => unknown,
       );
-      serializedProps[handlerIdProp(key as (typeof EVENT_PROPS)[number])] =
-        handlerId;
+      serializedProps[toHandlerIdProp(key)] = handlerId;
     } else if (typeof value === "function") {
       continue;
     } else if (value !== undefined && value !== null) {
