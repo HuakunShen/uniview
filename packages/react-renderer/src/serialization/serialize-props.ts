@@ -1,5 +1,4 @@
 import type { JSONValue } from "@uniview/protocol";
-import { EVENT_PROPS, handlerIdProp } from "@uniview/protocol";
 import type { HandlerRegistry } from "./handler-registry";
 
 /**
@@ -20,19 +19,14 @@ export function serializeProps(
 			continue;
 		}
 
-		// Convert event handlers to handler IDs
-		if (
-			EVENT_PROPS.includes(key as (typeof EVENT_PROPS)[number]) &&
-			typeof value === "function"
-		) {
-			const handlerId = registry.register(
-				value as (...args: unknown[]) => unknown,
-			);
-			serializedProps[handlerIdProp(key as (typeof EVENT_PROPS)[number])] =
-				handlerId;
-		}
-		// Skip other functions
-		else if (typeof value === "function") {
+		// Convert event handler functions (on[A-Z]*) to handler IDs
+		if (typeof value === "function") {
+			if (/^on[A-Z]/.test(key)) {
+				const handlerId = registry.register(
+					value as (...args: unknown[]) => unknown,
+				);
+				serializedProps[`_${key}HandlerId`] = handlerId;
+			}
 			continue;
 		}
 		// Include JSON-serializable values
