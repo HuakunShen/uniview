@@ -46,6 +46,7 @@
 				const eventName = extractEventName(key);
 				if (eventName && typeof value === "string") {
 					const handler = createHandler(value);
+					let matched = true;
 					if (eventName === "onChange") {
 						result.oninput = handler;
 						result.onchange = handler;
@@ -67,6 +68,13 @@
 						result.onmouseenter = handler;
 					} else if (eventName === "onMouseLeave") {
 						result.onmouseleave = handler;
+					} else {
+						matched = false;
+					}
+					// Pass through unrecognized handler ID props as-is
+					// (e.g. custom app-level handlers like _onSearchTextChangeHandlerId)
+					if (!matched) {
+						attrs[key] = value;
 					}
 				}
 				continue;
@@ -208,6 +216,10 @@
 	{@const nonTextChildren = node.children.filter((child) => typeof child !== 'string')}
 	{@const componentProps = {
 		...p.attrs,
+		// Pass UINode children so registered components can manage their own child rendering
+		_childNodes: node.children,
+		// Pass the UINode's auto-generated id for tracking (distinct from props.id)
+		_nodeId: node.id,
 		// For Button-like components, use text children as title fallback
 		title: textChildren || p.attrs.title,
 		onclick: p.onclick,

@@ -36,7 +36,7 @@
   "devDependencies": {
     "@tsconfig/strictest": "^2.0.8",
     "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
+    "@types/react": "^19.2.14",
     "@types/react-reconciler": "^0.32.0",
     "react": "catalog:",
     "tsdown": "^0.18.1",
