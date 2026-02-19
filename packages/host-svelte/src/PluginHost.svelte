@@ -20,7 +20,7 @@
 	setContext("uniview:registry", registry);
 
 	onMount(async () => {
-		unsubscribe = controller.subscribe((newTree) => {
+		unsubscribe = controller.subscribe((newTree: UINode | null) => {
 			tree = newTree;
 		});
 		await controller.connect();

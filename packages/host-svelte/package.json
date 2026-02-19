@@ -5,9 +5,13 @@
   "description": "Svelte 5 host adapter for the Uniview plugin system",
   "license": "MIT",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "svelte": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
     "./package.json": "./package.json"
   },
+  "svelte": "./src/index.ts",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

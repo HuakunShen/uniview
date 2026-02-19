@@ -471,8 +471,8 @@ importers:
         specifier: ^22.0.0
         version: 22.19.11
       '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.13
+        specifier: ^19.2.14
+        version: 19.2.14
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -567,11 +567,11 @@ importers:
         specifier: ^22.0.0
         version: 22.19.11
       '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.13
+        specifier: ^19.2.14
+        version: 19.2.14
       '@types/react-reconciler':
         specifier: ^0.32.0
-        version: 0.32.3(@types/react@19.2.13)
+        version: 0.32.3(@types/react@19.2.14)
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -604,8 +604,8 @@ importers:
         specifier: ^22.0.0
         version: 22.19.11
       '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.13
+        specifier: ^19.2.14
+        version: 19.2.14
       '@types/ws':
         specifier: ^8.5.0
         version: 8.18.1
@@ -697,11 +697,11 @@ importers:
         specifier: ^22.0.0
         version: 22.19.11
       '@types/react':
-        specifier: ^19.0.0
-        version: 19.2.13
+        specifier: ^19.2.14
+        version: 19.2.14
       '@types/react-reconciler':
         specifier: ^0.32.0
-        version: 0.32.3(@types/react@19.2.13)
+        version: 0.32.3(@types/react@19.2.14)
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -2866,6 +2866,9 @@ packages:
 
   '@types/react@19.2.13':
     resolution: {integrity: sha512-KkiJeU6VbYbUOp5ITMIc7kBfqlYkKA5KhEHVrGMmUUMt7NeaZg65ojdPk+FtNrBAOXNVM5QM72jnADjM+XVRAQ==}
+
+  '@types/react@19.2.14':
+    resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -7462,11 +7465,15 @@ snapshots:
     dependencies:
       '@types/react': 19.2.13
 
-  '@types/react-reconciler@0.32.3(@types/react@19.2.13)':
+  '@types/react-reconciler@0.32.3(@types/react@19.2.14)':
     dependencies:
-      '@types/react': 19.2.13
+      '@types/react': 19.2.14
 
   '@types/react@19.2.13':
+    dependencies:
+      csstype: 3.2.3
+
+  '@types/react@19.2.14':
     dependencies:
       csstype: 3.2.3
 
