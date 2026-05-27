@@ -14,6 +14,7 @@
 	let { controller, registry, loading }: Props = $props();
 
 	let tree = $state<UINode | null>(null);
+	let error = $state<string | null>(null);
 	let unsubscribe: (() => void) | null = null;
 
 	setContext("uniview:controller", controller);
@@ -23,7 +24,11 @@
 		unsubscribe = controller.subscribe((newTree: UINode | null) => {
 			tree = newTree;
 		});
-		await controller.connect();
+		try {
+			await controller.connect();
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		}
 	});
 
 	onDestroy(() => {
@@ -32,7 +37,12 @@
 	});
 </script>
 
-{#if tree}
+{#if error}
+	<div style="padding: 2rem; text-align: center; color: #ef4444;">
+		<p style="font-weight: 600;">Failed to load plugin</p>
+		<p style="font-size: 0.875rem; opacity: 0.7; margin-top: 0.5rem;">{error}</p>
+	</div>
+{:else if tree}
 	<ComponentRenderer node={tree} />
 {:else if loading}
 	{@render loading()}
