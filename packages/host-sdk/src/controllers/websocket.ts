@@ -32,17 +32,11 @@ export function createWebSocketController(
 
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
-      console.log("[WS Host] Received updateTree:", newTree ? "tree" : "null");
       tree = newTree;
       mutableTree.init(newTree);
       subscribers.forEach((cb) => void cb(tree));
     },
     applyMutations(mutations: Mutation[]) {
-      console.log(
-        "[WS Host] Received applyMutations:",
-        mutations.length,
-        "mutations",
-      );
       tree = mutableTree.applyMutations(mutations);
       subscribers.forEach((cb) => void cb(tree));
     },
@@ -59,17 +53,11 @@ export function createWebSocketController(
     async connect() {
       try {
         const url = `${serverUrl}/host/${pluginId}`;
-        console.log("[WS Host] Connecting to:", url);
         io = new WebSocketClientIO({ url });
-        console.log("[WS Host] WebSocketClientIO created");
 
         rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(io, {
           expose: hostAPI,
         });
-        console.log(
-          "[WS Host] RPC channel created with exposed methods:",
-          Object.keys(hostAPI),
-        );
 
         connected = true;
         lastError = undefined;

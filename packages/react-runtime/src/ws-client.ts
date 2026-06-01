@@ -9,6 +9,7 @@ import type {
   UpdateMode,
   Mutation,
 } from "@uniview/protocol";
+import { PROTOCOL_VERSION } from "@uniview/protocol";
 import {
   createRenderer,
   render,
@@ -60,6 +61,14 @@ declare global {
   var __uniview_stats: Stats | undefined;
 }
 
+function assertProtocolVersion(protocolVersion: number): void {
+  if (protocolVersion !== PROTOCOL_VERSION) {
+    throw new Error(
+      `Protocol version mismatch: host=${protocolVersion}, plugin=${PROTOCOL_VERSION}`,
+    );
+  }
+}
+
 export function createWebSocketPluginClient(
   opts: WebSocketPluginClientOptions,
 ): WebSocketPluginClient {
@@ -102,6 +111,7 @@ export function createWebSocketPluginClient(
   function createPluginAPI(): HostToPluginAPI {
     return {
       async initialize(req) {
+        assertProtocolVersion(req.protocolVersion);
         resetRuntimeState();
 
         handlerRegistry = new HandlerRegistry();
@@ -176,6 +186,21 @@ export function createWebSocketPluginClient(
       async executeHandler(handlerId, args) {
         if (!handlerRegistry) return;
         await handlerRegistry.execute(handlerId, ...args);
+      },
+
+      async syncTree() {
+        if (!bridge || !handlerRegistry || !currentRpc) return;
+
+        const serializedTree = serializeTree(
+          bridge.rootInstance ?? null,
+          handlerRegistry,
+        ) as UINode | null;
+
+        const bytes = JSON.stringify(serializedTree).length;
+        stats.bytesSent += bytes;
+        stats.messagesSent++;
+
+        currentRpc.getAPI().updateTree(serializedTree);
       },
 
       async destroy() {

@@ -9,6 +9,7 @@ import type {
   UpdateMode,
   Mutation,
 } from "@uniview/protocol";
+import { PROTOCOL_VERSION } from "@uniview/protocol";
 import {
   createRenderer,
   render,
@@ -44,6 +45,14 @@ declare global {
   var __uniview_stats: Stats | undefined;
 }
 
+function assertProtocolVersion(protocolVersion: number): void {
+  if (protocolVersion !== PROTOCOL_VERSION) {
+    throw new Error(
+      `Protocol version mismatch: host=${protocolVersion}, plugin=${PROTOCOL_VERSION}`,
+    );
+  }
+}
+
 export function createPluginRuntime<T extends IoInterface>(
   options: PluginRuntimeOptions<T>,
   createChannel: (
@@ -65,6 +74,8 @@ export function createPluginRuntime<T extends IoInterface>(
 
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
+      assertProtocolVersion(req.protocolVersion);
+
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderer();
 
@@ -84,25 +95,6 @@ export function createPluginRuntime<T extends IoInterface>(
           rpc.getAPI().applyMutations(mutations);
         });
 
-        // Send full tree for initial render
-        // In incremental mode, skip this and let mutations establish the tree
-        if (mode !== "incremental") {
-          bridge.subscribe(() => {
-            if (!bridge || !handlerRegistry || !rpc) return;
-
-            const serializedTree = serializeTree(
-              bridge.rootInstance,
-              handlerRegistry,
-            ) as UINode | null;
-
-            // Track stats
-            const bytes = JSON.stringify(serializedTree).length;
-            stats.bytesSent += bytes;
-            stats.messagesSent++;
-
-            rpc.getAPI().updateTree(serializedTree);
-          });
-        }
       } else {
         // Full tree mode (default)
         bridge.subscribe(() => {
@@ -143,61 +135,10 @@ export function createPluginRuntime<T extends IoInterface>(
     },
 
     async syncTree() {
-      if (!bridge || !rpc) return;
+      if (!bridge || !handlerRegistry || !rpc) return;
 
       const serializedTree = serializeTree(
-        mode === "incremental"
-          ? (bridge.rootInstance ?? null)
-          : (bridge.rootInstance ?? null),
-        handlerRegistry,
-      ) as UINode | null;
-
-      const bytes = JSON.stringify(serializedTree).length;
-      stats.bytesSent += bytes;
-      stats.messagesSent++;
-
-      rpc.getAPI().updateTree(serializedTree);
-    },
-
-    /**
-     * Update a single list item for benchmarking
-     * Designed for testing incremental mode efficiency
-     * Triggers setText mutation on specific child by itemId
-     */
-    async updateItem(itemId: string, text: string): Promise<void> {
-      if (!bridge || !currentElement) return;
-
-      const newElement = createElement(
-        (currentElement as unknown as { type: ComponentType<unknown> }).type,
-        (props ?? {}) as object,
-      );
-      currentElement = newElement;
-      render(newElement, bridge);
-    },
-
-    async updateProps(props: JSONValue) {
-      if (!bridge || !currentElement) return;
-
-      const newElement = createElement(
-        (currentElement as unknown as { type: ComponentType<unknown> }).type,
-        (props ?? {}) as object,
-      );
-      currentElement = newElement;
-      render(newElement, bridge);
-    },
-
-    async executeHandler(handlerId, args) {
-      if (!handlerRegistry) return;
-      await handlerRegistry.execute(handlerId, ...args);
-    },
-
-    async syncTree() {
-      if (!bridge || !rpc) return;
-
-      const serializedTree = serializeTree(
-        mode === "incremental"
-          ? (bridge.rootInstance ?? null)
-          : (bridge.rootInstance ?? null),
+        bridge.rootInstance ?? null,
         handlerRegistry,
       ) as UINode | null;
 

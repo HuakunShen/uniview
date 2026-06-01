@@ -21,7 +21,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"dev": "tsdown --watch",
-		"test": "vitest",
+		"test": "vitest run --passWithNoTests",
 		"check-types": "tsc --noEmit",
 		"typecheck": "tsc --noEmit",
 		"prepublishOnly": "pnpm run build"

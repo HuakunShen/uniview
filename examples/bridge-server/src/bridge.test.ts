@@ -20,18 +20,33 @@ function normalizeMessage(message: unknown): string {
   return msgStr;
 }
 
+function getErrorCode(error: unknown): unknown {
+  if (typeof error !== "object" || error === null) return undefined;
+  return Reflect.get(error, "code");
+}
+
+function isAddressInUse(error: unknown): boolean {
+  return getErrorCode(error) === "EADDRINUSE" || String(error).includes("EADDRINUSE");
+}
+
+function createPortCandidates(): number[] {
+  const base = 30_000 + (process.pid % 20_000);
+
+  return Array.from({ length: 20 }, (_, index) => {
+    const offset = index * 37;
+    return 30_000 + ((base + offset) % 30_000);
+  });
+}
+
 describe("Bridge Server Integration Tests", () => {
   let server: any;
   let port: number;
 
   beforeAll(async () => {
-    // Find available port
-    const ports = [9999, 10001, 10011, 10021];
     let lastError: unknown = null;
 
-    for (const candidate of ports) {
+    for (const candidate of createPortCandidates()) {
       try {
-        port = candidate;
         server = new Elysia()
           .get("/:filename", async ({ params }) => {
             try {
@@ -111,17 +126,13 @@ describe("Bridge Server Integration Tests", () => {
 
           .listen({ port: candidate, hostname: "127.0.0.1" });
 
+        port = server.server?.port ?? candidate;
         // Wait for server to start
         await new Promise((resolve) => setTimeout(resolve, 100));
         return;
       } catch (error: unknown) {
         lastError = error;
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          (error as { code: string }).code !== "EADDRINUSE"
-        ) {
+        if (!isAddressInUse(error)) {
           throw error;
         }
       }
