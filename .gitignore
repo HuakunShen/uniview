@@ -20,6 +20,11 @@ coverage
 playwright-report/
 test-results/
 
+# Cypress
+cypress/downloads/
+cypress/screenshots/
+cypress/videos/
+
 # Turbo
 .turbo
 
