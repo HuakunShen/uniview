@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { openSvelteDemo, runAdvancedFlow, runSimpleFlow } from "../demo-flows";
+import {
+  openSvelteBenchmark,
+  openSvelteDemo,
+  runAdvancedFlow,
+  runBenchmarkFlow,
+  runSimpleFlow,
+} from "../demo-flows";
 
 const simpleCases = [
   { framework: "react", runtime: "worker" },
@@ -44,15 +50,22 @@ test("svelte host disables Solid main-thread mode", async ({ page }) => {
   await expect(page).toHaveURL(/runtime=worker/);
 });
 
-test("svelte host benchmark smoke renders and responds", async ({ page }) => {
-  await page.goto(
-    "http://127.0.0.1:5173/?framework=react&runtime=worker&demo=benchmark&update=full",
-  );
+const benchmarkCases = [
+  { framework: "react", runtime: "worker", update: "full" },
+  { framework: "react", runtime: "worker", update: "incremental" },
+  { framework: "react", runtime: "node-server", update: "full" },
+  { framework: "react", runtime: "node-server", update: "incremental" },
+  { framework: "solid", runtime: "worker", update: "full" },
+  { framework: "solid", runtime: "worker", update: "incremental" },
+  { framework: "solid", runtime: "node-server", update: "full" },
+  { framework: "solid", runtime: "node-server", update: "incremental" },
+] as const;
 
-  await expect(page.getByRole("heading", { name: /Benchmark/i })).toBeVisible({
-    timeout: 20_000,
+for (const scenario of benchmarkCases) {
+  test(`svelte host ${scenario.framework} ${scenario.runtime} benchmark ${scenario.update} updates`, async ({
+    page,
+  }) => {
+    await openSvelteBenchmark(page, scenario);
+    await runBenchmarkFlow(page);
   });
-  await expect(page.getByText(/Item count:/i)).toBeVisible();
-  await page.getByRole("button", { name: /Update Single Item/i }).click();
-  await expect(page.getByText(/Operations performed:/i)).toBeVisible();
-});
+}

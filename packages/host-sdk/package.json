@@ -20,7 +20,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build"

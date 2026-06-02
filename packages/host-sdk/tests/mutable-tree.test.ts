@@ -14,6 +14,33 @@ function createRoot(): UINode {
   };
 }
 
+function createNestedRoot(): UINode {
+  return {
+    id: "root",
+    type: "div",
+    props: {},
+    children: [
+      {
+        id: "section",
+        type: "section",
+        props: {},
+        children: [
+          { id: "nested-label", type: "span", props: {}, children: ["before"] },
+          { id: "nested-list", type: "div", props: {}, children: [] },
+        ],
+      },
+    ],
+  };
+}
+
+function getElementChild(node: UINode, index: number): UINode {
+  const child = node.children[index];
+  if (typeof child === "string") {
+    throw new Error(`Expected element child at index ${index}`);
+  }
+  return child;
+}
+
 describe("MutableTree", () => {
   test("initializes and returns the current tree", () => {
     const tree = new MutableTree();
@@ -101,8 +128,55 @@ describe("MutableTree", () => {
       children: ["new root"],
     };
 
-    expect(tree.applyMutations([{ type: "setRoot", node: replacement }])).toEqual(
-      replacement,
+    expect(
+      tree.applyMutations([{ type: "setRoot", node: replacement }]),
+    ).toEqual(replacement);
+  });
+
+  test("initializes an empty tree from an initial setRoot mutation", () => {
+    const tree = new MutableTree();
+    const root = createRoot();
+
+    expect(tree.getTree()).toBeNull();
+    expect(tree.applyMutations([{ type: "setRoot", node: root }])).toEqual(
+      root,
     );
+    expect(tree.getTree()).toEqual(root);
+  });
+
+  test("propagates nested mutations to the root tree", () => {
+    const tree = new MutableTree();
+    tree.init(createNestedRoot());
+
+    const afterText = tree.applyMutations([
+      {
+        type: "setText",
+        parentId: "nested-label",
+        childIndex: 0,
+        text: "after",
+      },
+    ]);
+
+    if (!afterText) throw new Error("Expected tree after setText");
+    const sectionAfterText = getElementChild(afterText, 0);
+    const labelAfterText = getElementChild(sectionAfterText, 0);
+    expect(labelAfterText.children).toEqual(["after"]);
+
+    const afterAppend = tree.applyMutations([
+      {
+        type: "appendChild",
+        parentId: "nested-list",
+        node: { id: "item", type: "span", props: {}, children: ["item"] },
+      },
+    ]);
+
+    if (!afterAppend) throw new Error("Expected tree after appendChild");
+    const sectionAfterAppend = getElementChild(afterAppend, 0);
+    const listAfterAppend = getElementChild(sectionAfterAppend, 1);
+    expect(
+      listAfterAppend.children.map((child) =>
+        typeof child === "string" ? child : child.id,
+      ),
+    ).toEqual(["item"]);
   });
 });

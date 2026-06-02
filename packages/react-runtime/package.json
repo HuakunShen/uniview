@@ -7,7 +7,6 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./ws-client": "./dist/ws-client.mjs",
-    "./ws-server": "./dist/ws-server.mjs",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.mjs",
@@ -22,7 +21,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm run build"
@@ -30,8 +29,7 @@
   "dependencies": {
     "@uniview/protocol": "workspace:*",
     "@uniview/react-renderer": "workspace:*",
-    "kkrpc": "catalog:",
-    "ws": "^8.18.0"
+    "kkrpc": "catalog:"
   },
   "peerDependencies": {
     "react": "^19.0.0"
@@ -39,11 +37,9 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@types/ws": "^8.5.0",
     "react": "catalog:",
     "tsdown": "^0.18.1",
     "typescript": "^5.7.0",
-    "vitest": "^2.0.0",
-    "ws": "^8.18.0"
+    "vitest": "^2.0.0"
   }
 }

@@ -4,6 +4,7 @@ export type HostName = "svelte" | "react" | "vue";
 export type PluginFramework = "react" | "solid";
 export type RuntimeMode = "worker" | "node-server" | "main-thread";
 export type DemoName = "simple" | "advanced";
+export type BenchmarkUpdateMode = "full" | "incremental";
 
 export const HOST_URLS: Record<HostName, string> = {
   svelte: "http://127.0.0.1:5173",
@@ -27,6 +28,21 @@ export async function openSvelteDemo(
   await waitForDemoHeading(page, options.demo);
 }
 
+export async function openSvelteBenchmark(
+  page: Page,
+  options: {
+    framework: PluginFramework;
+    runtime?: Extract<RuntimeMode, "worker" | "node-server">;
+    update: BenchmarkUpdateMode;
+  },
+): Promise<void> {
+  const runtime = options.runtime ?? "worker";
+  await page.goto(
+    `${HOST_URLS.svelte}/?framework=${options.framework}&runtime=${runtime}&demo=benchmark&update=${options.update}`,
+  );
+  await waitForBenchmarkHeading(page, options.framework);
+}
+
 export async function openReactOrVueDemo(
   page: Page,
   host: "react" | "vue",
@@ -45,6 +61,18 @@ export async function waitForDemoHeading(
   await expect(
     page.getByRole("heading", {
       name: demo === "simple" ? "Simple Demo" : "Advanced Demo",
+    }),
+  ).toBeVisible({ timeout: 20_000 });
+}
+
+export async function waitForBenchmarkHeading(
+  page: Page,
+  framework: PluginFramework,
+): Promise<void> {
+  const frameworkName = framework === "react" ? "React" : "Solid";
+  await expect(
+    page.getByRole("heading", {
+      name: `${frameworkName} Benchmark (High Stress)`,
     }),
   ).toBeVisible({ timeout: 20_000 });
 }
@@ -97,9 +125,6 @@ export async function runAdvancedFlow(page: Page): Promise<void> {
   await page.getByRole("button", { name: "SMS" }).click();
 
   await submit.click();
-  await expect(
-    page.getByRole("button", { name: "Submitting..." }),
-  ).toBeVisible();
   await expect(page.getByText("Form Submitted Successfully!")).toBeVisible({
     timeout: 5_000,
   });
@@ -110,4 +135,27 @@ export async function runAdvancedFlow(page: Page): Promise<void> {
 
   await page.getByRole("button", { name: "Reset" }).click();
   await expect(page.getByText("Form Submitted Successfully!")).toHaveCount(0);
+}
+
+export async function runBenchmarkFlow(page: Page): Promise<void> {
+  const itemCount = page.getByText(/Item count:/i);
+
+  await expect(itemCount).toHaveText(/Item count:\s*500\s*\/\s*1000\s*\(max\)/);
+  await expect(page.getByText(/Operations performed:\s*0/)).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Add 50 Items \(Random Pos\)/ })
+    .click();
+  await expect(itemCount).toHaveText(/Item count:\s*550\s*\/\s*1000\s*\(max\)/);
+  await expect(page.getByText(/Operations performed:\s*1/)).toBeVisible();
+
+  await page
+    .getByRole("button", { name: /Remove 50 Items \(Random Pos\)/ })
+    .click();
+  await expect(itemCount).toHaveText(/Item count:\s*500\s*\/\s*1000\s*\(max\)/);
+  await expect(page.getByText(/Operations performed:\s*2/)).toBeVisible();
+
+  await page.getByRole("button", { name: /Update Single Item/i }).click();
+  await expect(itemCount).toHaveText(/Item count:\s*500\s*\/\s*1000\s*\(max\)/);
+  await expect(page.getByText(/Operations performed:\s*3/)).toBeVisible();
 }

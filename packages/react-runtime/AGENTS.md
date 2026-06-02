@@ -18,12 +18,11 @@ src/
 
 ## WHERE TO LOOK
 
-| Task               | Location                 | Notes                          |
-| ------------------ | ------------------------ | ------------------------------ |
-| Worker bootstrap   | `src/worker-entry.ts`    | WorkerChildIO + RPCChannel     |
-| Core runtime       | `src/runtime.ts`         | HandlerRegistry + tree updates |
-| Bridge client      | `src/ws-client.ts`       | ElysiaWebSocketClientIO        |
-| Bridge server mode | `src/ws-server-entry.ts` | @deprecated - use ws-client    |
+| Task             | Location              | Notes                          |
+| ---------------- | --------------------- | ------------------------------ |
+| Worker bootstrap | `src/worker-entry.ts` | WorkerChildIO + RPCChannel     |
+| Core runtime     | `src/runtime.ts`      | HandlerRegistry + tree updates |
+| Bridge client    | `src/ws-client.ts`    | ElysiaWebSocketClientIO        |
 
 ## CONVENTIONS
 
@@ -33,7 +32,7 @@ Entry points via package.json exports:
 
 - `.` → `startWorkerPlugin()` (Worker mode)
 - `./ws-client` → `createWebSocketPluginClient()` (Bridge mode)
-- `./ws-server` → deprecated server mode
+  The old `./ws-server` entry point has been removed. Server-side plugins should connect to the bridge with `./ws-client`.
 
 ### RPC Lifecycle
 
@@ -60,4 +59,4 @@ rpc.executeHandler(handlerId, []); // Calls handler in plugin context
 - ❌ **NEVER** access `window`/`document` - breaks Worker/Node/Deno compatibility
 - ❌ **NEVER** import Node-only modules in worker entry - breaks browser builds
 - ❌ **NEVER** call host API from your own RPC handlers - causes infinite loops
-- ❌ **MUST NOT** use ws-server mode - prefer bridge architecture (ws-client)
+- ❌ **MUST NOT** add ws-server mode back - prefer bridge architecture (ws-client)

@@ -2,42 +2,49 @@
 
 **Date:** 2026-06-02
 **Branch:** codex-validation-e2e-audit
-**Commit:** d5bb22e
+**Commit:** 40e6637
 
 ## Summary
 
-- Total: 24
-- Passing: 24
+- Total: 31
+- Passing: 31
 - Failing: 0
 - Skipped: 0
 - Top-level errors: 0
 
 ## Passing Scenarios
 
-- chromium: react-host.spec.ts > react host worker simple demo (844ms)
-- chromium: react-host.spec.ts > react host worker advanced demo (2100ms)
-- chromium: react-host.spec.ts > react host main-thread simple demo (947ms)
-- chromium: react-host.spec.ts > react host main-thread advanced demo (3290ms)
-- chromium: react-host.spec.ts > react host node-server simple demo (1014ms)
-- chromium: react-host.spec.ts > react host node-server advanced demo (2796ms)
-- chromium: svelte-host.spec.ts > svelte host react worker simple demo (1107ms)
-- chromium: svelte-host.spec.ts > svelte host react main-thread simple demo (859ms)
-- chromium: svelte-host.spec.ts > svelte host react node-server simple demo (584ms)
-- chromium: svelte-host.spec.ts > svelte host solid worker simple demo (657ms)
-- chromium: svelte-host.spec.ts > svelte host solid node-server simple demo (527ms)
-- chromium: svelte-host.spec.ts > svelte host react worker advanced demo (1871ms)
-- chromium: svelte-host.spec.ts > svelte host react main-thread advanced demo (1820ms)
-- chromium: svelte-host.spec.ts > svelte host react node-server advanced demo (1831ms)
-- chromium: svelte-host.spec.ts > svelte host solid worker advanced demo (1854ms)
-- chromium: svelte-host.spec.ts > svelte host solid node-server advanced demo (1835ms)
-- chromium: svelte-host.spec.ts > svelte host disables Solid main-thread mode (303ms)
-- chromium: svelte-host.spec.ts > svelte host benchmark smoke renders and responds (777ms)
-- chromium: vue-host.spec.ts > vue host worker simple demo (1131ms)
-- chromium: vue-host.spec.ts > vue host worker advanced demo (1949ms)
-- chromium: vue-host.spec.ts > vue host main-thread simple demo (583ms)
-- chromium: vue-host.spec.ts > vue host main-thread advanced demo (1770ms)
-- chromium: vue-host.spec.ts > vue host node-server simple demo (489ms)
-- chromium: vue-host.spec.ts > vue host node-server advanced demo (1976ms)
+- chromium: react-host.spec.ts > react host worker simple demo (923ms)
+- chromium: react-host.spec.ts > react host worker advanced demo (2357ms)
+- chromium: react-host.spec.ts > react host main-thread simple demo (625ms)
+- chromium: react-host.spec.ts > react host main-thread advanced demo (1926ms)
+- chromium: react-host.spec.ts > react host node-server simple demo (606ms)
+- chromium: react-host.spec.ts > react host node-server advanced demo (1926ms)
+- chromium: svelte-host.spec.ts > svelte host react worker simple demo (1137ms)
+- chromium: svelte-host.spec.ts > svelte host react main-thread simple demo (545ms)
+- chromium: svelte-host.spec.ts > svelte host react node-server simple demo (562ms)
+- chromium: svelte-host.spec.ts > svelte host solid worker simple demo (580ms)
+- chromium: svelte-host.spec.ts > svelte host solid node-server simple demo (549ms)
+- chromium: svelte-host.spec.ts > svelte host react worker advanced demo (1936ms)
+- chromium: svelte-host.spec.ts > svelte host react main-thread advanced demo (1811ms)
+- chromium: svelte-host.spec.ts > svelte host react node-server advanced demo (1793ms)
+- chromium: svelte-host.spec.ts > svelte host solid worker advanced demo (1787ms)
+- chromium: svelte-host.spec.ts > svelte host solid node-server advanced demo (1808ms)
+- chromium: svelte-host.spec.ts > svelte host disables Solid main-thread mode (267ms)
+- chromium: svelte-host.spec.ts > svelte host react worker benchmark full updates (1209ms)
+- chromium: svelte-host.spec.ts > svelte host react worker benchmark incremental updates (2063ms)
+- chromium: svelte-host.spec.ts > svelte host react node-server benchmark full updates (1553ms)
+- chromium: svelte-host.spec.ts > svelte host react node-server benchmark incremental updates (2172ms)
+- chromium: svelte-host.spec.ts > svelte host solid worker benchmark full updates (1483ms)
+- chromium: svelte-host.spec.ts > svelte host solid worker benchmark incremental updates (1964ms)
+- chromium: svelte-host.spec.ts > svelte host solid node-server benchmark full updates (1405ms)
+- chromium: svelte-host.spec.ts > svelte host solid node-server benchmark incremental updates (2034ms)
+- chromium: vue-host.spec.ts > vue host worker simple demo (769ms)
+- chromium: vue-host.spec.ts > vue host worker advanced demo (2078ms)
+- chromium: vue-host.spec.ts > vue host main-thread simple demo (523ms)
+- chromium: vue-host.spec.ts > vue host main-thread advanced demo (1810ms)
+- chromium: vue-host.spec.ts > vue host node-server simple demo (501ms)
+- chromium: vue-host.spec.ts > vue host node-server advanced demo (1775ms)
 
 ## Failing Scenarios
 

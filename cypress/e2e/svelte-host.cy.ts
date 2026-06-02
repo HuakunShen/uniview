@@ -39,7 +39,7 @@ describe("svelte host", () => {
     cy.url().should("match", /runtime=worker/);
   });
 
-  it("benchmark smoke renders and responds", () => {
+  it("benchmark demo renders and responds", () => {
     cy.visit(
       `${HOST_URLS.svelte}/?framework=react&runtime=worker&demo=benchmark&update=full`,
     );

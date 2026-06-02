@@ -19,6 +19,14 @@ function Demo() {
   );
 }
 
+function ListDemo({ items }: { items: string[] }) {
+  return createElement(
+    "div",
+    { className: "list" },
+    items.map((item) => createElement("span", { key: item }, item)),
+  );
+}
+
 async function waitForRoot(bridge: RenderBridge): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt++) {
     if (bridge.rootInstance) return;
@@ -89,5 +97,32 @@ describe("react renderer", () => {
       props: { className: "root" },
     });
     expect(setRoot.node.children).toHaveLength(2);
+  });
+
+  test("emits child mutations when a keyed list grows", async () => {
+    const bridge = createRenderBridge();
+    const registry = new HandlerRegistry();
+    const batches: Mutation[][] = [];
+
+    bridge.mutationCollector = new MutationCollector(registry);
+    bridge.subscribeMutations((mutations) => batches.push(mutations));
+
+    render(createElement(ListDemo, { items: ["a"] }), bridge);
+    await waitForRoot(bridge);
+
+    batches.length = 0;
+    render(createElement(ListDemo, { items: ["a", "b"] }), bridge);
+
+    const updateBatch = await waitForMutationBatch(batches);
+    expect(
+      updateBatch.some(
+        (mutation) =>
+          (mutation.type === "appendChild" ||
+            mutation.type === "insertBefore") &&
+          mutation.node.type === "span" &&
+          mutation.node.children.includes("b"),
+      ),
+      `Expected list growth mutation, got ${JSON.stringify(updateBatch)}`,
+    ).toBe(true);
   });
 });

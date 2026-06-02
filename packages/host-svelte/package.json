@@ -21,7 +21,7 @@
     "build": "tsdown",
     "dev": "tsdown --watch",
     "play": "vite",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "check-types": "svelte-check --tsconfig ./tsconfig.json",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json",
     "prepublishOnly": "pnpm run build"

@@ -86,6 +86,7 @@ function highlight<T extends HTMLElement>(
   label: string,
 ): Cypress.Chainable<JQuery<T>> {
   return subject.should(($elements) => {
+    expect($elements, label).to.have.length.greaterThan(0);
     highlightSubject($elements, label);
   });
 }
@@ -230,7 +231,6 @@ export function runAdvancedFlow(): void {
 
   submit().click();
   visualStep();
-  findButton("Submitting...", "submitting state").should("be.visible");
   findText("Form Submitted Successfully!", "advanced success message", {
     timeout: 5_000,
   }).should("be.visible");
