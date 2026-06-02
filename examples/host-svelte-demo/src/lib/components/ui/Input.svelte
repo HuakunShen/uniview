@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import Input from '$lib/components/ui/input/input.svelte';
 	import Label from '$lib/components/ui/label/label.svelte';
 
@@ -26,16 +27,14 @@
 		class: className
 	}: InputProps = $props();
 
-	let internalValue = $state(value ?? defaultValue ?? '');
+	let internalValue = $state(untrack(() => value ?? defaultValue ?? ''));
 
 	function handleChange(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const newValue = target.value;
-		console.log('Input handleChange called, value:', newValue, 'onChange:', onChange);
 		internalValue = newValue;
 		onChange?.(newValue, event);
 		onInput?.(newValue, event);
-		console.log('Input onChange/onInput called');
 	}
 
 	$effect(() => {

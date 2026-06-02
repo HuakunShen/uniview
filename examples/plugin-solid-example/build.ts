@@ -4,10 +4,10 @@ import solid from "babel-preset-solid"
 
 const isWatch = process.argv.includes("--watch")
 
-const solidTransformPlugin = {
+const solidTransformPlugin: Bun.BunPlugin = {
   name: "bun-plugin-solid",
-  setup(build: { onLoad: (filter: { filter: RegExp }, callback: (args: { path: string }) => Promise<{ contents: string; loader: string }>) => void }) {
-    build.onLoad({ filter: /\.(js|ts)x$/ }, async (args: { path: string }) => {
+  setup(build) {
+    build.onLoad({ filter: /\.(js|ts)x$/ }, async (args) => {
       const file = Bun.file(args.path)
       const code = await file.text()
       const transforms = await transformAsync(code, {
@@ -52,7 +52,7 @@ async function build() {
     const result = await Bun.build({
       entrypoints: [entry],
       outdir: "./dist",
-      plugins: [solidTransformPlugin as any],
+      plugins: [solidTransformPlugin],
       target: "browser",
       format: "esm",
       sourcemap: "external",
@@ -64,7 +64,7 @@ async function build() {
     const result = await Bun.build({
       entrypoints: [entry],
       outdir: "./dist",
-      plugins: [solidTransformPlugin as any],
+      plugins: [solidTransformPlugin],
       target: "bun",
       format: "esm",
       conditions: ["browser"],

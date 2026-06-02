@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-Universal plugin system for React plugins that render in any host framework (Svelte, Vue, React). Plugins run in isolated environments (Web Workers, Node.js, Deno, Bun) via kkrpc RPC.
+Universal plugin system for React and Solid plugins that render in host framework demos (Svelte, Vue, React). Plugins run in isolated environments (Web Workers, Node.js, Deno, Bun) via kkrpc RPC.
 
 ## STRUCTURE
 
@@ -15,7 +15,10 @@ uniview/
 ├── packages/
 │   ├── protocol/         # RPC types, UINode schemas, event definitions
 │   ├── react-renderer/   # Custom React reconciler → UINode tree
-│   ├── react-runtime/    # React plugin bootstrap (worker entry points)
+│   ├── react-runtime/    # React plugin bootstrap (worker + bridge client entry points)
+│   ├── solid-renderer/   # Solid renderer → UINode tree
+│   ├── solid-runtime/    # Solid plugin bootstrap
+│   ├── tui-renderer/     # Terminal primitive renderer experiment
 │   ├── host-sdk/         # Framework-agnostic host controller
 │   └── host-svelte/      # Svelte 5 adapter (runes)
 ├── examples/             # Demo apps (full-stack implementations)
@@ -107,19 +110,19 @@ uniview/
 - ❌ **NEVER** assume synchronous execution - handlers may be async
 - ❌ **NEVER** mutate `InternalNode` after creation - treat as immutable
 - ❌ **NEVER** couple host-sdk to specific framework - must remain framework-agnostic
+- ❌ **NEVER** add plugin-as-server runtime entry points back - use bridge client mode
 
 ## UNIQUE STYLES
 
 ### Multi-Entry Runtime Package
 
-`@uniview/react-runtime` exports multiple entry points for different environments:
+`@uniview/react-runtime` exports worker/main-thread runtime APIs from the package root and the server-side bridge client from `./ws-client`:
 
 ```json
 {
   "exports": {
     ".": "./dist/index.mjs",
-    "./ws-server": "./dist/ws-server.mjs",
-    "./ws-server-entry": "./dist/ws-server-entry.mjs"
+    "./ws-client": "./dist/ws-client.mjs"
   }
 }
 ```
@@ -330,8 +333,8 @@ Plugins run in:
 Hosts support:
 
 - **Svelte 5** (via `@uniview/host-svelte`)
-- **React** (planned via custom adapter)
-- **Vue** (planned via custom adapter)
+- **React** (example host via `@uniview/host-sdk`)
+- **Vue** (example host via `@uniview/host-sdk`)
 
 ### Data Flow
 
@@ -344,14 +347,12 @@ Events flow in reverse: User interaction → Host → kkrpc → HandlerRegistry.
 ### CI/CD Gaps
 
 - **Missing**: GitHub workflows for build/test/lint validation
-- **Orphaned tests**: No `test` task in root `turbo.json`
 - **Inconsistent linting**: `docs/` uses Biome, rest uses Prettier
-- **Workspace ghost**: `pnpm-workspace.yaml` references non-existent `apps/*`
 
 ### Extension Inconsistencies
 
 - Mixed ESM extensions: `.mjs` (protocol, runtime, host-sdk) vs `.js` (react-renderer, host-svelte)
-- **Runtime exports**: `ws-server-entry.ts` exists but not exposed as subpath export
+- **Runtime server mode**: use bridge-client entry points (`./ws-client`), not plugin-as-server exports
 
 ### Package Creation Workflow
 

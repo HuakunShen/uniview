@@ -1,6 +1,16 @@
-import { expect, test } from "vitest";
-import { fn } from "../src";
+import { describe, expect, test } from "vitest";
+import {
+  connectToHostServer,
+  createPluginRuntime,
+  createWebSocketPluginClient,
+  startWorkerPlugin,
+} from "../src";
 
-test("fn", () => {
-  expect(fn()).toBe("Hello, tsdown!");
+describe("react runtime exports", () => {
+  test("exposes public runtime entry points", () => {
+    expect(createPluginRuntime).toBeDefined();
+    expect(startWorkerPlugin).toBeDefined();
+    expect(createWebSocketPluginClient).toBeDefined();
+    expect(connectToHostServer).toBeDefined();
+  });
 });

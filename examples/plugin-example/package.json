@@ -12,9 +12,6 @@
   "scripts": {
     "build": "bun build.ts",
     "dev": "bun build.ts --serve",
-    "server": "run-p server:simple server:advanced",
-    "server:simple": "bun src/simple-demo.server.ts",
-    "server:advanced": "bun src/advanced-demo.server.ts",
     "client": "bun build.ts && run-p client:simple client:advanced",
     "client:simple": "bun dist/simple-demo.client.js",
     "client:advanced": "bun dist/advanced-demo.client.js",
@@ -27,13 +24,11 @@
     "@uniview/example-plugin-api": "workspace:*",
     "@uniview/react-runtime": "workspace:*",
     "is-what": "^5.5.0",
-    "react": "catalog:",
-    "ws": "^8.18.0"
+    "react": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "^1.0.0",
     "@types/react": "^19.0.0",
-    "@types/ws": "^8.5.0",
     "npm-run-all2": "^8.0.4"
   }
 }

@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "isolatedModules": true,
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "target": "ES2022",
+    "types": ["cypress"],
+    "verbatimModuleSyntax": true
+  },
+  "include": ["e2e/**/*.ts", "support/**/*.ts"]
+}

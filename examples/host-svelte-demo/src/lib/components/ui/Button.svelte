@@ -20,9 +20,7 @@
 	}: ButtonProps = $props();
 
 	function handleClick() {
-		console.log('Button clicked, onClick handler:', onClick);
 		onClick?.();
-		console.log('Button onClick called');
 	}
 
 	const variantMap = {

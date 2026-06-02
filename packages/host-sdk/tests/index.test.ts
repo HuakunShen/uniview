@@ -1,6 +1,16 @@
-import { expect, test } from "vitest";
-import { fn } from "../src";
+import { describe, expect, test } from "vitest";
+import { createComponentRegistry } from "../src/registry";
 
-test("fn", () => {
-  expect(fn()).toBe("Hello, tsdown!");
+describe("createComponentRegistry", () => {
+  test("registers and retrieves components by type", () => {
+    const registry = createComponentRegistry<() => string>();
+    const Button = () => "button";
+
+    registry.register("Button", Button);
+
+    expect(registry.has("Button")).toBe(true);
+    expect(registry.get("Button")).toBe(Button);
+    expect(registry.has("Missing")).toBe(false);
+    expect(registry.get("Missing")).toBeUndefined();
+  });
 });

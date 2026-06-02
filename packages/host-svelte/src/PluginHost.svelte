@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { setContext, onMount, onDestroy } from "svelte";
+	import { setContext, onMount, onDestroy, untrack } from "svelte";
 	import type { UINode } from "@uniview/protocol";
 	import type { PluginController, ComponentRegistry } from "@uniview/host-sdk";
 	import type { Component, Snippet } from "svelte";
@@ -17,8 +17,8 @@
 	let error = $state<string | null>(null);
 	let unsubscribe: (() => void) | null = null;
 
-	setContext("uniview:controller", controller);
-	setContext("uniview:registry", registry);
+	setContext("uniview:controller", untrack(() => controller));
+	setContext("uniview:registry", untrack(() => registry));
 
 	onMount(async () => {
 		unsubscribe = controller.subscribe((newTree: UINode | null) => {

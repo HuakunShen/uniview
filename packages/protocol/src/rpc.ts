@@ -34,13 +34,6 @@ export interface HostToPluginAPI {
   destroy(): Promise<void>;
 
   /**
-   * Update a single list item for benchmarking
-   * Designed for testing incremental mode efficiency
-   * Triggers setText mutation on specific child by itemId
-   */
-  updateItem(itemId: string, text: string): Promise<void>;
-
-  /**
    * Request plugin to send current full tree
    * Used for recovery from drift or explicit sync request
    */

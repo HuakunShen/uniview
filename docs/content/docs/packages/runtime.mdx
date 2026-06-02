@@ -141,7 +141,6 @@ The package provides multiple entry points for different environments:
 | ---------------- | ---------------------------------- | --------------------------------------- |
 | Default          | `@uniview/react-runtime`           | Web Worker, Main thread                 |
 | WebSocket Client | `@uniview/react-runtime/ws-client` | Node.js, Deno, Bun (connects to Bridge) |
-| WebSocket Server | `@uniview/react-runtime/ws-server` | Node.js, Deno, Bun (Deprecated)         |
 
 ### WebSocket Client Plugin (Recommended)
 
@@ -190,27 +189,6 @@ createSolidWebSocketPluginClient({
 </Tabs>
 
 The plugin connects to `{serverUrl}/plugins/{pluginId}` and waits for a host to connect.
-
-### WebSocket Server Plugin
-
-<Callout type="warn">
-  **Deprecated**: Running plugins as WebSocket servers is deprecated. Use
-  `@uniview/react-runtime/ws-client` to connect to a Bridge server instead. This
-  approach simplifies deployment and port management.
-</Callout>
-
-For server-side plugins that communicate over WebSocket:
-
-```typescript
-// server-plugin.ts
-import { startWSServerPlugin } from "@uniview/react-runtime/ws-server";
-import App from "./App";
-
-startWSServerPlugin({
-  App,
-  port: 3001,
-});
-```
 
 ## Plugin Lifecycle
 

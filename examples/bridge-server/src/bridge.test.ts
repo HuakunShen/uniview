@@ -21,116 +21,94 @@ function normalizeMessage(message: unknown): string {
 }
 
 describe("Bridge Server Integration Tests", () => {
-  let server: any;
+  let server: Elysia | undefined;
   let port: number;
 
   beforeAll(async () => {
-    // Find available port
-    const ports = [9999, 10001, 10011, 10021];
-    let lastError: unknown = null;
-
-    for (const candidate of ports) {
-      try {
-        port = candidate;
-        server = new Elysia()
-          .get("/:filename", async ({ params }) => {
-            try {
-              const filePath = join(
-                __dirname,
-                "../../plugin-example/dist",
-                params.filename,
-              );
-              const content = await readFile(filePath);
-              return new Response(new Uint8Array(content), {
-                headers: {
-                  "Content-Type": "application/javascript",
-                  "Access-Control-Allow-Origin": "*",
-                },
-              });
-            } catch {
-              return new Response("Not found", { status: 404 });
-            }
-          })
-
-          .ws("/plugins/:pluginId", {
-            open(ws) {
-              const pluginId = ws.data.params.pluginId;
-              if (!connections.has(pluginId)) {
-                connections.set(pluginId, {});
-              }
-              connections.get(pluginId)!.pluginWs = ws;
+    server = new Elysia()
+      .get("/:filename", async ({ params }) => {
+        try {
+          const filePath = join(
+            __dirname,
+            "../../plugin-example/dist",
+            params.filename,
+          );
+          const content = await readFile(filePath);
+          return new Response(new Uint8Array(content), {
+            headers: {
+              "Content-Type": "application/javascript",
+              "Access-Control-Allow-Origin": "*",
             },
-            message(ws, message: unknown) {
-              const pluginId = ws.data.params.pluginId;
-              const conn = connections.get(pluginId);
-              if (conn?.hostWs) {
-                conn.hostWs.send(normalizeMessage(message));
-              }
-            },
-            close(ws) {
-              const pluginId = ws.data.params.pluginId;
-              const conn = connections.get(pluginId);
-              if (conn) {
-                conn.pluginWs = undefined;
-                if (!conn.hostWs) connections.delete(pluginId);
-              }
-            },
-          })
-
-          .ws("/host/:pluginId", {
-            open(ws) {
-              const pluginId = ws.data.params.pluginId;
-              const conn = connections.get(pluginId);
-
-              if (!conn?.pluginWs) {
-                ws.close(1000, "Plugin not ready");
-                return;
-              }
-              if (conn.hostWs) {
-                conn.hostWs.close(1000, "Replaced by new connection");
-              }
-
-              conn.hostWs = ws;
-            },
-            message(ws, message: unknown) {
-              const pluginId = ws.data.params.pluginId;
-              const conn = connections.get(pluginId);
-              if (conn?.pluginWs) {
-                conn.pluginWs.send(normalizeMessage(message));
-              }
-            },
-            close(ws) {
-              const pluginId = ws.data.params.pluginId;
-              const conn = connections.get(pluginId);
-              if (conn) {
-                conn.hostWs = undefined;
-                if (!conn.pluginWs) connections.delete(pluginId);
-              }
-            },
-          })
-
-          .listen({ port: candidate, hostname: "127.0.0.1" });
-
-        // Wait for server to start
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        return;
-      } catch (error: unknown) {
-        lastError = error;
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          (error as { code: string }).code !== "EADDRINUSE"
-        ) {
-          throw error;
+          });
+        } catch {
+          return new Response("Not found", { status: 404 });
         }
-      }
-    }
+      })
 
-    throw (
-      lastError ??
-      new Error("Unable to find available port for Bridge Server tests")
-    );
+      .ws("/plugins/:pluginId", {
+        open(ws) {
+          const pluginId = ws.data.params.pluginId;
+          if (!connections.has(pluginId)) {
+            connections.set(pluginId, {});
+          }
+          connections.get(pluginId)!.pluginWs = ws;
+        },
+        message(ws, message: unknown) {
+          const pluginId = ws.data.params.pluginId;
+          const conn = connections.get(pluginId);
+          if (conn?.hostWs) {
+            conn.hostWs.send(normalizeMessage(message));
+          }
+        },
+        close(ws) {
+          const pluginId = ws.data.params.pluginId;
+          const conn = connections.get(pluginId);
+          if (conn) {
+            conn.pluginWs = undefined;
+            if (!conn.hostWs) connections.delete(pluginId);
+          }
+        },
+      })
+
+      .ws("/host/:pluginId", {
+        open(ws) {
+          const pluginId = ws.data.params.pluginId;
+          const conn = connections.get(pluginId);
+
+          if (!conn?.pluginWs) {
+            ws.close(1000, "Plugin not ready");
+            return;
+          }
+          if (conn.hostWs) {
+            conn.hostWs.close(1000, "Replaced by new connection");
+          }
+
+          conn.hostWs = ws;
+        },
+        message(ws, message: unknown) {
+          const pluginId = ws.data.params.pluginId;
+          const conn = connections.get(pluginId);
+          if (conn?.pluginWs) {
+            conn.pluginWs.send(normalizeMessage(message));
+          }
+        },
+        close(ws) {
+          const pluginId = ws.data.params.pluginId;
+          const conn = connections.get(pluginId);
+          if (conn) {
+            conn.hostWs = undefined;
+            if (!conn.pluginWs) connections.delete(pluginId);
+          }
+        },
+      })
+
+      .listen({ port: 0, hostname: "127.0.0.1" });
+
+    port = server.server?.port ?? 0;
+    if (!port) {
+      throw new Error("Bridge Server test server did not expose a port");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
   });
 
   afterAll(async () => {

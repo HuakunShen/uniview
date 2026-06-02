@@ -9,6 +9,7 @@ import type {
 	UpdateMode,
 	Mutation,
 } from "@uniview/protocol"
+import { PROTOCOL_VERSION } from "@uniview/protocol"
 import {
 	render,
 	setUpdateCallback,
@@ -32,6 +33,14 @@ interface Stats {
 declare global {
 	// eslint-disable-next-line no-var
 	var __uniview_stats: Stats | undefined
+}
+
+function assertProtocolVersion(protocolVersion: number): void {
+	if (protocolVersion !== PROTOCOL_VERSION) {
+		throw new Error(
+			`Protocol version mismatch: host=${protocolVersion}, plugin=${PROTOCOL_VERSION}`,
+		)
+	}
 }
 
 export interface SolidWebSocketPluginClientOptions {
@@ -106,6 +115,7 @@ export function createSolidWebSocketPluginClient(
 	function createPluginAPI(): HostToPluginAPI {
 		return {
 			async initialize(req) {
+				assertProtocolVersion(req.protocolVersion)
 				resetRuntimeState()
 
 				handlerRegistry = new HandlerRegistry()
@@ -280,6 +290,24 @@ export function createSolidWebSocketPluginClient(
 			async executeHandler(handlerId, args) {
 				if (!handlerRegistry) return
 				await handlerRegistry.execute(handlerId, ...args)
+			},
+
+			async syncTree() {
+				if (!currentRpc || !handlerRegistry) return
+
+				const currentRoot = getRootNode()
+				if (!currentRoot || currentRoot.children.length === 0) return
+
+				const serializedTree = serializeTree(
+					currentRoot.children[0],
+					handlerRegistry,
+				) as UINode | null
+
+				const bytes = JSON.stringify(serializedTree).length
+				stats.bytesSent += bytes
+				stats.messagesSent++
+
+				currentRpc.getAPI().updateTree(serializedTree)
 			},
 
 			async destroy() {

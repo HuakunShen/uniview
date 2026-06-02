@@ -9,6 +9,7 @@ import type {
   UpdateMode,
   Mutation,
 } from "@uniview/protocol";
+import { PROTOCOL_VERSION } from "@uniview/protocol";
 import {
   render,
   setUpdateCallback,
@@ -32,6 +33,14 @@ interface Stats {
 declare global {
   // eslint-disable-next-line no-var
   var __uniview_stats: Stats | undefined;
+}
+
+function assertProtocolVersion(protocolVersion: number): void {
+  if (protocolVersion !== PROTOCOL_VERSION) {
+    throw new Error(
+      `Protocol version mismatch: host=${protocolVersion}, plugin=${PROTOCOL_VERSION}`,
+    );
+  }
 }
 
 export interface SolidPluginRuntimeOptions<T extends IoInterface> {
@@ -160,6 +169,7 @@ export function createSolidPluginRuntime<T extends IoInterface>(
 
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
+      assertProtocolVersion(req.protocolVersion);
       resetState();
       setupRuntime((req.props ?? {}) as Record<string, unknown>);
     },
@@ -191,8 +201,6 @@ export function createSolidPluginRuntime<T extends IoInterface>(
 
       rpc.getAPI().updateTree(serializedTree);
     },
-
-    async updateItem() {},
 
     async destroy() {
       resetState();
