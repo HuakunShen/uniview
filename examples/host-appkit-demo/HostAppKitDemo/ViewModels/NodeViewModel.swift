@@ -88,7 +88,7 @@ final class NodeViewModel {
         } else {
             // Check if any child IDs changed (order matters)
             for (old, new) in zip(children, newModel.children) {
-                if old.id != new.id {
+                if old.id != new.id || old.hasDeepDifference(against: new) {
                     dirtyFields.insert(.children)
                     break
                 }
@@ -103,5 +103,22 @@ final class NodeViewModel {
     func handlerId(for eventName: String) -> String? {
         let propName = "_\(eventName)HandlerId"
         return props[propName]?.stringValue
+    }
+
+    private func hasDeepDifference(against newModel: NodeViewModel) -> Bool {
+        if type != newModel.type ||
+            props != newModel.props ||
+            textContent != newModel.textContent ||
+            children.count != newModel.children.count {
+            return true
+        }
+
+        for (old, new) in zip(children, newModel.children) {
+            if old.id != new.id || old.hasDeepDifference(against: new) {
+                return true
+            }
+        }
+
+        return false
     }
 }

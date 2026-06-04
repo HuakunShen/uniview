@@ -2,6 +2,8 @@
 
 A native macOS host for uniview plugins using **pure AppKit** (no SwiftUI). Uses a view model layer and diff-based tree reconciler for efficient in-place updates — the same architecture as React Native.
 
+The host now opens as a Raycast-style command window: search commands in the left pane, press Return or click **Run**, and render the selected plugin on the right. The Raycast-style demo plugins exercise native `List`, `Grid`, `Detail`, `Form`, `ActionPanel`, `Action`, `EmptyView`, and image preview nodes over the existing UINode/kkrpc bridge.
+
 ## Architecture
 
 Unlike the SwiftUI demo (`host-macos-demo`) which rebuilds the entire view tree on each update, this example uses:
@@ -24,6 +26,7 @@ React Plugin → UINode (JSON) → NodeViewModel → NSView (AppKit)
 | `div`, `section`, `form`, ... | `ContainerView` (NSStackView) | Vertical default, horizontal with flex hint |
 | `p`, `span`, `strong`, `em`, `code` | `TextNodeView` (NSTextField label) | Typography varies by type |
 | `h1`–`h6` | `TextNodeView` | Sized fonts |
+| `img` | `RaycastImageNodeView` (NSImageView) | Data URL, file URL/path, and SF Symbol sources |
 | `button` | `ButtonNodeView` (NSButton) | target/action → RPC handler |
 | `input` | `InputNodeView` (NSTextField) | NSTextFieldDelegate → RPC handler |
 | `Switch` | `SwitchNodeView` (NSSwitch) | Native macOS toggle switch |
@@ -31,6 +34,13 @@ React Plugin → UINode (JSON) → NodeViewModel → NSView (AppKit)
 | `label` | `TextNodeView` (NSTextField label) | Same as `p`/`span` |
 | `ul`, `ol` | `ListContainerView` (NSStackView) | Left-indented |
 | `li` | `ListItemView` (NSStackView) | Bullet + text |
+| `List` | `RaycastListNodeView` (NSSearchField + NSTableView) | Native command/list surface |
+| `ListItem` | Row model inside `RaycastListNodeView` | Title, subtitle, icon, accessories |
+| `Grid` | `RaycastGridNodeView` (NSCollectionView) | Searchable native visual grid |
+| `Form` | `RaycastFormNodeView` (NSTextField/NSTextView/NSButton/NSPopUpButton) | Native preferences and command forms |
+| `Detail` | `DetailNodeView` (NSImageView + NSTextView + metadata) | Markdown text plus explicit image preview |
+| `ActionPanel` / `Action` | Native action buttons and popover | Handler IDs execute over RPC |
+| `EmptyView` | Centered native empty state | Title + optional description |
 
 ## Running
 
@@ -46,11 +56,44 @@ React Plugin → UINode (JSON) → NodeViewModel → NSView (AppKit)
 
    # Advanced form demo (Switch, Toggle, Input)
    cd examples/plugin-example && bun run client:advanced
+
+   # Raycast-style list/detail/action demo
+   cd examples/plugin-example && bun run client:raycast
+
+   # Clipboard history list/detail/image preview demo
+   cd examples/plugin-example && bun run client:clipboard
+
+   # Grid, form, or standalone detail demos
+   cd examples/plugin-example && bun run client:grid
+   cd examples/plugin-example && bun run client:form
+   cd examples/plugin-example && bun run client:detail
    ```
 
 3. Open `HostAppKitDemo.xcodeproj` in Xcode, build and run (⌘R)
 
-4. Enter plugin ID `simple-demo` (or `advanced-demo`), click **Connect**
+4. Search for `Clipboard History`, `Grid Demo`, `Preferences Form`, `Detail Demo`, `Raycast Demo`, `Simple Demo`, or `Advanced Demo`, then press Return or click **Run**
+
+## Testing
+
+Run the standalone model and renderer regression tests:
+
+```bash
+bash examples/host-appkit-demo/tests/run.sh
+```
+
+The UI test target includes a bridge-free fixture mode for validating the native renderer directly:
+
+```bash
+xcodebuild test \
+  -project examples/host-appkit-demo/HostAppKitDemo.xcodeproj \
+  -scheme HostAppKitDemo \
+  -configuration Debug \
+  -derivedDataPath /tmp/uniview-host-appkit-derived \
+  -destination 'platform=macOS' \
+  -only-testing:HostAppKitDemoUITests
+```
+
+`UNIVIEW_APPKIT_UI_FIXTURE=clipboard-image` injects a Clipboard History `List` UINode tree at launch so tests can verify the AppKit `List`, `List.Item.Detail`, explicit `img` preview, metadata, and action button mapping without depending on the WebSocket bridge.
 
 ## Project Structure
 

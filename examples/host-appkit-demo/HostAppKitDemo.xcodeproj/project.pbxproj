@@ -12,12 +12,18 @@
 		AA100003000000000000BF03 /* MainWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200003000000000000FR03 /* MainWindowController.swift */; };
 		AA100004000000000000BF04 /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200004000000000000FR04 /* MainViewController.swift */; };
 		AA100005000000000000BF05 /* UINode.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200005000000000000FR05 /* UINode.swift */; };
+		AA100018000000000000BF18 /* Mutation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200019000000000000FR19 /* Mutation.swift */; };
 		AA100006000000000000BF06 /* RPCMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200006000000000000FR06 /* RPCMessage.swift */; };
 		AA100007000000000000BF07 /* MessageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200007000000000000FR07 /* MessageParser.swift */; };
 		AA100008000000000000BF08 /* RPCClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200008000000000000FR08 /* RPCClient.swift */; };
 		AA100009000000000000BF09 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200009000000000000FR09 /* WebSocketClient.swift */; };
 		AA10000A000000000000BF0A /* NodeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000A000000000000FR0A /* NodeViewModel.swift */; };
 		AA10000B000000000000BF0B /* TreeReconciler.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000B000000000000FR0B /* TreeReconciler.swift */; };
+		AA100019000000000000BF19 /* MutableUINodeTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20001A000000000000FR1A /* MutableUINodeTree.swift */; };
+		AA100015000000000000BF15 /* CommandPaletteModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200016000000000000FR16 /* CommandPaletteModel.swift */; };
+		AA100017000000000000BF17 /* RaycastListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200018000000000000FR18 /* RaycastListModel.swift */; };
+		AA10001A000000000000BF1A /* RaycastGridModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20001B000000000000FR1B /* RaycastGridModel.swift */; };
+		AA10001B000000000000BF1B /* RaycastFormModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20001C000000000000FR1C /* RaycastFormModel.swift */; };
 		AA10000C000000000000BF0C /* NodeViewFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000C000000000000FR0C /* NodeViewFactory.swift */; };
 		AA10000D000000000000BF0D /* ContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000D000000000000FR0D /* ContainerView.swift */; };
 		AA10000E000000000000BF0E /* TextNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20000E000000000000FR0E /* TextNodeView.swift */; };
@@ -26,22 +32,42 @@
 		AA100011000000000000BF11 /* ListNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200011000000000000FR11 /* ListNodeView.swift */; };
 		AA100013000000000000BF13 /* SwitchNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200014000000000000FR14 /* SwitchNodeView.swift */; };
 		AA100014000000000000BF14 /* ToggleNodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200015000000000000FR15 /* ToggleNodeView.swift */; };
+		AA100016000000000000BF16 /* RaycastNodeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA200017000000000000FR17 /* RaycastNodeViews.swift */; };
+		AA10001C000000000000BF1C /* RaycastImageResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA20001D000000000000FR1D /* RaycastImageResolver.swift */; };
 		AA100012000000000000BF12 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA200012000000000000FR12 /* Assets.xcassets */; };
+		AA110001000000000000BF01 /* HostAppKitDemoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA210001000000000000FR01 /* HostAppKitDemoUITests.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AA410001000000000000CP01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AA500001000000000000PJ01 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA600001000000000000NT01;
+			remoteInfo = HostAppKitDemo;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		AA300001000000000000PR01 /* HostAppKitDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HostAppKitDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA310001000000000000PR01 /* HostAppKitDemoUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HostAppKitDemoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA200001000000000000FR01 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		AA200002000000000000FR02 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		AA200003000000000000FR03 /* MainWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowController.swift; sourceTree = "<group>"; };
 		AA200004000000000000FR04 /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		AA200005000000000000FR05 /* UINode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UINode.swift; sourceTree = "<group>"; };
+		AA200019000000000000FR19 /* Mutation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mutation.swift; sourceTree = "<group>"; };
 		AA200006000000000000FR06 /* RPCMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RPCMessage.swift; sourceTree = "<group>"; };
 		AA200007000000000000FR07 /* MessageParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageParser.swift; sourceTree = "<group>"; };
 		AA200008000000000000FR08 /* RPCClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RPCClient.swift; sourceTree = "<group>"; };
 		AA200009000000000000FR09 /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		AA20000A000000000000FR0A /* NodeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeViewModel.swift; sourceTree = "<group>"; };
 		AA20000B000000000000FR0B /* TreeReconciler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TreeReconciler.swift; sourceTree = "<group>"; };
+		AA20001A000000000000FR1A /* MutableUINodeTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MutableUINodeTree.swift; sourceTree = "<group>"; };
+		AA200016000000000000FR16 /* CommandPaletteModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPaletteModel.swift; sourceTree = "<group>"; };
+		AA200018000000000000FR18 /* RaycastListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaycastListModel.swift; sourceTree = "<group>"; };
+		AA20001B000000000000FR1B /* RaycastGridModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaycastGridModel.swift; sourceTree = "<group>"; };
+		AA20001C000000000000FR1C /* RaycastFormModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaycastFormModel.swift; sourceTree = "<group>"; };
 		AA20000C000000000000FR0C /* NodeViewFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NodeViewFactory.swift; sourceTree = "<group>"; };
 		AA20000D000000000000FR0D /* ContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerView.swift; sourceTree = "<group>"; };
 		AA20000E000000000000FR0E /* TextNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextNodeView.swift; sourceTree = "<group>"; };
@@ -52,10 +78,20 @@
 		AA200013000000000000FR13 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA200014000000000000FR14 /* SwitchNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwitchNodeView.swift; sourceTree = "<group>"; };
 		AA200015000000000000FR15 /* ToggleNodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToggleNodeView.swift; sourceTree = "<group>"; };
+		AA200017000000000000FR17 /* RaycastNodeViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaycastNodeViews.swift; sourceTree = "<group>"; };
+		AA20001D000000000000FR1D /* RaycastImageResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaycastImageResolver.swift; sourceTree = "<group>"; };
+		AA210001000000000000FR01 /* HostAppKitDemoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostAppKitDemoUITests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AA400001000000000000FW01 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA400002000000000000FW02 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -69,6 +105,7 @@
 			isa = PBXGroup;
 			children = (
 				AA500002000000000000GR02 /* HostAppKitDemo */,
+				AA510001000000000000GR01 /* HostAppKitDemoUITests */,
 				AA500003000000000000GR03 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -91,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				AA300001000000000000PR01 /* HostAppKitDemo.app */,
+				AA310001000000000000PR01 /* HostAppKitDemoUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -110,6 +148,7 @@
 			isa = PBXGroup;
 			children = (
 				AA200005000000000000FR05 /* UINode.swift */,
+				AA200019000000000000FR19 /* Mutation.swift */,
 				AA200006000000000000FR06 /* RPCMessage.swift */,
 				AA200007000000000000FR07 /* MessageParser.swift */,
 			);
@@ -130,6 +169,11 @@
 			children = (
 				AA20000A000000000000FR0A /* NodeViewModel.swift */,
 				AA20000B000000000000FR0B /* TreeReconciler.swift */,
+				AA20001A000000000000FR1A /* MutableUINodeTree.swift */,
+				AA200016000000000000FR16 /* CommandPaletteModel.swift */,
+				AA200018000000000000FR18 /* RaycastListModel.swift */,
+				AA20001B000000000000FR1B /* RaycastGridModel.swift */,
+				AA20001C000000000000FR1C /* RaycastFormModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -145,8 +189,18 @@
 				AA200011000000000000FR11 /* ListNodeView.swift */,
 				AA200014000000000000FR14 /* SwitchNodeView.swift */,
 				AA200015000000000000FR15 /* ToggleNodeView.swift */,
+				AA200017000000000000FR17 /* RaycastNodeViews.swift */,
+				AA20001D000000000000FR1D /* RaycastImageResolver.swift */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		AA510001000000000000GR01 /* HostAppKitDemoUITests */ = {
+			isa = PBXGroup;
+			children = (
+				AA210001000000000000FR01 /* HostAppKitDemoUITests.swift */,
+			);
+			path = HostAppKitDemoUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -169,6 +223,24 @@
 			productReference = AA300001000000000000PR01 /* HostAppKitDemo.app */;
 			productType = "com.apple.product-type.application";
 		};
+		AA600002000000000000NT02 /* HostAppKitDemoUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA800003000000000000CL03 /* Build configuration list for PBXNativeTarget "HostAppKitDemoUITests" */;
+			buildPhases = (
+				AA700003000000000000SP03 /* Sources */,
+				AA400002000000000000FW02 /* Frameworks */,
+				AA700004000000000000RS04 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA610001000000000000TD01 /* PBXTargetDependency */,
+			);
+			name = HostAppKitDemoUITests;
+			productName = HostAppKitDemoUITests;
+			productReference = AA310001000000000000PR01 /* HostAppKitDemoUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -181,6 +253,10 @@
 				TargetAttributes = {
 					AA600001000000000000NT01 = {
 						CreatedOnToolsVersion = 16.0;
+					};
+					AA600002000000000000NT02 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = AA600001000000000000NT01;
 					};
 				};
 			};
@@ -198,6 +274,7 @@
 			projectRoot = "";
 			targets = (
 				AA600001000000000000NT01 /* HostAppKitDemo */,
+				AA600002000000000000NT02 /* HostAppKitDemoUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -208,6 +285,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA100012000000000000BF12 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA700004000000000000RS04 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,12 +307,18 @@
 				AA100003000000000000BF03 /* MainWindowController.swift in Sources */,
 				AA100004000000000000BF04 /* MainViewController.swift in Sources */,
 				AA100005000000000000BF05 /* UINode.swift in Sources */,
+				AA100018000000000000BF18 /* Mutation.swift in Sources */,
 				AA100006000000000000BF06 /* RPCMessage.swift in Sources */,
 				AA100007000000000000BF07 /* MessageParser.swift in Sources */,
 				AA100008000000000000BF08 /* RPCClient.swift in Sources */,
 				AA100009000000000000BF09 /* WebSocketClient.swift in Sources */,
 				AA10000A000000000000BF0A /* NodeViewModel.swift in Sources */,
 				AA10000B000000000000BF0B /* TreeReconciler.swift in Sources */,
+				AA100019000000000000BF19 /* MutableUINodeTree.swift in Sources */,
+				AA100015000000000000BF15 /* CommandPaletteModel.swift in Sources */,
+				AA100017000000000000BF17 /* RaycastListModel.swift in Sources */,
+				AA10001A000000000000BF1A /* RaycastGridModel.swift in Sources */,
+				AA10001B000000000000BF1B /* RaycastFormModel.swift in Sources */,
 				AA10000C000000000000BF0C /* NodeViewFactory.swift in Sources */,
 				AA10000D000000000000BF0D /* ContainerView.swift in Sources */,
 				AA10000E000000000000BF0E /* TextNodeView.swift in Sources */,
@@ -237,10 +327,28 @@
 				AA100011000000000000BF11 /* ListNodeView.swift in Sources */,
 				AA100013000000000000BF13 /* SwitchNodeView.swift in Sources */,
 				AA100014000000000000BF14 /* ToggleNodeView.swift in Sources */,
+				AA100016000000000000BF16 /* RaycastNodeViews.swift in Sources */,
+				AA10001C000000000000BF1C /* RaycastImageResolver.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA700003000000000000SP03 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA110001000000000000BF01 /* HostAppKitDemoUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AA610001000000000000TD01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA600001000000000000NT01 /* HostAppKitDemo */;
+			targetProxy = AA410001000000000000CP01 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		AA900001000000000000BC01 /* Debug */ = {
@@ -385,6 +493,56 @@
 			};
 			name = Release;
 		};
+		AA900003000000000000BC03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.uniview.HostAppKitDemoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = HostAppKitDemo;
+			};
+			name = Debug;
+		};
+		AA900004000000000000BC04 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.uniview.HostAppKitDemoUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = HostAppKitDemo;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -402,6 +560,15 @@
 			buildConfigurations = (
 				AA900001000000000000BC01 /* Debug */,
 				AA900002000000000000BC02 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA800003000000000000CL03 /* Build configuration list for PBXNativeTarget "HostAppKitDemoUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA900003000000000000BC03 /* Debug */,
+				AA900004000000000000BC04 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

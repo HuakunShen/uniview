@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "kkrpc": {
+      "source": "kunkunsh/kkrpc",
+      "sourceType": "github",
+      "skillPath": "skills/kkrpc/SKILL.md",
+      "computedHash": "601d586fe52fded813bcb55f5533a67da48499ee54829cf82aa8cae76c55f9f4"
+    },
+    "kkrpc-interop": {
+      "source": "kunkunsh/kkrpc",
+      "sourceType": "github",
+      "skillPath": "skills/interop/SKILL.md",
+      "computedHash": "23edb0fb6db94926f97ef3ce4f1d2d2b4593aa1f9ef678238ac5849cfea0876a"
+    }
+  }
+}

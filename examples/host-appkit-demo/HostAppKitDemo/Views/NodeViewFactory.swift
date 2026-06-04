@@ -9,6 +9,16 @@ protocol UpdatableNodeView: NSView {
     )
 }
 
+/// Protocol for plugin views that can name the control that should receive first focus.
+protocol InitialFocusableNodeView: NSView {
+    var initialFocusView: NSView? { get }
+}
+
+/// Protocol for plugin views that can handle command-style keyboard shortcuts.
+protocol ShortcutHandlingNodeView: NSView {
+    func handleShortcut(_ shortcut: String) -> Bool
+}
+
 /// Creates and updates NSViews based on NodeViewModel type.
 enum NodeViewFactory {
 
@@ -32,11 +42,38 @@ enum NodeViewFactory {
         case "h1", "h2", "h3", "h4", "h5", "h6":
             view = TextNodeView(model: model)
 
+        case "img":
+            view = RaycastImageNodeView(model: model)
+
         case "ul", "ol":
             view = ListContainerView(model: model, handlerExecutor: handlerExecutor)
 
         case "li":
             view = ListItemView(model: model, handlerExecutor: handlerExecutor)
+
+        case "List":
+            view = RaycastListNodeView(model: model, handlerExecutor: handlerExecutor)
+
+        case "Grid":
+            view = RaycastGridNodeView(model: model, handlerExecutor: handlerExecutor)
+
+        case "Form":
+            view = RaycastFormNodeView(model: model, handlerExecutor: handlerExecutor)
+
+        case "Detail":
+            view = DetailNodeView(model: model, handlerExecutor: handlerExecutor)
+
+        case "EmptyView":
+            view = EmptyViewNodeView(model: model)
+
+        case "ActionPanel", "Action", "ListItem", "ListSection",
+             "ListItemDetail", "ListItemDetailMetadata", "ListItemDetailMetadataLabel",
+             "ListItemDetailMetadataSeparator", "GridItem", "GridSection",
+             "ListDropdown", "ListDropdownItem", "GridDropdown", "GridDropdownItem",
+             "DetailMetadata", "DetailMetadataLabel", "DetailMetadataSeparator",
+             "FormTextField", "FormPasswordField", "FormTextArea", "FormCheckbox",
+             "FormDropdown", "FormDropdownItem", "FormSeparator":
+            view = ContainerView(model: model, handlerExecutor: handlerExecutor)
 
         case "button", "Button":
             view = ButtonNodeView(model: model, handlerExecutor: handlerExecutor)
@@ -68,6 +105,38 @@ enum NodeViewFactory {
         if let updatable = view as? UpdatableNodeView {
             updatable.update(from: oldModel, to: newModel, handlerExecutor: handlerExecutor)
         }
+    }
+
+    /// Find the most specific view that should receive focus when plugin content first appears.
+    static func initialFocusTarget(in view: NSView) -> NSView? {
+        if let focusable = view as? InitialFocusableNodeView,
+           let target = focusable.initialFocusView {
+            return target
+        }
+
+        for subview in view.subviews {
+            if let target = initialFocusTarget(in: subview) {
+                return target
+            }
+        }
+
+        return nil
+    }
+
+    /// Give plugin views a chance to handle a command-style shortcut.
+    static func handleShortcut(in view: NSView, shortcut: String) -> Bool {
+        if let handler = view as? ShortcutHandlingNodeView,
+           handler.handleShortcut(shortcut) {
+            return true
+        }
+
+        for subview in view.subviews {
+            if handleShortcut(in: subview, shortcut: shortcut) {
+                return true
+            }
+        }
+
+        return false
     }
 }
 

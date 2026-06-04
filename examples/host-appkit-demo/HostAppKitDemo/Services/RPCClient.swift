@@ -61,6 +61,7 @@ class RPCClient {
     // MARK: - Properties
 
     private let webSocketClient = WebSocketClient()
+    private let mutableTree = MutableUINodeTree()
     private var pendingRequests: [String: PendingRequest] = [:]
     private let requestTimeout: TimeInterval = 30.0
 
@@ -68,7 +69,7 @@ class RPCClient {
     private(set) var pluginId: String?
 
     /// Protocol version for kkrpc communication
-    private let protocolVersion = 1
+    private let protocolVersion = 2
 
     /// Base URL for the bridge server
     var bridgeServerURL: String = "ws://localhost:3000"
@@ -81,8 +82,8 @@ class RPCClient {
 
     // MARK: - Callbacks
 
-    /// Called when plugin sends a tree update
-    var onUpdateTree: ((UINode) -> Void)?
+    /// Called when plugin sends a tree update. nil clears the rendered tree.
+    var onUpdateTree: ((UINode?) -> Void)?
 
     /// Called when plugin sends a log message
     var onLog: ((String, String) -> Void)?
@@ -123,6 +124,7 @@ class RPCClient {
     /// Disconnect from the bridge server
     func disconnect() {
         webSocketClient.disconnect()
+        mutableTree.initialize(nil)
         pendingRequests.removeAll()
         pluginId = nil
         updateState(.disconnected)
@@ -191,10 +193,11 @@ class RPCClient {
     private func handleWebSocketStateChange(_ wsState: WebSocketClientState) {
         switch wsState {
         case .disconnected:
-            for (_, request) in pendingRequests {
+            let pending = pendingRequests
+            pendingRequests.removeAll()
+            for (_, request) in pending {
                 request.continuation.resume(throwing: RPCClientError.notConnected)
             }
-            pendingRequests.removeAll()
             updateState(.disconnected)
 
         case .connecting:
@@ -231,7 +234,7 @@ class RPCClient {
     }
 
     private func handleResponse(_ message: RPCMessage) {
-        guard let pending = pendingRequests.removeValue(forKey: message.id) else {
+        guard let pending = takePendingRequest(id: message.id) else {
             return
         }
 
@@ -256,6 +259,8 @@ class RPCClient {
         switch method {
         case "updateTree":
             handleUpdateTree(message)
+        case "applyMutations":
+            handleApplyMutations(message)
         case "log":
             handleLog(message)
         case "reportError":
@@ -271,6 +276,8 @@ class RPCClient {
         switch method {
         case "updateTree":
             handleUpdateTree(message)
+        case "applyMutations":
+            handleApplyMutations(message)
         case "log":
             handleLog(message)
         case "reportError":
@@ -286,6 +293,13 @@ class RPCClient {
             return
         }
 
+        if treeArg.isNull {
+            mutableTree.initialize(nil)
+            onUpdateTree?(nil)
+            sendSuccessResponse(for: message)
+            return
+        }
+
         do {
             let encoder = JSONEncoder()
             let decoder = JSONDecoder()
@@ -293,6 +307,7 @@ class RPCClient {
             let treeData = try encoder.encode(treeArg)
             let tree = try decoder.decode(UINode.self, from: treeData)
 
+            mutableTree.initialize(tree)
             onUpdateTree?(tree)
             sendSuccessResponse(for: message)
         } catch {
@@ -301,15 +316,36 @@ class RPCClient {
         }
     }
 
-    private func handleLog(_ message: RPCMessage) {
-        guard let args = message.args?.arrayValue,
-              args.count >= 2,
-              let level = args[0].stringValue,
-              let logMessage = args[1].stringValue else {
+    private func handleApplyMutations(_ message: RPCMessage) {
+        guard let argsArray = message.args?.arrayValue,
+              let mutationsArg = argsArray.first else {
             return
         }
 
-        onLog?(level, logMessage)
+        do {
+            let encoder = JSONEncoder()
+            let decoder = JSONDecoder()
+
+            let mutationsData = try encoder.encode(mutationsArg)
+            let mutations = try decoder.decode([Mutation].self, from: mutationsData)
+            let tree = mutableTree.applyMutations(mutations)
+
+            onUpdateTree?(tree)
+            sendSuccessResponse(for: message)
+        } catch {
+            lastError = RPCClientError.decodingFailed(error)
+            sendErrorResponse(for: message, error: "Failed to decode mutations: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleLog(_ message: RPCMessage) {
+        guard let args = message.args?.arrayValue,
+              args.count >= 2,
+              let level = args[0].stringValue else {
+            return
+        }
+
+        onLog?(level, formatLogPayload(args[1]))
         sendSuccessResponse(for: message)
     }
 
@@ -384,16 +420,54 @@ class RPCClient {
                     // Set up timeout
                     Task {
                         try? await Task.sleep(nanoseconds: UInt64(requestTimeout * 1_000_000_000))
-                        if let pending = pendingRequests.removeValue(forKey: messageId) {
+                        if let pending = self.takePendingRequest(id: messageId) {
                             pending.continuation.resume(throwing: RPCClientError.timeout)
                         }
                     }
                 } catch {
-                    pendingRequests.removeValue(forKey: messageId)
-                    continuation.resume(throwing: RPCClientError.encodingFailed)
+                    if let pending = self.takePendingRequest(id: messageId) {
+                        pending.continuation.resume(throwing: RPCClientError.encodingFailed)
+                    }
                 }
             }
         }
+    }
+
+    private func takePendingRequest(id: String) -> PendingRequest? {
+        pendingRequests.removeValue(forKey: id)
+    }
+
+    private func formatLogPayload(_ payload: JSONValue) -> String {
+        if let args = payload.arrayValue {
+            return args.map(formatJSONValue).joined(separator: " ")
+        }
+
+        return formatJSONValue(payload)
+    }
+
+    private func formatJSONValue(_ value: JSONValue) -> String {
+        if let string = value.stringValue {
+            return string
+        }
+
+        if let bool = value.boolValue {
+            return String(bool)
+        }
+
+        if let number = value.numberValue {
+            return String(number)
+        }
+
+        if value.isNull {
+            return "null"
+        }
+
+        if let data = try? JSONEncoder().encode(value),
+           let string = String(data: data, encoding: .utf8) {
+            return string
+        }
+
+        return "\(value)"
     }
 
     private func updateState(_ newState: RPCClientState) {

@@ -3,15 +3,13 @@ import { serve } from "bun";
 const workerEntrypoints = [
   "./src/simple-demo.worker.ts",
   "./src/advanced-demo.worker.ts",
+  "./src/raycast-demo.worker.ts",
+  "./src/clipboard-history-demo.worker.ts",
+  "./src/grid-demo.worker.ts",
+  "./src/form-demo.worker.ts",
+  "./src/detail-demo.worker.ts",
   "./src/benchmark-full.worker.ts",
   "./src/benchmark-incremental.worker.ts",
-];
-
-const clientEntrypoints = [
-  "./src/simple-demo.client.ts",
-  "./src/advanced-demo.client.ts",
-  "./src/benchmark-full.client.ts",
-  "./src/benchmark-incremental.client.ts",
 ];
 
 const workerResults = await Promise.all(
@@ -30,26 +28,8 @@ const workerResults = await Promise.all(
   }),
 );
 
-const clientResults = await Promise.all(
-  clientEntrypoints.map(async (entry) => {
-    const result = await Bun.build({
-      entrypoints: [entry],
-      outdir: "./dist",
-      target: "bun",
-      format: "esm",
-      minify: false,
-      sourcemap: "external",
-      naming: "[name].js",
-      external: ["ioredis", "kafkajs", "amqplib"],
-    });
-    return { entry, result };
-  }),
-);
-
-const results = [...workerResults, ...clientResults];
-
 let allSuccess = true;
-for (const { entry, result } of results) {
+for (const { entry, result } of workerResults) {
   if (!result.success) {
     console.error(`Build failed for ${entry}:`);
     for (const log of result.logs) {
@@ -98,6 +78,11 @@ if (process.argv.includes("--serve")) {
   console.log("Available plugins:");
   console.log(`  - http://localhost:${PORT}/simple-demo.worker.js`);
   console.log(`  - http://localhost:${PORT}/advanced-demo.worker.js`);
+  console.log(`  - http://localhost:${PORT}/raycast-demo.worker.js`);
+  console.log(`  - http://localhost:${PORT}/clipboard-history-demo.worker.js`);
+  console.log(`  - http://localhost:${PORT}/grid-demo.worker.js`);
+  console.log(`  - http://localhost:${PORT}/form-demo.worker.js`);
+  console.log(`  - http://localhost:${PORT}/detail-demo.worker.js`);
   console.log(`  - http://localhost:${PORT}/benchmark-full.worker.js`);
   console.log(`  - http://localhost:${PORT}/benchmark-incremental.worker.js`);
 }
