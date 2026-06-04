@@ -2,8 +2,11 @@
 
 <cite>
 **Referenced Files in This Document**
-- [examples/](file://examples/)
-- [README.md](file://README.md)
+- [README.md](file://README.md#L41-L134)
+- [examples/host-svelte-demo/package.json](file://examples/host-svelte-demo/package.json#L6-L53)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L21-L124)
+- [examples/plugin-example/package.json](file://examples/plugin-example/package.json#L12-L34)
+- [examples/plugin-solid-example/package.json](file://examples/plugin-solid-example/package.json#L7-L29)
 </cite>
 
 ## Table of Contents
@@ -14,104 +17,60 @@
 
 ## Overview
 
-The `examples/` directory contains 11 demo applications demonstrating Uniview's plugin system across different frameworks, platforms, and runtime modes.
+The examples workspace demonstrates Uniview across web hosts, plugin runtimes, bridge server mode, native experiments, and terminal rendering. The Svelte host demo is the recommended first entry point because it orchestrates bridge, plugin bundles, plugin clients, and host UI in one command.
 
 **Section sources**
 
-- [examples/](file://examples/)
-- [README.md](file://README.md#L197-L219)
+- [README.md](file://README.md#L41-L134)
+- [examples/host-svelte-demo/package.json](file://examples/host-svelte-demo/package.json#L6-L53)
 
 ## Categories
 
 ```mermaid
 graph TB
-    subgraph Hosts["Host Implementations"]
-        HSD[host-svelte-demo]
-        HRD[host-react-demo]
-        HVD[host-vue-demo]
-        HMD[host-macos-demo]
-        HAD[host-appkit-demo]
-    end
-
-    subgraph Plugins["Plugin Examples"]
-        PA[plugin-api]
-        PSA[plugin-solid-api]
-        PE[plugin-example]
-        PSE[plugin-solid-example]
-    end
-
-    subgraph Infrastructure
-        BS[bridge-server]
-    end
-
-    subgraph Alternative
-        TD[tui-demo]
-    end
+    Hosts[Web hosts: Svelte React Vue]
+    Plugins[Plugin examples: React Solid]
+    APIs[Plugin API primitives]
+    Bridge[Bridge server]
+    Native[macOS/AppKit/TUI]
+    Hosts --> Bridge
+    Plugins --> Bridge
+    APIs --> Plugins
 ```
 
-### Host Implementations
+**Diagram sources**
 
-| Example                                                | Framework | Platform | Notes                      |
-| ------------------------------------------------------ | --------- | -------- | -------------------------- |
-| [host-svelte-demo](./Host%20Demos.md#host-svelte-demo) | Svelte 5  | Web      | Primary example, all modes |
-| [host-react-demo](./Host%20Demos.md#host-react-demo)   | React 19  | Web      | React host implementation  |
-| [host-vue-demo](./Host%20Demos.md#host-vue-demo)       | Vue 3     | Web      | Vue host implementation    |
-| [host-macos-demo](./Host%20Demos.md#host-macos-demo)   | SwiftUI   | macOS    | Native macOS app           |
-| [host-appkit-demo](./Host%20Demos.md#host-appkit-demo) | AppKit    | macOS    | Diff-based reconciliation  |
+- [README.md](file://README.md#L41-L134)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L21-L124)
 
-### Plugin Examples
-
-| Example                                                             | Framework | Notes               |
-| ------------------------------------------------------------------- | --------- | ------------------- |
-| [plugin-api](./Plugin%20Examples.md#plugin-api)                     | React     | Reusable components |
-| [plugin-solid-api](./Plugin%20Examples.md#plugin-solid-api)         | Solid     | Solid components    |
-| [plugin-example](./Plugin%20Examples.md#plugin-example)             | React     | Demo plugins        |
-| [plugin-solid-example](./Plugin%20Examples.md#plugin-solid-example) | Solid     | Solid demo plugins  |
-
-### Infrastructure
-
-| Example                               | Purpose                                       |
-| ------------------------------------- | --------------------------------------------- |
-| [bridge-server](./Bridge%20Server.md) | WebSocket multiplexer for server-side plugins |
-
-### Alternative Rendering
-
-| Example                                | Platform        |
-| -------------------------------------- | --------------- |
-| [tui-demo](./Host%20Demos.md#tui-demo) | Terminal (ANSI) |
+| Category | Examples | Purpose |
+| --- | --- | --- |
+| Hosts | Svelte, React, Vue demos | Render plugin trees in browser frameworks |
+| Plugin APIs | React and Solid plugin API packages | Product primitives such as Button/Input/Switch/Toggle |
+| Plugin examples | React and Solid plugin examples | Worker and bridge-client bundles |
+| Infrastructure | Bridge server | WebSocket multiplexing and static bundle serving |
+| Alternative hosts | macOS, AppKit, TUI | Native and terminal experiments |
 
 **Section sources**
 
-- [examples/](file://examples/)
+- [README.md](file://README.md#L41-L134)
+- [examples/plugin-example/package.json](file://examples/plugin-example/package.json#L12-L34)
+- [examples/plugin-solid-example/package.json](file://examples/plugin-solid-example/package.json#L7-L29)
 
 ## Quick Start
 
-### Web Example (Recommended)
+Run the complete Svelte demo after installing dependencies and building packages:
 
 ```bash
-# Install and build
 pnpm install
 pnpm build
-
-# Run complete demo
 cd examples/host-svelte-demo
-pnpm dev:all
+pnpm dev
 ```
 
-Opens at `http://localhost:5173` with:
-
-- Worker mode (browser sandbox)
-- WebSocket mode (server-side plugins)
-- Main thread mode (development)
-- Benchmark mode (performance testing)
-
-### What You'll See
-
-1. **Plugin selection**: Choose from demo plugins
-2. **Mode switching**: Toggle between Worker/WebSocket
-3. **Framework switching**: React or Solid plugins
-4. **Benchmark**: Compare full-tree vs incremental updates
+The demo opens at `http://localhost:5173` and lets users switch plugin framework, runtime mode, demo type, and update mode.
 
 **Section sources**
 
-- [README.md](file://README.md#L35-L48)
+- [README.md](file://README.md#L41-L90)
+- [examples/host-svelte-demo/package.json](file://examples/host-svelte-demo/package.json#L6-L20)

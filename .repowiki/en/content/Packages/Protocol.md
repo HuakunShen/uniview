@@ -2,246 +2,95 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/protocol/src/index.ts](file://packages/protocol/src/index.ts)
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts)
-- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts)
-- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts)
-- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts)
-- [packages/protocol/package.json](file://packages/protocol/package.json)
+- [packages/protocol/package.json](file://packages/protocol/package.json#L1-L37)
+- [packages/protocol/src/index.ts](file://packages/protocol/src/index.ts#L1-L6)
+- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L4-L129)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
+- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts#L1-L72)
+- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts#L3-L81)
+- [packages/protocol/src/validators.ts](file://packages/protocol/src/validators.ts#L1-L76)
+- [packages/protocol/src/version.ts](file://packages/protocol/src/version.ts#L1-L5)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L48-L54)
+- [packages/react-runtime/tests/protocol-contract.test.ts](file://packages/react-runtime/tests/protocol-contract.test.ts#L4-L28)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [Type Definitions](#type-definitions)
+2. [Protocol Version](#protocol-version)
+3. [Tree Types](#tree-types)
 4. [RPC Interfaces](#rpc-interfaces)
-5. [Event Handling](#event-handling)
-6. [Mutations](#mutations)
-7. [Validators](#validators)
+5. [Events and Handler IDs](#events-and-handler-ids)
+6. [Mutations and Update Modes](#mutations-and-update-modes)
+7. [Validation](#validation)
 
 ## Overview
 
-`@uniview/protocol` is the foundation package defining types, Zod schemas, and version contracts for plugin/host communication. It has zero runtime dependencies beyond Zod for validation.
+`@uniview/protocol` is the foundation package for all cross-boundary communication. It defines JSON-safe values, serializable UI trees, event handler ID conventions, bidirectional RPC interfaces, incremental mutation types, Zod validators, and the protocol version constant. The package publishes a single ESM entry point and depends only on Zod at runtime.
 
 **Section sources**
 
-- [packages/protocol/package.json](file://packages/protocol/package.json)
-- [packages/protocol/src/index.ts](file://packages/protocol/src/index.ts)
+- [packages/protocol/package.json](file://packages/protocol/package.json#L1-L37)
+- [packages/protocol/src/index.ts](file://packages/protocol/src/index.ts#L1-L6)
 
-## Installation
+## Protocol Version
 
-```bash
-pnpm add @uniview/protocol
-```
-
-## Type Definitions
-
-### UINode
-
-The core tree structure that plugins produce and hosts consume:
-
-```typescript
-interface UINode {
-  id: string; // Unique identifier for reconciliation
-  type: string; // Layout tag OR custom component type
-  props: Record<string, JSONValue>; // JSON-serializable props only
-  children: (UINode | string)[]; // Nested nodes or text
-}
-```
-
-### JSONValue
-
-Type for cross-boundary serialization:
-
-```typescript
-type JSONValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JSONValue[]
-  | { [k: string]: JSONValue };
-```
-
-### UILayoutTag
-
-Built-in HTML-like elements:
-
-```typescript
-type UILayoutTag =
-  | "div"
-  | "span"
-  | "p"
-  | "section"
-  | "header"
-  | "footer"
-  | "nav"
-  | "main"
-  | "aside"
-  | "article"
-  | "ul"
-  | "ol"
-  | "li"
-  | "br"
-  | "hr"
-  | "h1"
-  | "h2"
-  | "h3"
-  | "h4"
-  | "h5"
-  | "h6"
-  | "button"
-  | "input"
-  | "textarea"
-  | "select"
-  | "option"
-  | "label"
-  | "form"
-  | "a"
-  | "img"
-  | "table"
-  | "thead"
-  | "tbody"
-  | "tr"
-  | "th"
-  | "td"
-  | "strong"
-  | "em"
-  | "code"
-  | "pre";
-```
+The current `PROTOCOL_VERSION` is `2`. Hosts send this value during `initialize()`, and plugin runtimes reject mismatches so incompatible hosts and plugins fail with an explicit error before rendering.
 
 **Section sources**
 
-- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L1-L130)
+- [packages/protocol/src/version.ts](file://packages/protocol/src/version.ts#L1-L5)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L14-L17)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L48-L54)
+
+## Tree Types
+
+`JSONValue` restricts props and RPC arguments to serializable values. `UINode` carries a stable `id`, string `type`, JSON-safe `props`, and mixed text/node children. `UILayoutTag` and `LAYOUT_TAGS` define HTML-like primitives that host adapters can render natively.
+
+**Section sources**
+
+- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L4-L129)
 
 ## RPC Interfaces
 
-### HostToPluginAPI
-
-Methods the host calls on the plugin:
+`HostToPluginAPI` is the API a host calls on a plugin: `initialize`, `updateProps`, `executeHandler`, `destroy`, and `syncTree`. `PluginToHostAPI` is the API a plugin calls on a host: `updateTree`, `applyMutations`, `log`, and `reportError`. Benchmark-specific methods are intentionally not part of the protocol.
 
 ```typescript
 interface HostToPluginAPI {
-  initialize(req: {
-    protocolVersion: number;
-    props?: JSONValue;
-  }): Promise<void>;
+  initialize(req: { protocolVersion: number; props?: JSONValue }): Promise<void>;
   updateProps(props: JSONValue): Promise<void>;
   executeHandler(handlerId: HandlerId, args: JSONValue[]): Promise<void>;
   destroy(): Promise<void>;
-  updateItem(itemId: string, text: string): Promise<void>;
   syncTree(): Promise<void>;
 }
 ```
 
-### PluginToHostAPI
+**Section sources**
 
-Methods the plugin calls on the host:
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
+- [packages/react-runtime/tests/protocol-contract.test.ts](file://packages/react-runtime/tests/protocol-contract.test.ts#L4-L28)
 
-```typescript
-interface PluginToHostAPI {
-  updateTree(tree: UINode | null): void;
-  applyMutations(mutations: Mutation[]): void;
-  log(level: "log" | "info" | "warn" | "error", args: JSONValue[]): void;
-  reportError(err: { message: string; stack?: string }): void;
-}
-```
+## Events and Handler IDs
+
+Function props cannot cross RPC boundaries. Event props become handler ID props such as `_onClickHandlerId`, and hosts call `executeHandler(handlerId, args)` when the user interacts with rendered UI. The protocol exposes helpers to construct, detect, and reverse handler ID prop names.
 
 **Section sources**
 
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L88)
+- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts#L1-L72)
 
-## Event Handling
+## Mutations and Update Modes
 
-### Supported Events
-
-```typescript
-type EventPropName =
-  | "onClick"
-  | "onChange"
-  | "onInput"
-  | "onSubmit"
-  | "onFocus"
-  | "onBlur"
-  | "onKeyDown"
-  | "onKeyUp"
-  | "onMouseEnter"
-  | "onMouseLeave";
-```
-
-### Helper Functions
-
-```typescript
-// Convert event prop to handler ID prop
-handlerIdProp("onClick"); // "_onClickHandlerId"
-
-// Check if prop is a handler ID
-isHandlerIdProp("_onClickHandlerId"); // true
-
-// Extract event name from handler ID prop
-extractEventName("_onClickHandlerId"); // "onClick"
-```
+`UpdateMode` is either `full` or `incremental`. Full mode sends the entire current tree via `updateTree`. Incremental mode sends mutation batches via `applyMutations`; supported mutations include `appendChild`, `insertBefore`, `removeChild`, `setText`, `setProps`, and `setRoot`.
 
 **Section sources**
 
-- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts)
+- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts#L3-L81)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L47-L61)
 
-## Mutations
+## Validation
 
-For incremental updates:
-
-```typescript
-type Mutation =
-  | { type: "appendChild"; parentId: string; node: UINode }
-  | { type: "insertBefore"; parentId: string; node: UINode; beforeId: string }
-  | { type: "removeChild"; parentId: string; nodeId: string }
-  | { type: "setText"; parentId: string; childIndex: number; text: string }
-  | { type: "setProps"; nodeId: string; props: Record<string, JSONValue> }
-  | { type: "setRoot"; node: UINode | null };
-```
-
-### Update Modes
-
-```typescript
-type UpdateMode = "full" | "incremental";
-```
+The protocol package defines Zod schemas for JSON values, UI nodes, layout tags, initialization requests, prop updates, handler execution requests, tree updates, logs, errors, and event prop names. Runtime helpers parse or type-guard `UINode` and `JSONValue` inputs.
 
 **Section sources**
 
-- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts)
-
-## Validators
-
-Zod schemas for runtime validation:
-
-```typescript
-import {
-  UINodeSchema,
-  JSONValueSchema,
-  validateUINode,
-} from "@uniview/protocol";
-
-// Validate a tree
-const result = UINodeSchema.safeParse(tree);
-if (result.success) {
-  // tree is valid UINode
-}
-
-// Direct validation with error handling
-const validNode = validateUINode(rawNode);
-```
-
-### Available Schemas
-
-| Schema                     | Purpose                            |
-| -------------------------- | ---------------------------------- |
-| `UINodeSchema`             | Validates full UINode structure    |
-| `JSONValueSchema`          | Validates JSON-serializable values |
-| `InitializeRequestSchema`  | Validates initialize request       |
-| `UpdatePropsRequestSchema` | Validates updateProps request      |
-
-**Section sources**
-
-- [packages/protocol/src/validators.ts](file://packages/protocol/src/validators.ts)
+- [packages/protocol/src/validators.ts](file://packages/protocol/src/validators.ts#L1-L76)

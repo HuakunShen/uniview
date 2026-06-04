@@ -2,172 +2,82 @@
 
 <cite>
 **Referenced Files in This Document**
-- [vendors/kkrpc/](file://vendors/kkrpc/)
-- [vendors/svelte-react-render/](file://vendors/svelte-react-render/)
-- [references/opentui/](file://references/opentui/)
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
-- [AGENTS.md](file://AGENTS.md)
+- [AGENTS.md](file://AGENTS.md#L172-L185)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L6-L9)
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L29-L43)
+- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json#L29-L41)
+- [packages/host-sdk/package.json](file://packages/host-sdk/package.json#L28-L48)
+- [packages/tui-renderer/src/components.tsx](file://packages/tui-renderer/src/components.tsx#L1-L80)
+- [packages/tui-renderer/src/terminal/renderer.ts](file://packages/tui-renderer/src/terminal/renderer.ts#L1-L135)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [kkrpc](#kkrpc)
-3. [svelte-react-render](#svelte-react-render)
-4. [opentui](#opentui)
+3. [Svelte React Render Reference](#svelte-react-render-reference)
+4. [OpenTUI Reference](#opentui-reference)
 5. [Integration Points](#integration-points)
 
 ## Overview
 
-Uniview uses vendor submodules for core dependencies developed in parallel:
+Uniview keeps closely related projects under `vendors/` and `references/` for development context. Runtime dependencies still flow through package manifests and the pnpm catalog; vendored/reference directories should not be confused with package-local source.
 
 ```mermaid
-graph TB
-    subgraph Uniview
-        PKG[packages/*]
-    end
-    
-    subgraph Vendors
-        KK[vendors/kkrpc]
-        SRR[vendors/svelte-react-render]
-    end
-    
-    subgraph References
-        OT[references/opentui]
-    end
-    
-    PKG -->|RPC| KK
-    PKG -.->|inspiration| SRR
-    PKG -.->|reference| OT
+graph TD
+    Protocol[protocol] --> Runtime[react/solid runtime]
+    Runtime --> KK[kkrpc catalog dependency]
+    HostSDK[host-sdk] --> KK
+    TUI[tui-renderer] -.-> OT[OpenTUI reference]
+    ReactRenderer[react-renderer] -.-> SRR[svelte-react-render reference]
 ```
+
+**Diagram sources**
+
+- [AGENTS.md](file://AGENTS.md#L172-L185)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L6-L9)
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L177-L182)
+- [AGENTS.md](file://AGENTS.md#L172-L185)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L6-L9)
 
 ## kkrpc
 
-**Purpose**: Bidirectional RPC communication library
-
-### What It Provides
-
-| Feature | Description |
-|---------|-------------|
-| `RPCChannel` | TypeScript-first RPC channel |
-| 22+ transports | stdio, HTTP, WebSocket, Workers, Electron, Tauri |
-| Type safety | Full TypeScript support |
-| Validation | Zod, Valibot, ArkType options |
-| Streaming | AsyncIterable support |
-| Zero-copy | Transferable objects for performance |
-
-### How Uniview Uses It
-
-| Package | Usage |
-|---------|-------|
-| `react-runtime` | Worker/WebSocket communication |
-| `solid-runtime` | Worker/WebSocket communication |
-| `host-sdk` | Controller RPC layer |
-
-### Version Management
-
-```yaml
-# pnpm-workspace.yaml
-catalog:
-  kkrpc: ^0.6.7
-```
-
-All packages use `kkrpc: "catalog:"` for consistency.
+`kkrpc` is the RPC transport used by plugin runtimes and host controllers. It is version-managed through the pnpm catalog and consumed by React runtime, Solid runtime, and host SDK packages.
 
 **Section sources**
 
-- [vendors/kkrpc/](file://vendors/kkrpc/)
-- [AGENTS.md](file://AGENTS.md#L169-L174)
+- [AGENTS.md](file://AGENTS.md#L172-L177)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L6-L9)
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L29-L43)
+- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json#L29-L41)
+- [packages/host-sdk/package.json](file://packages/host-sdk/package.json#L28-L48)
 
-## svelte-react-render
+## Svelte React Render Reference
 
-**Purpose**: Reference implementation for custom React reconcilers rendering to Svelte
-
-### What It Provides
-
-- Custom React reconciler using `react-reconciler`
-- React to Svelte 5 component conversion
-- Handler registry pattern for events
-- Multiple runtime modes (Worker, WebSocket, Main)
-
-### How Uniview Uses It
-
-- **Inspiration**: Uniview's `@uniview/react-renderer` follows similar patterns
-- **Handler registry**: Same function-to-ID mapping approach
-- **UINode serialization**: Similar serialization pipeline
-
-### Key Concepts Borrowed
-
-```typescript
-// Handler registry pattern
-const handlerId = registry.register(() => callback());
-props._onClickHandlerId = handlerId;
-```
+`vendors/svelte-react-render` is retained as a related renderer reference. Uniview's current React renderer is its own package, but the project knowledge base identifies the vendor as useful background for Svelte 5 reconciler patterns and handler registry ideas.
 
 **Section sources**
 
-- [vendors/svelte-react-render/](file://vendors/svelte-react-render/)
+- [AGENTS.md](file://AGENTS.md#L179-L185)
 
-## opentui
+## OpenTUI Reference
 
-**Purpose**: Terminal UI framework (reference implementation)
-
-### What It Provides
-
-- Core library for terminal user interfaces
-- SolidJS and React reconcilers for TUI
-- Zig implementation for performance
-- Bun-first development
-
-### How Uniview Uses It
-
-- **Reference**: Uniview's `@uniview/tui-renderer` follows similar patterns
-- **Non-DOM rendering**: Demonstrates React reconciler for alternative targets
-- **Universal approach**: Same plugin code, different rendering target
+`references/opentui` informs the terminal rendering experiment. Uniview's `@uniview/tui-renderer` defines React-like terminal primitives and a terminal renderer that measures/layouts nodes, tracks focusable inputs/buttons, and emits styled ANSI output.
 
 **Section sources**
 
-- [references/opentui/](file://references/opentui/)
+- [AGENTS.md](file://AGENTS.md#L179-L185)
+- [packages/tui-renderer/src/components.tsx](file://packages/tui-renderer/src/components.tsx#L1-L80)
+- [packages/tui-renderer/src/terminal/renderer.ts](file://packages/tui-renderer/src/terminal/renderer.ts#L1-L135)
 
 ## Integration Points
 
-### Dependency Chain
-
-```
-@uniview/protocol (no vendor deps)
-    ↓
-@uniview/react-renderer (no vendor deps)
-    ↓
-@uniview/react-runtime → kkrpc
-    ↓
-@uniview/host-sdk → kkrpc
-```
-
-### Import Patterns
-
-```typescript
-// Runtime (uses kkrpc)
-import { RPCChannel } from "kkrpc";
-
-// Host SDK (uses kkrpc)
-import { WorkerParentIO } from "kkrpc/browser";
-```
-
-### Catalog Usage
-
-```json
-{
-  "dependencies": {
-    "kkrpc": "catalog:"
-  }
-}
-```
+The practical dependency chain is: protocol types define the contract, runtimes/host SDK import kkrpc transports, renderers serialize framework trees, and host adapters render protocol nodes. Vendor/reference code should guide design but not leak product-specific concepts into the protocol package.
 
 **Section sources**
 
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
-- [AGENTS.md](file://AGENTS.md#L169-L174)
+- [AGENTS.md](file://AGENTS.md#L130-L177)
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L29-L43)
+- [packages/host-sdk/package.json](file://packages/host-sdk/package.json#L28-L48)

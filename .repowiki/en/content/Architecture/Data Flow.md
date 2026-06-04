@@ -2,170 +2,97 @@
 
 <cite>
 **Referenced Files in This Document**
-- [AGENTS.md](file://AGENTS.md)
-- [packages/react-renderer/src/index.ts](file://packages/react-renderer/src/index.ts)
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts)
-- [README.md](file://README.md)
+- [packages/react-renderer/src/reconciler/renderer.ts](file://packages/react-renderer/src/reconciler/renderer.ts#L1-L38)
+- [packages/react-renderer/src/serialization/serialize.ts](file://packages/react-renderer/src/serialization/serialize.ts#L1-L44)
+- [packages/react-renderer/src/serialization/serialize-props.ts](file://packages/react-renderer/src/serialization/serialize-props.ts#L1-L45)
+- [packages/react-renderer/src/mutation/mutation-collector.ts](file://packages/react-renderer/src/mutation/mutation-collector.ts#L24-L241)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L75-L159)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L32-L148)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L32-L64)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L15-L246)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Plugin to Host Flow](#plugin-to-host-flow)
-3. [Event Flow](#event-flow)
-4. [Incremental Updates](#incremental-updates)
+2. [Plugin-to-Host Tree Flow](#plugin-to-host-tree-flow)
+3. [Host-to-Plugin Event Flow](#host-to-plugin-event-flow)
+4. [Incremental Update Flow](#incremental-update-flow)
 
 ## Overview
 
-Data flows bidirectionally between plugin and host:
-
-- **Forward**: React/Solid components → UINode tree → RPC → Host rendering
-- **Reverse**: User interaction → Handler ID → RPC → Handler execution → State update
+Data moves in two directions. Forward flow turns framework components into a serializable `UINode` tree and renders it in the host. Reverse flow turns user events into handler ID calls that execute inside the plugin runtime, causing framework state updates and new tree output.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L336-L342)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L75-L159)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L15-L246)
 
-## Plugin to Host Flow
+## Plugin-to-Host Tree Flow
 
 ```mermaid
 flowchart TD
-    subgraph Plugin["Plugin Side"]
-        RC[React/Solid Components]
-        RR[Custom Reconciler]
-        IN[InternalNode Tree]
-        ST[serializeTree]
-        HR[HandlerRegistry]
-        UIN[UINode Tree]
-    end
-
-    subgraph RPC["RPC Layer"]
-        KK[kkrpc Transport]
-    end
-
-    subgraph Host["Host Side"]
-        PC[PluginController]
-        CR[ComponentRegistry]
-        R1{Is Layout Tag?}
-        N[Native Element]
-        C[Custom Component]
-        UI[Rendered UI]
-    end
-
-    RC --> RR
-    RR --> IN
-    IN --> ST
-    ST --> HR
-    HR --> UIN
-    UIN --> KK
-    KK --> PC
-    PC --> CR
-    CR --> R1
-    R1 -->|Yes| N
-    R1 -->|No| C
-    N --> UI
-    C --> UI
+    React[React or Solid component] --> Renderer[Custom renderer]
+    Renderer --> Internal[Internal tree]
+    Internal --> Serialize[serializeTree]
+    Serialize --> Props[serializeProps + handler IDs]
+    Props --> UINode[UINode]
+    UINode --> RPC[kkrpc updateTree/applyMutations]
+    RPC --> Controller[PluginController]
+    Controller --> HostRenderer[Host ComponentRenderer]
+    HostRenderer --> UI[Native/custom UI]
 ```
 
-### Step-by-Step
+**Diagram sources**
 
-1. **React/Solid renders**: Component tree produced by framework
-2. **Custom reconciler**: Converts to `InternalNode` in-memory tree
-3. **Serialization**: `serializeTree()` converts to JSON-safe `UINode`
-4. **Handler mapping**: Functions replaced with handler IDs
-5. **RPC transport**: kkrpc sends tree to host
-6. **Host receives**: `PluginController` updates internal tree
-7. **Component resolution**: `ComponentRegistry` maps types to implementations
-8. **Rendering**: Framework-specific renderer produces UI
+- [packages/react-renderer/src/reconciler/renderer.ts](file://packages/react-renderer/src/reconciler/renderer.ts#L1-L38)
+- [packages/react-renderer/src/serialization/serialize.ts](file://packages/react-renderer/src/serialization/serialize.ts#L15-L44)
+- [packages/react-renderer/src/serialization/serialize-props.ts](file://packages/react-renderer/src/serialization/serialize-props.ts#L10-L45)
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L336-L342)
-- [packages/react-renderer/src/index.ts](file://packages/react-renderer/src/index.ts)
+- [packages/react-renderer/src/reconciler/renderer.ts](file://packages/react-renderer/src/reconciler/renderer.ts#L1-L38)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L82-L115)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L32-L49)
 
-## Event Flow
+## Host-to-Plugin Event Flow
+
+Host renderers detect handler ID props, build serializable event arguments, and call `controller.executeHandler(handlerId, args)`. The controller forwards the call over RPC; the plugin runtime calls `HandlerRegistry.execute`, and framework state changes trigger a new render.
 
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant H as Host UI
-    participant HC as Host Controller
-    participant RPC as kkrpc
-    participant P as Plugin
-    participant R as HandlerRegistry
-
-    U->>H: Click button
-    H->>H: Get handlerId from props
-    H->>HC: execute(handlerId, args)
-    HC->>RPC: executeHandler(handlerId, args)
-    RPC->>P: executeHandler()
-    P->>R: registry.execute(id, args)
-    R->>R: Lookup function
-    R->>P: Call handler function
-    P->>P: State update
-    P->>P: Re-render
-    P->>RPC: updateTree(newTree)
-    RPC->>HC: updateTree()
-    HC->>H: Notify subscribers
-    H->>U: UI updates
+    participant User
+    participant HostUI
+    participant Controller
+    participant Plugin
+    participant Registry
+    User->>HostUI: click/input/submit
+    HostUI->>Controller: executeHandler(handlerId, args)
+    Controller->>Plugin: RPC executeHandler
+    Plugin->>Registry: execute(handlerId, ...args)
+    Registry-->>Plugin: handler result
+    Plugin->>HostUI: updateTree/applyMutations
 ```
 
-### Handler Execution
+**Diagram sources**
 
-```typescript
-// Host side
-button.onclick = () => {
-  const handlerId = props._onClickHandlerId;
-  controller.execute(handlerId, [event]);
-};
-
-// Plugin side
-registry.register(() => {
-  setCount((c) => c + 1); // State update triggers re-render
-});
-```
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L18-L22)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L38-L118)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L132-L135)
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L138-L149)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L38-L166)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L134-L138)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L132-L135)
 
-## Incremental Updates
+## Incremental Update Flow
 
-For large trees with small changes, incremental mode reduces bandwidth:
-
-```mermaid
-flowchart TD
-    subgraph Full["Full Tree Mode"]
-        F1[Render] --> F2[Serialize All]
-        F2 --> F3[Send ~87KB]
-        F3 --> F4[Replace Tree]
-    end
-
-    subgraph Inc["Incremental Mode"]
-        I1[Render] --> I2[Collect Mutations]
-        I2 --> I3[Send ~69KB]
-        I3 --> I4[Apply Patches]
-    end
-```
-
-### Mutation Collection
-
-```typescript
-// During reconciliation
-appendChild(parent, child); // → AppendChildMutation
-removeChild(parent, child); // → RemoveChildMutation
-commitUpdate(node, newProps); // → SetPropsMutation
-```
-
-### Performance Comparison (1000 items)
-
-| Metric         | Full Tree | Incremental |
-| -------------- | --------- | ----------- |
-| Message size   | ~87KB     | ~69KB       |
-| Operation time | 8-10ms    | 6-7ms       |
-| Bandwidth      | Higher    | Lower       |
+Incremental mode attaches a mutation collector during rendering. The runtime sends mutation batches through `applyMutations`, and host controllers use `MutableTree` to update local state and notify subscribers. Full sync remains available through `syncTree()` for recovery from drift.
 
 **Section sources**
 
-- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts)
-- [README.md](file://README.md#L151-L169)
+- [packages/react-renderer/src/mutation/mutation-collector.ts](file://packages/react-renderer/src/mutation/mutation-collector.ts#L24-L241)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L82-L96)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L32-L64)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L113-L118)

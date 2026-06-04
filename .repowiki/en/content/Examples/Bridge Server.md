@@ -2,160 +2,88 @@
 
 <cite>
 **Referenced Files in This Document**
-- [examples/bridge-server/](file://examples/bridge-server/)
-- [README.md](file://README.md)
-- [AGENTS.md](file://AGENTS.md)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L1-L124)
+- [examples/bridge-server/src/bridge.test.ts](file://examples/bridge-server/src/bridge.test.ts#L122-L260)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L52-L133)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L72-L274)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L63-L72)
+- [README.md](file://README.md#L228-L260)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [How to Run](#how-to-run)
-4. [Protocol](#protocol)
-5. [Configuration](#configuration)
+2. [Endpoint Model](#endpoint-model)
+3. [Connection Flow](#connection-flow)
+4. [Static Worker Bundle Serving](#static-worker-bundle-serving)
+5. [Operational Constraints](#operational-constraints)
 
 ## Overview
 
-The Bridge Server is an Elysia WebSocket multiplexer that enables server-side plugins to communicate with browser hosts. It follows a transparent forwarding pattern—bytes are forwarded without parsing.
-
-**Key Features:**
-
-- Single port multiplexes all connections
-- Transparent byte forwarding
-- No protocol parsing overhead
-- Plugin ID-based routing
+The bridge server is an Elysia WebSocket multiplexer for server-side plugin mode. It is intentionally a transparent forwarding layer: it pairs one plugin socket and one host socket by `pluginId`, normalizes outbound messages to newline-terminated strings, and forwards without parsing kkrpc payloads.
 
 **Section sources**
 
-- [examples/bridge-server/](file://examples/bridge-server/)
-- [AGENTS.md](file://AGENTS.md#L151-L167)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L8-L19)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
 
-## Architecture
+## Endpoint Model
+
+The current endpoint model uses path parameters rather than query parameters:
+
+| Endpoint | Role |
+| --- | --- |
+| `GET /react/:filename` | Serve React worker bundle artifacts from `examples/plugin-example/dist`. |
+| `GET /solid/:filename` | Serve Solid worker bundle artifacts from `examples/plugin-solid-example/dist`. |
+| `WS /plugins/:pluginId` | Plugin process connects as a client. |
+| `WS /host/:pluginId` | Browser host connects after the plugin is ready. |
+
+**Section sources**
+
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L21-L58)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
+
+## Connection Flow
 
 ```mermaid
-graph LR
-    subgraph Browser
-        H1[Host 1]
-        H2[Host 2]
-    end
-
-    subgraph Server
-        BS[Bridge Server :3000]
-    end
-
-    subgraph Node/Deno/Bun
-        P1[Plugin A]
-        P2[Plugin B]
-    end
-
-    H1 <-->|WS| BS
-    H2 <-->|WS| BS
-    BS <-->|WS| P1
-    BS <-->|WS| P2
+sequenceDiagram
+    participant Plugin
+    participant Bridge
+    participant Host
+    Plugin->>Bridge: WS /plugins/:pluginId
+    Host->>Bridge: WS /host/:pluginId
+    Host->>Bridge: kkrpc message
+    Bridge->>Plugin: normalized message
+    Plugin->>Bridge: kkrpc response/update
+    Bridge->>Host: normalized message
 ```
 
-### Connection Flow
+If a host connects before a plugin socket exists, the bridge closes the host socket with "Plugin not ready". If a second host connects for the same plugin, it replaces the existing host connection.
 
-1. Host connects to `ws://localhost:3000?pluginId=my-plugin`
-2. Plugin connects to same URL with same `pluginId`
-3. Bridge matches connections by `pluginId`
-4. Bytes forwarded bidirectionally
+**Diagram sources**
+
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
 
 **Section sources**
 
-- [README.md](file://README.md#L63-L88)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L52-L75)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L72-L90)
 
-## How to Run
+## Static Worker Bundle Serving
 
-```bash
-cd examples/bridge-server
-bun src/index.ts
-```
-
-Server starts on port 3000.
-
-### With Plugin
-
-```bash
-# Terminal 1: Bridge
-cd examples/bridge-server && bun src/index.ts
-
-# Terminal 2: Plugin
-cd examples/plugin-example && bun src/simple-demo.client.ts
-```
-
-### With Host
-
-```bash
-# Terminal 3: Host (or use dev:all)
-cd examples/host-svelte-demo && pnpm dev
-```
+Worker mode in browser hosts can fetch plugin bundles from the same bridge process. React bundles are served under `/react/`, Solid bundles under `/solid/`, and both responses set JavaScript content type and permissive CORS headers.
 
 **Section sources**
 
-- [examples/bridge-server/](file://examples/bridge-server/)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L21-L58)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L63-L72)
 
-## Protocol
+## Operational Constraints
 
-### Connection URL
-
-```
-ws://localhost:3000?pluginId=<string>&role=<host|plugin>
-```
-
-| Parameter  | Values             | Description              |
-| ---------- | ------------------ | ------------------------ |
-| `pluginId` | string             | Unique plugin identifier |
-| `role`     | `host` \| `plugin` | Connection role          |
-
-### Message Forwarding
-
-```
-Host → Bridge → Plugin (raw bytes)
-Plugin → Bridge → Host (raw bytes)
-```
-
-The bridge does NOT parse messages—it forwards raw bytes, preserving the kkrpc protocol.
+The bridge listens on port 3000 and should remain protocol-agnostic. Adding business logic or JSON parsing would couple it to a transport payload that is meant to stay opaque.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L151-L167)
-
-## Configuration
-
-### Default Port
-
-```typescript
-const PORT = 3000;
-```
-
-### Elysia Setup
-
-```typescript
-import { Elysia } from "elysia";
-
-const app = new Elysia()
-  .ws("/ws", {
-    query: t.Object({
-      pluginId: t.String(),
-      role: t.Union([t.Literal("host"), t.Literal("plugin")]),
-    }),
-    open(ws) {
-      // Register connection
-      const { pluginId, role } = ws.data.query;
-      connections.set(pluginId, { ...connections.get(pluginId), [role]: ws });
-    },
-    message(ws, message) {
-      // Forward to peer
-      const { pluginId, role } = ws.data.query;
-      const peer = getPeer(pluginId, role);
-      peer?.send(message);
-    },
-  })
-  .listen(3000);
-```
-
-**Section sources**
-
-- [examples/bridge-server/](file://examples/bridge-server/)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L122-L124)
+- [README.md](file://README.md#L228-L260)

@@ -2,254 +2,92 @@
 
 <cite>
 **Referenced Files in This Document**
-- [package.json](file://package.json)
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
-- [AGENTS.md](file://AGENTS.md)
-- [README.md](file://README.md)
+- [package.json](file://package.json#L4-L40)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [README.md](file://README.md#L41-L215)
+- [AGENTS.md](file://AGENTS.md#L293-L370)
+- [examples/host-svelte-demo/package.json](file://examples/host-svelte-demo/package.json#L6-L53)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L15-L138)
+- [packages/react-runtime/src/worker-entry.ts](file://packages/react-runtime/src/worker-entry.ts#L1-L24)
+- [packages/solid-runtime/src/worker-entry.ts](file://packages/solid-runtime/src/worker-entry.ts#L1-L24)
+- [packages/host-svelte/src/PluginHost.svelte](file://packages/host-svelte/src/PluginHost.svelte#L8-L51)
 </cite>
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Installation](#installation)
-3. [Quick Start](#quick-start)
-4. [Running Examples](#running-examples)
-5. [Development Workflow](#development-workflow)
+2. [Install and Build](#install-and-build)
+3. [Run the Main Demo](#run-the-main-demo)
+4. [Create a Plugin](#create-a-plugin)
+5. [Create a Host](#create-a-host)
+6. [Development Commands](#development-commands)
 
 ## Prerequisites
 
-| Requirement | Version  | Notes                                |
-| ----------- | -------- | ------------------------------------ |
-| Node.js     | >= 18    | Required for build tools             |
-| pnpm        | 10.28.2+ | Package manager (catalog support)    |
-| Bun         | Latest   | Optional, for running server plugins |
+Use Node.js 18 or newer and pnpm 10.28.2 as the package manager. Bun is used by example bridge/plugin scripts and E2E fixtures, so installing Bun is recommended for running full demos.
 
 **Section sources**
 
-- [package.json](file://package.json#L19-L22)
+- [package.json](file://package.json#L27-L40)
+- [README.md](file://README.md#L49-L59)
 
-## Installation
+## Install and Build
 
 ```bash
-# Clone the repository
-git clone https://github.com/HuakunShen/uniview.git
-cd uniview
-
-# Install dependencies
 pnpm install
-
-# Build all packages
 pnpm build
 ```
 
-**Section sources**
-
-- [AGENTS.md](file://AGENTS.md#L292-L297)
-- [README.md](file://README.md#L165-L169)
-
-## Quick Start
-
-### Create a React Plugin
-
-```typescript
-// worker.ts
-import { startWorkerPlugin } from "@uniview/react-runtime";
-import App from "./App";
-
-startWorkerPlugin({ App });
-```
-
-```tsx
-// App.tsx
-import { useState } from "react";
-
-export default function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div className="p-4">
-      <p>Count: {count}</p>
-      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
-    </div>
-  );
-}
-```
-
-### Create a Solid Plugin
-
-```typescript
-// worker.ts
-import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
-import App from "./App";
-
-startSolidWorkerPlugin({ App });
-```
-
-```tsx
-// App.tsx
-import { createSignal } from "solid-js";
-
-const App = () => {
-  const [count, setCount] = createSignal(0);
-
-  return (
-    <div className="p-4">
-      <p>Count: {count()}</p>
-      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
-    </div>
-  );
-};
-
-export default App;
-```
-
-**Note**: Solid plugins require Babel transformation with `babel-preset-solid` set to `generate: "universal"`.
+The workspace includes `packages/*`, `examples/*`, and `docs`, so a root install prepares both reusable packages and demos.
 
 **Section sources**
 
-- [README.md](file://README.md#L90-L128)
+- [README.md](file://README.md#L49-L59)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [package.json](file://package.json#L4-L16)
 
-### Create a Host (Svelte)
+## Run the Main Demo
 
-```svelte
-<script lang="ts">
-  import { PluginHost } from '@uniview/host-svelte';
-  import { createWorkerController, createComponentRegistry } from '@uniview/host-sdk';
-
-  const registry = createComponentRegistry();
-  const controller = createWorkerController({
-    pluginUrl: '/plugins/my-plugin.js'
-  });
-</script>
-
-<PluginHost {controller} {registry}>
-  {#snippet loading()}
-    <p>Loading plugin...</p>
-  {/snippet}
-</PluginHost>
-```
-
-**Section sources**
-
-- [README.md](file://README.md#L130-L147)
-
-## Running Examples
-
-### Web Example (Svelte Host)
+The Svelte host demo is the fastest full-system path. Its `dev` script starts the bridge, builds/runs plugin clients, and starts the Svelte/Vite host.
 
 ```bash
 cd examples/host-svelte-demo
-pnpm dev:all
-```
-
-Opens at `http://localhost:5173`. Try both Worker and WebSocket modes.
-
-### Benchmark Mode
-
-```bash
-cd examples/host-svelte-demo
-pnpm dev:all
-# Open http://localhost:5173?demo=benchmark&update=incremental
-```
-
-Compares full-tree vs incremental update performance with 1000-2000 items.
-
-### Terminal UI Example
-
-```bash
-cd examples/tui-demo
 pnpm dev
 ```
 
-Renders React plugins directly to terminal (no browser).
-
-### Native macOS Example
-
-```bash
-# Terminal 1: Start bridge
-cd examples/bridge-server && bun src/index.ts
-
-# Terminal 2: Start plugin
-cd examples/plugin-example && bun src/simple-demo.client.ts
-
-# Open Xcode project and run
-cd examples/host-macos-demo
-open HostMacOSDemo.xcodeproj
-# Press Cmd+R in Xcode
-```
+Open `http://localhost:5173`, then switch between React/Solid plugins, Worker/Node/Main runtime modes, simple/advanced/benchmark demos, and full/incremental update modes.
 
 **Section sources**
 
-- [README.md](file://README.md#L35-L62)
-- [README.md](file://README.md#L165-L194)
+- [README.md](file://README.md#L41-L90)
+- [examples/host-svelte-demo/package.json](file://examples/host-svelte-demo/package.json#L6-L20)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L15-L138)
 
-## Development Workflow
+## Create a Plugin
 
-### Build Commands
-
-```bash
-# Build all packages
-pnpm build
-
-# Development mode (turbo watch)
-pnpm dev
-
-# Type checking
-pnpm check-types
-
-# Linting
-pnpm lint
-
-# Formatting
-pnpm format
-```
+React worker plugins call `startWorkerPlugin({ App, mode? })`; Solid worker plugins call `startSolidWorkerPlugin({ App, mode? })`. For server-side bridge mode, use the runtime `./ws-client` entry points instead.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L290-L316)
-- [package.json](file://package.json#L4-L10)
+- [README.md](file://README.md#L135-L194)
+- [packages/react-runtime/src/worker-entry.ts](file://packages/react-runtime/src/worker-entry.ts#L1-L24)
+- [packages/solid-runtime/src/worker-entry.ts](file://packages/solid-runtime/src/worker-entry.ts#L1-L24)
 
-### Project Structure
+## Create a Host
 
-```
-uniview/
-├── packages/           # Core libraries
-│   ├── protocol/       # Types, schemas, RPC interfaces
-│   ├── react-renderer/ # Custom React reconciler
-│   ├── solid-renderer/ # Solid universal renderer
-│   ├── react-runtime/  # React plugin bootstrap
-│   ├── solid-runtime/  # Solid plugin bootstrap
-│   ├── host-sdk/       # Framework-agnostic controller
-│   ├── host-svelte/    # Svelte 5 adapter
-│   └── tui-renderer/   # Terminal UI renderer
-├── examples/           # Demo applications
-│   ├── host-svelte-demo/
-│   ├── host-react-demo/
-│   ├── host-vue-demo/
-│   ├── bridge-server/
-│   └── plugin-example/
-├── vendors/            # Submodules
-│   └── kkrpc/
-└── docs/               # Documentation site
-```
+Hosts create a `ComponentRegistry`, register product primitives, choose a controller (`createWorkerController`, `createWebSocketController`, or `createMainController`), and render the controller's tree through a framework adapter such as `PluginHost` for Svelte.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L12-L36)
-- [README.md](file://README.md#L197-L219)
+- [README.md](file://README.md#L195-L215)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L87-L138)
+- [packages/host-svelte/src/PluginHost.svelte](file://packages/host-svelte/src/PluginHost.svelte#L8-L51)
 
-### Creating New Packages
+## Development Commands
 
-```bash
-# Use tsdown template (NEVER create manually)
-pnpm create tsdown@latest packages/my-package -t react
-
-# Update package.json exports (use .mjs for ESM)
-# Add to pnpm-workspace.yaml if needed
-# Add build scripts to turbo.json
-```
+Common root commands are `pnpm build`, `pnpm dev`, `pnpm test`, `pnpm lint`, `pnpm format`, and `pnpm check-types`. Package creation should use tsdown templates and then update exports/workspace/turbo wiring as needed.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L65-L71)
-- [AGENTS.md](file://AGENTS.md#L356-L369)
+- [package.json](file://package.json#L4-L16)
+- [AGENTS.md](file://AGENTS.md#L293-L370)

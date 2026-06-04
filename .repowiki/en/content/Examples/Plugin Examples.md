@@ -2,196 +2,62 @@
 
 <cite>
 **Referenced Files in This Document**
-- [examples/plugin-api/](file://examples/plugin-api/)
-- [examples/plugin-solid-api/](file://examples/plugin-solid-api/)
-- [examples/plugin-example/](file://examples/plugin-example/)
-- [examples/plugin-solid-example/](file://examples/plugin-solid-example/)
-- [README.md](file://README.md)
+- [examples/plugin-api/src/index.ts](file://examples/plugin-api/src/index.ts#L1-L11)
+- [examples/plugin-api/src/components/Button.tsx](file://examples/plugin-api/src/components/Button.tsx#L1-L32)
+- [examples/plugin-api/src/components/Input.tsx](file://examples/plugin-api/src/components/Input.tsx#L1-L38)
+- [examples/plugin-example/package.json](file://examples/plugin-example/package.json#L12-L34)
+- [examples/plugin-example/build.ts](file://examples/plugin-example/build.ts#L3-L103)
+- [examples/plugin-example/src/simple-demo.tsx](file://examples/plugin-example/src/simple-demo.tsx#L1-L77)
+- [examples/plugin-example/src/benchmark.tsx](file://examples/plugin-example/src/benchmark.tsx#L75-L176)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L63-L234)
+- [examples/plugin-solid-example/build.ts](file://examples/plugin-solid-example/build.ts#L1-L115)
+- [examples/plugin-solid-example/package.json](file://examples/plugin-solid-example/package.json#L7-L29)
 </cite>
 
 ## Table of Contents
 
-1. [plugin-api](#plugin-api)
-2. [plugin-solid-api](#plugin-solid-api)
-3. [plugin-example](#plugin-example)
-4. [plugin-solid-example](#plugin-solid-example)
+1. [Plugin API Packages](#plugin-api-packages)
+2. [React Plugin Example](#react-plugin-example)
+3. [Solid Plugin Example](#solid-plugin-example)
+4. [Benchmark Plugins](#benchmark-plugins)
 
-## plugin-api
+## Plugin API Packages
 
-Reusable React component primitives for plugins.
-
-### Purpose
-
-Provides UI components that plugins can use:
-
-- Button
-- Input
-- Switch
-- Toggle
-- Form components
-
-### Usage
-
-```tsx
-import { Button, Input, Switch } from "@uniview/plugin-api";
-
-function MyPlugin() {
-  return (
-    <div>
-      <Input placeholder="Enter text" />
-      <Button onClick={() => alert("clicked")}>Submit</Button>
-      <Switch checked={true} onChange={handleChange} />
-    </div>
-  );
-}
-```
+`examples/plugin-api` exports React primitives that intentionally render custom element type names such as `Button` and `Input`. These names cross the protocol boundary and are resolved by host registries. The primitives keep product-specific component concepts out of `@uniview/protocol` while still giving plugin authors ergonomic component APIs.
 
 **Section sources**
 
-- [examples/plugin-api/](file://examples/plugin-api/)
+- [examples/plugin-api/src/index.ts](file://examples/plugin-api/src/index.ts#L1-L11)
+- [examples/plugin-api/src/components/Button.tsx](file://examples/plugin-api/src/components/Button.tsx#L1-L32)
+- [examples/plugin-api/src/components/Input.tsx](file://examples/plugin-api/src/components/Input.tsx#L1-L38)
 
-## plugin-solid-api
+## React Plugin Example
 
-Solid.js component primitives.
-
-### Purpose
-
-Same as `plugin-api` but for Solid.js plugins:
-
-- Solid component implementations
-- Universal transform compatible
-
-### Usage
-
-```tsx
-import { Button, Input } from "@uniview/plugin-solid-api";
-import { createSignal } from "solid-js";
-
-function MyPlugin() {
-  const [value, setValue] = createSignal("");
-
-  return (
-    <div>
-      <Input value={value()} onInput={setValue} />
-      <Button title="Submit" onClick={() => alert(value())} />
-    </div>
-  );
-}
-```
+`examples/plugin-example` builds both browser Worker bundles and Bun-compatible WebSocket client bundles. The simple demo uses React state and plugin API `Button`/`Input` components; worker entries call `startWorkerPlugin`, while client entries call the runtime bridge client.
 
 **Section sources**
 
-- [examples/plugin-solid-api/](file://examples/plugin-solid-api/)
+- [examples/plugin-example/package.json](file://examples/plugin-example/package.json#L12-L34)
+- [examples/plugin-example/build.ts](file://examples/plugin-example/build.ts#L3-L47)
+- [examples/plugin-example/src/simple-demo.tsx](file://examples/plugin-example/src/simple-demo.tsx#L1-L77)
 
-## plugin-example
+## Solid Plugin Example
 
-React demo plugins showcasing different complexity levels.
-
-### Included Plugins
-
-| Plugin        | Description           |
-| ------------- | --------------------- |
-| simple-demo   | Basic counter example |
-| advanced-demo | Forms, state, events  |
-| benchmark     | Performance testing   |
-
-### How to Run
-
-```bash
-# Worker mode: Built bundles served from bridge
-cd examples/host-svelte-demo && pnpm dev:all
-
-# WebSocket mode: Run client directly
-cd examples/plugin-example && bun src/simple-demo.client.ts
-```
-
-### Simple Demo
-
-```tsx
-// src/simple-demo/App.tsx
-import { useState } from "react";
-
-export default function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div className="p-4">
-      <h1>Simple Demo</h1>
-      <p>Count: {count}</p>
-      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
-    </div>
-  );
-}
-```
-
-### Benchmark Plugin
-
-Tests performance with 1000-2000 items:
-
-- Full-tree vs incremental updates
-- Real-time metrics display
+Solid plugins require a build transform that compiles JSX with `babel-preset-solid` using `moduleName: "@uniview/solid-renderer"` and `generate: "universal"`. The Solid example builds parallel Worker and client entries for simple, advanced, full benchmark, and incremental benchmark modes.
 
 **Section sources**
 
-- [examples/plugin-example/](file://examples/plugin-example/)
-- [README.md](file://README.md#L49-L55)
+- [examples/plugin-solid-example/package.json](file://examples/plugin-solid-example/package.json#L7-L29)
+- [examples/plugin-solid-example/build.ts](file://examples/plugin-solid-example/build.ts#L1-L46)
+- [examples/plugin-solid-example/build.ts](file://examples/plugin-solid-example/build.ts#L48-L115)
 
-## plugin-solid-example
+## Benchmark Plugins
 
-Solid.js demo plugins.
-
-### Build Requirements
-
-Solid plugins require Babel transformation:
-
-```typescript
-// build.ts
-import { transformSync } from "@babel/core";
-import solid from "babel-preset-solid";
-
-const result = transformSync(code, {
-  presets: [[solid, { generate: "universal", hydratable: false }]],
-});
-```
-
-### How to Build
-
-```bash
-cd examples/plugin-solid-example
-bun run build.ts
-```
-
-### How to Run
-
-```bash
-cd examples/host-svelte-demo
-pnpm dev:all:solid
-```
-
-### Example Plugin
-
-```tsx
-// src/App.tsx
-import { createSignal, For } from "solid-js";
-
-export default function App() {
-  const [items, setItems] = createSignal([
-    { id: 1, text: "Item 1" },
-    { id: 2, text: "Item 2" },
-  ]);
-
-  return (
-    <div>
-      <h1>Solid Plugin</h1>
-      <ul>
-        <For each={items()}>{(item) => <li>{item.text}</li>}</For>
-      </ul>
-    </div>
-  );
-}
-```
+Benchmark demos stress full-tree and incremental modes with hundreds of long-text items, deterministic pseudo-random operations, batch insert/remove/update actions, and runtime stats read from `globalThis.__uniview_stats`. The host Svelte demo exposes full/incremental selection for these benchmark bundles.
 
 **Section sources**
 
-- [examples/plugin-solid-example/](file://examples/plugin-solid-example/)
-- [README.md](file://README.md#L57-L62)
+- [examples/plugin-example/src/benchmark.tsx](file://examples/plugin-example/src/benchmark.tsx#L75-L176)
+- [examples/plugin-example/src/benchmark.tsx](file://examples/plugin-example/src/benchmark.tsx#L228-L270)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L63-L85)
+- [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L211-L234)

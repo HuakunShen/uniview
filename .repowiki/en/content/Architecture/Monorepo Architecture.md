@@ -2,184 +2,101 @@
 
 <cite>
 **Referenced Files in This Document**
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
-- [turbo.json](file://turbo.json)
-- [package.json](file://package.json)
-- [AGENTS.md](file://AGENTS.md)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [turbo.json](file://turbo.json#L1-L25)
+- [package.json](file://package.json#L4-L40)
+- [README.md](file://README.md#L28-L40)
+- [AGENTS.md](file://AGENTS.md#L11-L39)
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L29-L43)
+- [packages/react-renderer/package.json](file://packages/react-renderer/package.json#L28-L44)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Package Structure](#package-structure)
+2. [Workspace Layout](#workspace-layout)
 3. [Dependency Graph](#dependency-graph)
 4. [Build Orchestration](#build-orchestration)
 5. [Catalog Management](#catalog-management)
 
 ## Overview
 
-Uniview is organized as a pnpm monorepo with turbo for build orchestration. The workspace contains 8 core packages, 11 example applications, and vendor submodules.
+Uniview is a pnpm workspace with three top-level workspace globs: reusable packages, runnable examples, and the documentation app. Turbo coordinates cross-package tasks, while package manifests keep runtime dependencies explicit and local.
 
 **Section sources**
 
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
-- [AGENTS.md](file://AGENTS.md#L11-L36)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [package.json](file://package.json#L4-L40)
+- [AGENTS.md](file://AGENTS.md#L11-L39)
 
-## Package Structure
+## Workspace Layout
 
 ```mermaid
 graph TB
-    subgraph Core["Core Packages"]
-        P[protocol]
-        RR[react-renderer]
-        SR[solid-renderer]
-        RRun[react-runtime]
-        SRun[solid-runtime]
-        HS[host-sdk]
-        H5[host-svelte]
-        TUI[tui-renderer]
-    end
-
-    subgraph Examples["Examples"]
-        HSD[host-svelte-demo]
-        HRD[host-react-demo]
-        HVD[host-vue-demo]
-        HMD[host-macos-demo]
-        HAD[host-appkit-demo]
-        TD[tui-demo]
-        BS[bridge-server]
-        PA[plugin-api]
-        PSA[plugin-solid-api]
-        PE[plugin-example]
-        PSE[plugin-solid-example]
-    end
-
-    subgraph Vendors["Vendors"]
-        KK[kkrpc]
-        SRR[svelte-react-render]
-        OT[opentui]
-    end
+    Root[uniview]
+    Root --> Packages[packages/*]
+    Root --> Examples[examples/*]
+    Root --> Docs[docs]
+    Packages --> Protocol[protocol]
+    Packages --> Renderers[react-renderer / solid-renderer / tui-renderer]
+    Packages --> Runtimes[react-runtime / solid-runtime]
+    Packages --> Host[host-sdk / host-svelte]
+    Examples --> WebHosts[Svelte / React / Vue hosts]
+    Examples --> Bridge[bridge-server]
+    Examples --> Plugins[React / Solid plugin examples]
 ```
 
-### Package Categories
+**Diagram sources**
 
-| Category        | Packages                           | Purpose                                |
-| --------------- | ---------------------------------- | -------------------------------------- |
-| **Protocol**    | `@uniview/protocol`                | Type definitions, RPC interfaces       |
-| **Renderers**   | `react-renderer`, `solid-renderer` | Convert framework trees to UINode      |
-| **Runtimes**    | `react-runtime`, `solid-runtime`   | Bootstrap plugins in Workers/WebSocket |
-| **Host**        | `host-sdk`, `host-svelte`          | Control plugins, render UINode trees   |
-| **Alternative** | `tui-renderer`                     | Terminal UI rendering                  |
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [AGENTS.md](file://AGENTS.md#L11-L39)
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L12-L36)
-- [README.md](file://README.md#L197-L219)
+- [README.md](file://README.md#L28-L40)
+- [AGENTS.md](file://AGENTS.md#L11-L39)
 
 ## Dependency Graph
 
+Protocol is the foundation package. Renderers depend on protocol, runtimes depend on renderers and kkrpc, and host adapters depend on the host SDK. This keeps product-specific primitives in examples/host registries rather than in the protocol package.
+
 ```mermaid
 graph TD
-    PROTO["@uniview/protocol (foundation)"]
-
-    PROTO --> RR["@uniview/react-renderer"]
-    PROTO --> SR["@uniview/solid-renderer"]
-    PROTO --> HS["@uniview/host-sdk"]
-
-    RR --> RRun["@uniview/react-runtime"]
-    SR --> SRun["@uniview/solid-runtime"]
-
-    RR --> HS
-    HS --> H5["@uniview/host-svelte"]
-
-    RRun -.->|kkrpc| KK
-    SRun -.->|kkrpc| KK
-    HS -.->|kkrpc| KK
+    Protocol[@uniview/protocol]
+    Protocol --> ReactRenderer[react-renderer]
+    Protocol --> SolidRenderer[solid-renderer]
+    ReactRenderer --> ReactRuntime[react-runtime]
+    SolidRenderer --> SolidRuntime[solid-runtime]
+    Protocol --> HostSDK[host-sdk]
+    ReactRenderer --> HostSDK
+    HostSDK --> HostSvelte[host-svelte]
 ```
 
-### Key Dependency Rules
+**Diagram sources**
 
-1. **Protocol is the foundation**: All packages depend on `@uniview/protocol`
-2. **Renderers depend on protocol only**: No host dependencies
-3. **Runtimes depend on renderers**: Bootstrap uses renderer + kkrpc
-4. **Host SDK depends on renderers**: For type definitions
-5. **Host adapters depend on SDK**: Framework-specific implementations
+- [README.md](file://README.md#L28-L40)
+- [AGENTS.md](file://AGENTS.md#L41-L64)
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L38-L50)
-- [AGENTS.md](file://AGENTS.md#L52-L61)
+- [README.md](file://README.md#L28-L40)
+- [AGENTS.md](file://AGENTS.md#L41-L64)
 
 ## Build Orchestration
 
-### Turbo Tasks
-
-```json
-{
-  "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**", ".next/**", ".svelte-kit/**"]
-    },
-    "lint": { "dependsOn": ["^lint"] },
-    "check-types": { "dependsOn": ["^check-types"] },
-    "dev": { "cache": false, "persistent": true }
-  }
-}
-```
-
-### Task Dependencies
-
-```mermaid
-graph LR
-    subgraph Build Order
-        A[protocol] --> B[renderers]
-        B --> C[runtimes]
-        A --> D[host-sdk]
-        D --> E[host-svelte]
-    end
-```
-
-The `^build` syntax means "build all dependencies first". Turbo automatically parallelizes independent packages.
+Turbo declares dependency-aware build, lint, type-check, test, and development tasks. `build` depends on upstream builds and records `dist`, `.next`, and `.svelte-kit` outputs; `check-types` depends on upstream builds and type-checks; `test` depends on upstream builds; `dev` is persistent and uncached.
 
 **Section sources**
 
-- [turbo.json](file://turbo.json)
-- [package.json](file://package.json#L4-L10)
+- [turbo.json](file://turbo.json#L1-L25)
+- [package.json](file://package.json#L4-L16)
 
 ## Catalog Management
 
-### Version Catalog
-
-```yaml
-# pnpm-workspace.yaml
-catalog:
-  kkrpc: ^0.6.7
-  react: ^19.2.4
-  react-reconciler: ^0.33.0
-```
-
-### Usage in Packages
-
-```json
-{
-  "dependencies": {
-    "kkrpc": "catalog:",
-    "react": "catalog:"
-  }
-}
-```
-
-### Benefits
-
-| Feature                    | Benefit                                  |
-| -------------------------- | ---------------------------------------- |
-| **Single source of truth** | All packages use same kkrpc version      |
-| **Easy upgrades**          | Change catalog once, all packages update |
-| **Consistency**            | No version drift across packages         |
+The pnpm catalog pins shared versions for `kkrpc`, `react`, and `react-reconciler`. Packages reference these as `catalog:` dependencies, which keeps transport and framework versions consistent across the monorepo.
 
 **Section sources**
 
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L7-L10)
-- [AGENTS.md](file://AGENTS.md#L169-L174)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L6-L9)
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L29-L43)
+- [packages/react-renderer/package.json](file://packages/react-renderer/package.json#L28-L44)

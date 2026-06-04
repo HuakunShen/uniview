@@ -2,231 +2,81 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts)
-- [packages/host-sdk/src/types.ts](file://packages/host-sdk/src/types.ts)
-- [packages/host-sdk/src/registry.ts](file://packages/host-sdk/src/registry.ts)
-- [packages/host-sdk/package.json](file://packages/host-sdk/package.json)
-- [AGENTS.md](file://AGENTS.md)
+- [packages/host-sdk/package.json](file://packages/host-sdk/package.json#L1-L49)
+- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L1-L20)
+- [packages/host-sdk/src/types.ts](file://packages/host-sdk/src/types.ts#L1-L65)
+- [packages/host-sdk/src/registry.ts](file://packages/host-sdk/src/registry.ts#L1-L32)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L19-L148)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L20-L133)
+- [packages/host-sdk/src/controllers/main.ts](file://packages/host-sdk/src/controllers/main.ts#L20-L128)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L1-L316)
+- [packages/host-sdk/tests/mutable-tree.test.ts](file://packages/host-sdk/tests/mutable-tree.test.ts#L44-L182)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [PluginController Interface](#plugincontroller-interface)
-4. [Controllers](#controllers)
-5. [Component Registry](#component-registry)
-6. [Usage Examples](#usage-examples)
+2. [PluginController Interface](#plugincontroller-interface)
+3. [Controller Implementations](#controller-implementations)
+4. [Component Registry](#component-registry)
+5. [MutableTree](#mutabletree)
 
 ## Overview
 
-`@uniview/host-sdk` provides framework-agnostic infrastructure for hosting Uniview plugins. It includes:
-
-- Unified `PluginController` interface for all runtime modes
-- Component registry for mapping types to implementations
-- Mutable tree for incremental updates
+`@uniview/host-sdk` is the framework-agnostic host layer. It exports the `PluginController` contract, runtime-specific controller factories, a generic component registry, and `MutableTree` for applying incremental mutation batches. Svelte, React, Vue, and native hosts can use this package without depending on each other's framework code.
 
 **Section sources**
 
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts)
-- [AGENTS.md](file://AGENTS.md#L240-L258)
-
-## Installation
-
-```bash
-pnpm add @uniview/host-sdk
-```
+- [packages/host-sdk/package.json](file://packages/host-sdk/package.json#L1-L49)
+- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L1-L20)
 
 ## PluginController Interface
 
-All controllers implement the same interface:
+Every controller exposes the same lifecycle, prop update, event execution, sync, status, tree access, and subscription methods. Current event execution is named `executeHandler`; the interface does not expose reload or generic execute methods.
 
 ```typescript
 interface PluginController {
-  // Lifecycle
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  reload(): Promise<void>;
-
-  // Props
   updateProps(props: JSONValue): Promise<void>;
-
-  // Tree
+  executeHandler(handlerId: HandlerId, args?: JSONValue[]): Promise<void>;
+  destroy(): Promise<void>;
+  syncTree(): Promise<void>;
+  getStatus(): { mode: HostMode; connected: boolean; lastError?: string };
   getTree(): UINode | null;
-  subscribe(callback: (tree: UINode | null) => void): () => void;
-
-  // Events
-  execute(handlerId: HandlerId, args?: JSONValue[]): Promise<void>;
-
-  // Status
-  getStatus(): {
-    mode: HostMode;
-    connected: boolean;
-    lastError?: string;
-  };
+  subscribe(cb: (tree: UINode | null) => void): () => void;
 }
 ```
 
-### Status Types
+**Section sources**
 
-```typescript
-type HostMode = "worker" | "websocket" | "main";
-```
+- [packages/host-sdk/src/types.ts](file://packages/host-sdk/src/types.ts#L3-L52)
+
+## Controller Implementations
+
+Worker controllers fetch a plugin bundle, construct a module Worker from a Blob URL, expose the host API, and initialize the plugin with `PROTOCOL_VERSION`. WebSocket controllers connect to `/host/:pluginId` on the bridge server and share the same full-tree/mutation subscriber model. Main-thread controllers use `@uniview/react-renderer` directly for development and can run in full or incremental mode.
 
 **Section sources**
 
-- [packages/host-sdk/src/types.ts](file://packages/host-sdk/src/types.ts)
-
-## Controllers
-
-### createWorkerController
-
-Load plugin in Web Worker:
-
-```typescript
-import { createWorkerController } from "@uniview/host-sdk";
-
-const controller = createWorkerController({
-  pluginUrl: "/plugins/my-plugin.js",
-  initialProps: { userId: "123" },
-});
-
-await controller.connect();
-```
-
-### createWebSocketController
-
-Connect to bridge server:
-
-```typescript
-import { createWebSocketController } from "@uniview/host-sdk";
-
-const controller = createWebSocketController({
-  serverUrl: "ws://localhost:3000",
-  pluginId: "my-plugin",
-});
-
-await controller.connect();
-```
-
-### createMainController
-
-Direct import (development only):
-
-```typescript
-import { createMainController } from "@uniview/host-sdk";
-import App from "./plugin/App";
-
-const controller = createMainController({ App });
-
-await controller.connect();
-```
-
-**Section sources**
-
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L8-L19)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L19-L148)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L20-L133)
+- [packages/host-sdk/src/controllers/main.ts](file://packages/host-sdk/src/controllers/main.ts#L20-L128)
 
 ## Component Registry
 
-Framework-agnostic registry for component mapping:
-
-```typescript
-import { createComponentRegistry } from "@uniview/host-sdk";
-
-// Create typed registry
-const registry = createComponentRegistry<SvelteComponent>();
-
-// Register components
-registry.register("Button", ButtonComponent);
-registry.register("Card", CardComponent, { description: "Card component" });
-
-// Lookup
-const Button = registry.get("Button");
-const hasCard = registry.has("Card");
-
-// List all
-const types = registry.list(); // ["Button", "Card"]
-
-// Clear
-registry.clear();
-```
-
-### Registry Interface
-
-```typescript
-interface ComponentRegistry<T = unknown> {
-  register(type: string, component: T, metadata?: ComponentMetadata): void;
-  get(type: string): T | undefined;
-  has(type: string): boolean;
-  list(): string[];
-  clear(): void;
-}
-```
+The registry is a small map-backed abstraction. It lets host adapters register framework-native components under protocol type names and then resolve them during recursive tree rendering.
 
 **Section sources**
 
-- [packages/host-sdk/src/registry.ts](file://packages/host-sdk/src/registry.ts)
+- [packages/host-sdk/src/registry.ts](file://packages/host-sdk/src/registry.ts#L1-L32)
+- [packages/host-sdk/src/types.ts](file://packages/host-sdk/src/types.ts#L54-L65)
 
-## Usage Examples
+## MutableTree
 
-### Basic Setup
-
-```typescript
-import {
-  createWorkerController,
-  createComponentRegistry,
-} from "@uniview/host-sdk";
-
-const registry = createComponentRegistry();
-registry.register("Button", MyButton);
-
-const controller = createWorkerController({
-  pluginUrl: "/plugin.js",
-});
-
-// Subscribe to tree updates
-const unsubscribe = controller.subscribe((tree) => {
-  if (tree) {
-    renderTree(tree, registry);
-  }
-});
-
-await controller.connect();
-
-// Later: cleanup
-unsubscribe();
-await controller.disconnect();
-```
-
-### Event Handling
-
-```typescript
-// In your renderer
-function handleClick(handlerId: string, event: Event) {
-  const args = [serializeEvent(event)];
-  controller.execute(handlerId, args);
-}
-
-// Extract handler ID from props
-const handlerId = props._onClickHandlerId;
-if (handlerId) {
-  element.onclick = () => handleClick(handlerId, event);
-}
-```
-
-### Status Monitoring
-
-```typescript
-const status = controller.getStatus();
-
-if (!status.connected) {
-  console.log("Mode:", status.mode);
-  if (status.lastError) {
-    console.error("Error:", status.lastError);
-  }
-}
-```
+`MutableTree` maintains a local `UINode` tree and node index. It applies protocol mutations, updates indexes, and returns shallow-cloned root references so reactive hosts can observe changes without replacing the entire tree in plugin code.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L269-L288)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L1-L64)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L101-L268)
+- [packages/host-sdk/tests/mutable-tree.test.ts](file://packages/host-sdk/tests/mutable-tree.test.ts#L44-L182)

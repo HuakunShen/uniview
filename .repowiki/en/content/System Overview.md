@@ -2,182 +2,103 @@
 
 <cite>
 **Referenced Files in This Document**
-- [AGENTS.md](file://AGENTS.md)
-- [README.md](file://README.md)
-- [package.json](file://package.json)
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml)
-- [turbo.json](file://turbo.json)
+- [README.md](file://README.md#L1-L40)
+- [README.md](file://README.md#L217-L260)
+- [AGENTS.md](file://AGENTS.md#L7-L64)
+- [AGENTS.md](file://AGENTS.md#L187-L195)
+- [package.json](file://package.json#L4-L40)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [turbo.json](file://turbo.json#L1-L25)
+- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L104-L129)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
 </cite>
 
 ## Table of Contents
 
 1. [Introduction](#introduction)
-2. [Architecture](#architecture)
-3. [Key Features](#key-features)
-4. [Technology Stack](#technology-stack)
-5. [Package Overview](#package-overview)
-6. [Use Cases](#use-cases)
+2. [System Architecture](#system-architecture)
+3. [Runtime Modes](#runtime-modes)
+4. [Package Overview](#package-overview)
+5. [Repository Navigation](#repository-navigation)
 
 ## Introduction
 
-Uniview is a universal plugin system that enables writing UI plugins in React or Solid that can be rendered by any host framework (Svelte, Vue, React, or native platforms). Plugins run in isolated environments—Web Workers, Node.js, Deno, or Bun—and communicate with hosts via type-safe RPC using the kkrpc library.
-
-The core innovation is the **UINode tree**: a serializable representation of UI that can be transmitted over any transport. Plugins produce UINode trees using custom reconcilers (for React or Solid), and hosts render these trees using framework-specific adapters.
+Uniview is a universal plugin system for React and Solid plugins that can render in host frameworks such as Svelte, React, Vue, and native/terminal experiments. Plugins execute in isolated or separated runtimes and communicate with hosts through kkrpc using protocol-defined `UINode` trees, event handler IDs, and update methods.
 
 **Section sources**
 
+- [README.md](file://README.md#L1-L27)
 - [AGENTS.md](file://AGENTS.md#L7-L10)
-- [README.md](file://README.md#L3-L8)
+- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L104-L129)
 
-## Architecture
+## System Architecture
 
 ```mermaid
 graph TB
-    subgraph Plugin["Plugin Side (React/Solid)"]
-        RC[React/Solid Components]
-        RR[Custom Reconciler]
-        ST[serializeTree]
-        HR[HandlerRegistry]
+    subgraph Plugin[Plugin runtime]
+        App[React or Solid App]
+        Renderer[React/Solid renderer]
+        Registry[HandlerRegistry]
+        Tree[UINode tree or mutations]
     end
-
-    subgraph RPC["RPC Layer"]
-        KK[kkrpc Transport]
+    subgraph Transport[kkrpc transport]
+        RPC[Worker/WebSocket channel]
     end
-
-    subgraph Host["Host Side (Svelte/Vue/React/Native)"]
-        HS[Host SDK Controller]
-        CR[ComponentRegistry]
-        R1[ComponentRenderer]
-        R2[Native Views]
+    subgraph Host[Host application]
+        Controller[PluginController]
+        Components[ComponentRegistry]
+        Adapter[Framework renderer]
     end
-
-    RC --> RR
-    RR --> ST
-    ST --> HR
-    HR --> KK
-    KK --> HS
-    HS --> CR
-    CR --> R1
-    CR --> R2
+    App --> Renderer --> Tree
+    Registry --> Tree
+    Tree --> RPC --> Controller --> Adapter
+    Components --> Adapter
 ```
-
-### Bridge Architecture
-
-For server-side plugins, Uniview uses a Bridge Server pattern:
-
-```mermaid
-graph LR
-    subgraph Browser
-        BH[Browser Host]
-    end
-
-    subgraph Server
-        BS[Bridge Server]
-        PC[Plugin Client]
-    end
-
-    BH <-->|WebSocket| BS
-    BS <-->|WebSocket| PC
-```
-
-**Why Bridge Architecture?**
-
-1. **Plugins as Clients**: Plugins connect TO the bridge server—no port/NAT issues
-2. **Single Port**: All plugins multiplex through port 3000
-3. **Transparent Forwarding**: Bridge forwards bytes without parsing, preserving kkrpc protocol
-4. **Simplified Deployment**: Only bridge needs a stable address
 
 **Diagram sources**
 
-- [AGENTS.md](file://AGENTS.md#L155-L167)
-- [README.md](file://README.md#L63-L88)
-
-## Key Features
-
-| Feature                 | Description                                      |
-| ----------------------- | ------------------------------------------------ |
-| **Framework Agnostic**  | Write plugins in React or Solid, render anywhere |
-| **Sandboxed Execution** | Plugins run in Web Workers for security          |
-| **Server-Side Plugins** | Node.js/Deno/Bun via WebSocket Bridge            |
-| **Incremental Updates** | Only changed nodes sent over RPC                 |
-| **Type-Safe RPC**       | Full TypeScript support via kkrpc                |
-| **Multiple Hosts**      | Svelte, Vue, React, native macOS, terminal       |
+- [README.md](file://README.md#L6-L27)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
+- [AGENTS.md](file://AGENTS.md#L41-L64)
 
 **Section sources**
 
-- [README.md](file://README.md#L10-L21)
-- [AGENTS.md](file://AGENTS.md#L186-L192)
+- [README.md](file://README.md#L217-L260)
+- [AGENTS.md](file://AGENTS.md#L336-L345)
 
-## Technology Stack
+## Runtime Modes
 
-| Layer                | Technology                        |
-| -------------------- | --------------------------------- |
-| **Plugin Framework** | React 19, Solid.js                |
-| **RPC Protocol**     | kkrpc ^0.6.7                      |
-| **Validation**       | Zod                               |
-| **Host Framework**   | Svelte 5 (runes), Vue 3, React 19 |
-| **Build System**     | pnpm workspaces, turbo            |
-| **Bundler**          | tsdown                            |
-| **Runtime**          | Web Workers, Node.js, Deno, Bun   |
+Uniview supports Worker mode for browser sandboxing, WebSocket bridge mode for Node/Deno/Bun plugin processes, and main-thread mode for development/debugging. The public host controller API stays consistent across these modes.
 
 **Section sources**
 
-- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L7-L10)
-- [package.json](file://package.json#L11-L18)
+- [AGENTS.md](file://AGENTS.md#L187-L195)
+- [README.md](file://README.md#L217-L260)
 
 ## Package Overview
 
-| Package                                                   | Purpose                                   |
-| --------------------------------------------------------- | ----------------------------------------- |
-| [@uniview/protocol](./Packages/Protocol.md)               | Core types, UINode schema, RPC interfaces |
-| [@uniview/react-renderer](./Packages/React%20Renderer.md) | Custom React reconciler                   |
-| [@uniview/solid-renderer](./Packages/Solid%20Renderer.md) | Solid universal renderer                  |
-| [@uniview/react-runtime](./Packages/React%20Runtime.md)   | React plugin bootstrap                    |
-| [@uniview/solid-runtime](./Packages/Solid%20Runtime.md)   | Solid plugin bootstrap                    |
-| [@uniview/host-sdk](./Packages/Host%20SDK.md)             | Framework-agnostic host controller        |
-| [@uniview/host-svelte](./Packages/Host%20Svelte.md)       | Svelte 5 rendering adapter                |
-| [@uniview/tui-renderer](./Packages/TUI%20Renderer.md)     | Terminal UI renderer                      |
+| Package | Role |
+| --- | --- |
+| `@uniview/protocol` | Serializable trees, RPC interfaces, events, mutations, validators |
+| `@uniview/react-renderer` | React reconciler to internal tree and `UINode` serialization |
+| `@uniview/solid-renderer` | Solid universal renderer to `UINode` serialization |
+| `@uniview/react-runtime` | React Worker and bridge-client plugin bootstrap |
+| `@uniview/solid-runtime` | Solid Worker and bridge-client plugin bootstrap |
+| `@uniview/host-sdk` | Framework-agnostic controller and registry |
+| `@uniview/host-svelte` | Svelte 5 host adapter |
+| `@uniview/tui-renderer` | Standalone React-to-terminal renderer |
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L12-L36)
-- [README.md](file://README.md#L23-L33)
+- [README.md](file://README.md#L28-L40)
+- [AGENTS.md](file://AGENTS.md#L11-L39)
 
-## Use Cases
+## Repository Navigation
 
-### Web Application with Sandboxed Plugins
-
-```
-Browser Host (Svelte) ←→ Web Worker Plugin (React)
-```
-
-Use for: Production apps requiring security isolation, untrusted plugin execution.
-
-### Server-Side Plugin System
-
-```
-Browser Host (Vue) ←→ Bridge Server ←→ Node.js Plugin (React)
-```
-
-Use for: Full runtime access, file system operations, database connections.
-
-### Native Application Integration
-
-```
-macOS App (SwiftUI) ←→ Bridge Server ←→ Bun Plugin (React)
-```
-
-Use for: Cross-platform native apps sharing plugin code.
-
-### Terminal UI
-
-```
-Terminal ←→ TUI Renderer (React Native-style)
-```
-
-Use for: CLI tools, development utilities, server dashboards.
+Start with [Getting Started Guide](./Getting%20Started%20Guide.md), then use [Architecture](./Architecture/Architecture.md), [Technology Stack & Architecture](./Technology%20Stack%20%26%20Architecture.md), [API Reference](./API%20Reference.md), [Packages](./Packages/Packages.md), [Examples](./Examples/Examples.md), and [Development Guidelines](./Development%20Guidelines.md) depending on whether you need onboarding, design context, public API details, package internals, demo behavior, or contribution practices.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L319-L335)
-- [README.md](file://README.md#L173-L194)
+- [pnpm-workspace.yaml](file://pnpm-workspace.yaml#L1-L9)
+- [package.json](file://package.json#L4-L40)
+- [turbo.json](file://turbo.json#L1-L25)

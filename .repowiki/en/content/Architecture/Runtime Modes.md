@@ -2,250 +2,92 @@
 
 <cite>
 **Referenced Files in This Document**
-- [AGENTS.md](file://AGENTS.md)
-- [README.md](file://README.md)
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts)
+- [README.md](file://README.md#L217-L260)
+- [AGENTS.md](file://AGENTS.md#L187-L195)
+- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L1-L20)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L19-L148)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L20-L133)
+- [packages/host-sdk/src/controllers/main.ts](file://packages/host-sdk/src/controllers/main.ts#L20-L128)
+- [packages/react-runtime/src/worker-entry.ts](file://packages/react-runtime/src/worker-entry.ts#L1-L24)
+- [packages/react-runtime/src/ws-client-entry.ts](file://packages/react-runtime/src/ws-client-entry.ts#L1-L15)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [Worker Mode](#worker-mode)
-3. [WebSocket Mode](#websocket-mode)
+3. [WebSocket Bridge Mode](#websocket-bridge-mode)
 4. [Main Thread Mode](#main-thread-mode)
-5. [Comparison](#comparison)
+5. [Selection Guide](#selection-guide)
 
 ## Overview
 
-Uniview supports three runtime modes for plugin execution:
+Uniview supports three plugin execution modes: Worker, WebSocket bridge, and main-thread. Hosts consume the same `PluginController` interface regardless of mode, while runtimes choose different transport and isolation boundaries.
 
 ```mermaid
 graph TB
-    subgraph Browser
-        W[Worker Mode]
-        M[Main Thread Mode]
-    end
-
-    subgraph Server
-        S[WebSocket Mode]
-    end
-
-    subgraph Bridge
-        BS[Bridge Server]
-    end
-
-    W -->|postMessage| BH[Browser Host]
-    M -->|Direct| BH
-    S -->|WebSocket| BS
-    BS -->|WebSocket| BH
+    Host[Host app]
+    Host --> Worker[Worker controller]
+    Host --> WebSocket[WebSocket controller]
+    Host --> Main[Main controller]
+    Worker <-->|postMessage| WorkerRuntime[Worker plugin]
+    WebSocket <-->|/host/:pluginId| Bridge[Bridge server]
+    Bridge <-->|/plugins/:pluginId| Client[Node/Deno/Bun plugin client]
+    Main --> Local[Local React renderer]
 ```
+
+**Diagram sources**
+
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L19-L148)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L20-L133)
+- [packages/host-sdk/src/controllers/main.ts](file://packages/host-sdk/src/controllers/main.ts#L20-L128)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L184-L192)
+- [AGENTS.md](file://AGENTS.md#L187-L195)
+- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L1-L20)
 
 ## Worker Mode
 
-Plugins run in Web Workers for full sandboxing:
-
-```mermaid
-graph LR
-    subgraph Main Thread
-        H[Host]
-        WC[Worker Controller]
-    end
-
-    subgraph Web Worker
-        P[Plugin]
-        W[Worker Entry]
-    end
-
-    H --> WC
-    WC <-->|postMessage| W
-    W --> P
-```
-
-### Usage
-
-```typescript
-// Host side
-import { createWorkerController } from "@uniview/host-sdk";
-
-const controller = createWorkerController({
-  pluginUrl: "/plugins/my-plugin.js",
-  initialProps: { userId: "123" },
-});
-
-await controller.connect();
-```
-
-```typescript
-// Plugin side
-import { startWorkerPlugin } from "@uniview/react-runtime";
-import App from "./App";
-
-startWorkerPlugin({ App });
-```
-
-### Characteristics
-
-| Aspect          | Details                   |
-| --------------- | ------------------------- |
-| **Isolation**   | Full sandbox              |
-| **Environment** | Browser only              |
-| **DOM Access**  | None                      |
-| **Security**    | High (untrusted plugins)  |
-| **Performance** | Good (parallel execution) |
+Worker mode fetches a browser-compatible plugin bundle, creates a module Web Worker, connects through `WorkerParentIO`/`WorkerChildIO`, and initializes the plugin with protocol version and props. It is the recommended browser sandbox mode for untrusted or isolated plugins.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L186-L192)
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L8-L11)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L19-L80)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L82-L148)
+- [packages/react-runtime/src/worker-entry.ts](file://packages/react-runtime/src/worker-entry.ts#L1-L24)
 
-## WebSocket Mode
+## WebSocket Bridge Mode
 
-Server-side plugins connect via Bridge Server:
-
-```mermaid
-graph LR
-    subgraph Browser
-        H[Host]
-        WC[WebSocket Controller]
-    end
-
-    subgraph Server
-        BS[Bridge Server :3000]
-        PC[Plugin Client]
-        P[Plugin]
-    end
-
-    H --> WC
-    WC <-->|WebSocket| BS
-    BS <-->|WebSocket| PC
-    PC --> P
-```
-
-### Usage
-
-```typescript
-// Host side
-import { createWebSocketController } from "@uniview/host-sdk";
-
-const controller = createWebSocketController({
-  serverUrl: "ws://localhost:3000",
-  pluginId: "my-plugin",
-});
-
-await controller.connect();
-```
-
-```typescript
-// Plugin side
-import { connectToHostServer } from "@uniview/react-runtime/ws-client";
-
-connectToHostServer({
-  App: MyPlugin,
-  serverUrl: "ws://localhost:3000",
-  pluginId: "my-plugin",
-});
-```
-
-### Why Bridge Architecture?
-
-| Benefit                    | Explanation                             |
-| -------------------------- | --------------------------------------- |
-| **Plugins as clients**     | No port management, no NAT issues       |
-| **Single port**            | All plugins multiplex through port 3000 |
-| **Transparent forwarding** | Bridge forwards bytes without parsing   |
-| **Simplified deployment**  | Only bridge needs stable address        |
-
-### Characteristics
-
-| Aspect             | Details                  |
-| ------------------ | ------------------------ |
-| **Isolation**      | Process boundary         |
-| **Environment**    | Node.js, Deno, Bun       |
-| **Runtime Access** | Full (fs, network, etc.) |
-| **Security**       | Medium                   |
-| **Performance**    | Network dependent        |
+WebSocket mode lets plugin clients run as external processes. Plugin clients connect to `/plugins/:pluginId`; hosts connect to `/host/:pluginId`; the bridge forwards messages without parsing protocol payloads. This mode is appropriate when plugins need Node/Deno/Bun runtime access.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L151-L167)
-- [README.md](file://README.md#L63-L88)
+- [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L20-L133)
+- [packages/react-runtime/src/ws-client-entry.ts](file://packages/react-runtime/src/ws-client-entry.ts#L1-L15)
+- [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L60-L124)
+- [README.md](file://README.md#L228-L260)
 
 ## Main Thread Mode
 
-Plugins run directly in main thread (development only):
-
-```mermaid
-graph LR
-    subgraph Main Thread
-        H[Host]
-        MC[Main Controller]
-        P[Plugin]
-    end
-
-    H --> MC
-    MC --> P
-```
-
-### Usage
-
-```typescript
-// Host side
-import { createMainController } from "@uniview/host-sdk";
-import App from "./plugin/App";
-
-const controller = createMainController({ App });
-
-await controller.connect();
-```
-
-### Characteristics
-
-| Aspect          | Details                 |
-| --------------- | ----------------------- |
-| **Isolation**   | None                    |
-| **Environment** | Browser only            |
-| **DOM Access**  | Available               |
-| **Security**    | None                    |
-| **Performance** | Best (no serialization) |
-
-### Use Cases
-
-- Development and debugging
-- Hot reload support
-- Direct inspection in DevTools
+Main-thread mode bypasses transport and uses the React renderer locally. It is intended for development and debugging because it provides no isolation and only supports locally imported React apps in the current host SDK implementation.
 
 **Section sources**
 
-- [packages/host-sdk/src/index.ts](file://packages/host-sdk/src/index.ts#L14-L18)
+- [packages/host-sdk/src/controllers/main.ts](file://packages/host-sdk/src/controllers/main.ts#L20-L128)
+- [AGENTS.md](file://AGENTS.md#L187-L195)
 
-## Comparison
+## Selection Guide
 
-| Mode          | Environment   | Isolation        | Security | Use Case                         |
-| ------------- | ------------- | ---------------- | -------- | -------------------------------- |
-| **Worker**    | Browser       | Full sandbox     | High     | Production, untrusted plugins    |
-| **WebSocket** | Node/Deno/Bun | Process boundary | Medium   | Server-side, full runtime access |
-| **Main**      | Browser       | None             | None     | Development, debugging           |
-
-### Selection Guide
-
-```mermaid
-flowchart TD
-    Q1{Production?}
-    Q1 -->|Yes| Q2{Plugin trusted?}
-    Q1 -->|No| M[Main Thread Mode]
-
-    Q2 -->|Yes| Q3{Need server runtime?}
-    Q2 -->|No| W[Worker Mode]
-
-    Q3 -->|Yes| S[WebSocket Mode]
-    Q3 -->|No| W
-```
+| Mode | Environment | Isolation | Best use |
+| --- | --- | --- | --- |
+| Worker | Browser Worker | Strong browser sandbox | Production browser plugins |
+| WebSocket bridge | Node/Deno/Bun process | Process boundary | Plugins needing server/runtime access |
+| Main thread | Browser main thread | None | Development and debugging |
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L184-L192)
-- [README.md](file://README.md#L171-L194)
+- [AGENTS.md](file://AGENTS.md#L187-L195)
+- [README.md](file://README.md#L217-L260)

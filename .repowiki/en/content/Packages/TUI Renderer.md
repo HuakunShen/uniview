@@ -2,153 +2,74 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/tui-renderer/package.json](file://packages/tui-renderer/package.json)
-- [examples/tui-demo/](file://examples/tui-demo/)
-- [README.md](file://README.md)
+- [packages/tui-renderer/package.json](file://packages/tui-renderer/package.json#L1-L46)
+- [packages/tui-renderer/src/index.ts](file://packages/tui-renderer/src/index.ts#L1-L11)
+- [packages/tui-renderer/src/components.tsx](file://packages/tui-renderer/src/components.tsx#L1-L80)
+- [packages/tui-renderer/src/reconciler/renderer.ts](file://packages/tui-renderer/src/reconciler/renderer.ts#L1-L51)
+- [packages/tui-renderer/src/terminal/renderer.ts](file://packages/tui-renderer/src/terminal/renderer.ts#L1-L135)
+- [README.md](file://README.md#L92-L99)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [Architecture](#architecture)
-4. [Usage](#usage)
-5. [Limitations](#limitations)
+2. [Public API](#public-api)
+3. [Rendering Architecture](#rendering-architecture)
+4. [Primitive Components](#primitive-components)
+5. [Usage](#usage)
 
 ## Overview
 
-`@uniview/tui-renderer` provides a Terminal UI renderer for Uniview plugins. Similar to React Native, it renders React components to terminal output using ANSI escape codes instead of DOM.
-
-**Key Features:**
-
-- No browser required
-- ANSI escape codes for terminal output
-- Standalone renderer (independent of web/native)
-- Same React plugin code works in terminal
+`@uniview/tui-renderer` is a standalone React reconciler that renders to terminal output instead of DOM or protocol host adapters. It is useful as a non-DOM rendering experiment and reference for native-like targets.
 
 **Section sources**
 
-- [packages/tui-renderer/package.json](file://packages/tui-renderer/package.json)
-- [README.md](file://README.md#L171-L172)
+- [packages/tui-renderer/package.json](file://packages/tui-renderer/package.json#L1-L46)
+- [README.md](file://README.md#L92-L99)
 
-## Installation
+## Public API
 
-```bash
-pnpm add @uniview/tui-renderer
-```
+The package exports `createTuiRoot`, root option/types, and React component primitives `Box`, `Text`, `Button`, `Input`, and `Newline`.
 
-## Architecture
+**Section sources**
+
+- [packages/tui-renderer/src/index.ts](file://packages/tui-renderer/src/index.ts#L1-L11)
+
+## Rendering Architecture
+
+`createTuiRoot()` creates a terminal renderer, a React reconciler container, and a root object with `render()` and `destroy()`. The terminal renderer measures text width, computes simple row/column layouts, tracks focusable controls, and emits ANSI-styled output.
 
 ```mermaid
 graph TD
-    subgraph Plugin
-        RC[React Components]
-    end
-
-    subgraph TUI Renderer
-        RR[Custom Reconciler]
-        IN[InternalNode Tree]
-        ANS[ANSI Generator]
-    end
-
-    subgraph Output
-        TERM[Terminal]
-    end
-
-    RC --> RR
-    RR --> IN
-    IN --> ANS
-    ANS --> TERM
+    React[React element] --> Reconciler[react-reconciler]
+    Reconciler --> Tree[TuiNode tree]
+    Tree --> Terminal[TerminalRenderer]
+    Terminal --> ANSI[ANSI output]
 ```
 
-### Key Dependencies
+**Diagram sources**
 
-| Package            | Purpose                        |
-| ------------------ | ------------------------------ |
-| `react-reconciler` | Custom React renderer          |
-| `ansi-escapes`     | ANSI escape code generation    |
-| `string-width`     | Calculate string display width |
+- [packages/tui-renderer/src/reconciler/renderer.ts](file://packages/tui-renderer/src/reconciler/renderer.ts#L1-L51)
+- [packages/tui-renderer/src/terminal/renderer.ts](file://packages/tui-renderer/src/terminal/renderer.ts#L1-L135)
 
 **Section sources**
 
-- [packages/tui-renderer/package.json](file://packages/tui-renderer/package.json)
+- [packages/tui-renderer/src/reconciler/renderer.ts](file://packages/tui-renderer/src/reconciler/renderer.ts#L1-L51)
+- [packages/tui-renderer/src/terminal/renderer.ts](file://packages/tui-renderer/src/terminal/renderer.ts#L1-L135)
+
+## Primitive Components
+
+The primitive set is small: `Box` controls simple layout and styles, `Text` displays styled text, `Button` supports `onPress`, `Input` supports `value`, `placeholder`, width, and `onChange`, and `Newline` inserts line breaks. These are React component wrappers over custom reconciler element names.
+
+**Section sources**
+
+- [packages/tui-renderer/src/components.tsx](file://packages/tui-renderer/src/components.tsx#L1-L80)
 
 ## Usage
 
-### Basic Example
-
-```typescript
-// tui-app.ts
-import { render } from "@uniview/tui-renderer";
-import { useState } from "react";
-
-function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <box>
-      <text>Count: {count}</text>
-      <button onClick={() => setCount(c => c + 1)}>
-        Increment
-      </button>
-    </box>
-  );
-}
-
-// Render to terminal
-render(<App />);
-```
-
-### Running
-
-```bash
-cd examples/tui-demo
-pnpm dev
-```
-
-### Supported Elements
-
-| Element  | Description       |
-| -------- | ----------------- |
-| `box`    | Container element |
-| `text`   | Text content      |
-| `button` | Clickable button  |
+The README documents a terminal UI example under `examples/tui-demo`. Unlike the browser plugin path, this renderer does not use `@uniview/protocol` or the bridge; it renders React directly to the terminal.
 
 **Section sources**
 
-- [examples/tui-demo/](file://examples/tui-demo/)
-
-## Limitations
-
-### No Mouse Support
-
-Terminal UI typically uses keyboard navigation. Mouse events require terminal emulators that support mouse protocols.
-
-### Limited Styling
-
-ANSI styling supports:
-
-- Foreground colors
-- Background colors
-- Bold, italic, underline
-- No complex layouts (flexbox, grid)
-
-### Single Window
-
-Unlike web apps, terminal UIs are single-screen. No tabs, modals, or multi-window support.
-
-### Input Handling
-
-Keyboard input requires raw mode:
-
-```typescript
-import { stdin as input, stdout as output } from "process";
-
-input.setRawMode(true);
-input.resume();
-input.setEncoding("utf8");
-```
-
-**Section sources**
-
-- [packages/tui-renderer/package.json](file://packages/tui-renderer/package.json)
+- [README.md](file://README.md#L92-L99)
+- [packages/tui-renderer/src/index.ts](file://packages/tui-renderer/src/index.ts#L1-L11)

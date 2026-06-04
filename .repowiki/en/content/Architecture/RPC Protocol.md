@@ -2,11 +2,17 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts)
-- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts)
-- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts)
-- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts)
-- [AGENTS.md](file://AGENTS.md)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
+- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L4-L129)
+- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts#L1-L72)
+- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts#L3-L81)
+- [packages/protocol/src/version.ts](file://packages/protocol/src/version.ts#L1-L5)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L48-L159)
+- [packages/react-runtime/tests/protocol-contract.test.ts](file://packages/react-runtime/tests/protocol-contract.test.ts#L4-L28)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L32-L148)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L32-L64)
+- [packages/react-renderer/src/serialization/serialize-props.ts](file://packages/react-renderer/src/serialization/serialize-props.ts#L22-L31)
+- [packages/react-renderer/src/serialization/handler-registry.ts](file://packages/react-renderer/src/serialization/handler-registry.ts#L1-L42)
 </cite>
 
 ## Table of Contents
@@ -15,21 +21,18 @@
 2. [Communication Sequence](#communication-sequence)
 3. [HostToPluginAPI](#hosttopluginapi)
 4. [PluginToHostAPI](#plugintohostapi)
-5. [UINode Tree Structure](#uinode-tree-structure)
+5. [UINode Payloads](#uinode-payloads)
 6. [Handler Registry Pattern](#handler-registry-pattern)
-7. [Mutations](#mutations)
+7. [Incremental Mutations](#incremental-mutations)
 
 ## Overview
 
-The RPC protocol defines the communication contract between plugins and hosts. It uses kkrpc for transport and follows a bidirectional API pattern where:
-
-- **Host** calls methods on **Plugin** via `HostToPluginAPI`
-- **Plugin** calls methods on **Host** via `PluginToHostAPI`
+Uniview uses kkrpc as the transport mechanism and `@uniview/protocol` as the transport-agnostic contract. The host calls plugin lifecycle and event methods, while the plugin calls host update, mutation, logging, and error methods. The protocol version is checked during initialization.
 
 **Section sources**
 
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L1-L8)
-- [AGENTS.md](file://AGENTS.md#L127-L136)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
+- [packages/protocol/src/version.ts](file://packages/protocol/src/version.ts#L1-L5)
 
 ## Communication Sequence
 
@@ -38,231 +41,92 @@ sequenceDiagram
     participant Host
     participant RPC as kkrpc
     participant Plugin
-
-    Host->>RPC: connect()
-    RPC->>Plugin: connect()
-    Plugin-->>RPC: ready
-    RPC-->>Host: connected
-
-    Host->>RPC: initialize({protocolVersion, props})
-    RPC->>Plugin: initialize()
-    Plugin->>Plugin: render()
-    Plugin->>RPC: updateTree(UINode)
-    RPC->>Host: updateTree()
-
-    Note over Host,Plugin: User Interaction
-
-    Host->>RPC: executeHandler(handlerId, args)
-    RPC->>Plugin: executeHandler()
-    Plugin->>Plugin: state update
-    Plugin->>Plugin: re-render()
-    Plugin->>RPC: updateTree(newUINode)
-    RPC->>Host: updateTree()
+    Host->>RPC: connect transport
+    Host->>Plugin: initialize({ protocolVersion, props })
+    Plugin->>Plugin: render app
+    Plugin->>Host: updateTree(tree) or applyMutations(batch)
+    Host->>Host: render tree
+    Host->>Plugin: executeHandler(handlerId, args)
+    Plugin->>Plugin: handler updates state
+    Plugin->>Host: updateTree/applyMutations
+    Host->>Plugin: syncTree() when drift recovery is needed
+    Plugin->>Host: updateTree(full current tree)
 ```
 
 **Diagram sources**
 
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L88)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L81)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L75-L159)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L75-L138)
+
+**Section sources**
+
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L75-L159)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L75-L138)
 
 ## HostToPluginAPI
 
-Methods the host calls on the plugin:
+The host-facing plugin API consists of initialization, prop updates, handler execution, destruction, and full-tree resync. It deliberately does not include benchmark-specific APIs.
 
-```typescript
-interface HostToPluginAPI {
-  // Lifecycle
-  initialize(req: {
-    protocolVersion: number;
-    props?: JSONValue;
-  }): Promise<void>;
-  updateProps(props: JSONValue): Promise<void>;
-  destroy(): Promise<void>;
-
-  // Events
-  executeHandler(handlerId: HandlerId, args: JSONValue[]): Promise<void>;
-
-  // Benchmarking
-  updateItem(itemId: string, text: string): Promise<void>;
-  syncTree(): Promise<void>;
-}
-```
-
-### Method Details
-
-| Method           | Purpose                     | When Called             |
-| ---------------- | --------------------------- | ----------------------- |
-| `initialize`     | Bootstrap plugin with props | Once on connection      |
-| `updateProps`    | Update plugin props         | When host state changes |
-| `executeHandler` | Trigger event handler       | On user interaction     |
-| `destroy`        | Clean up resources          | On disconnect           |
-| `updateItem`     | Update specific list item   | Benchmark mode          |
-| `syncTree`       | Request full tree sync      | Recovery from drift     |
+| Method | Purpose |
+| --- | --- |
+| `initialize` | Validate protocol version and render plugin with initial props. |
+| `updateProps` | Re-render plugin with new props. |
+| `executeHandler` | Invoke a registered plugin-side event handler. |
+| `destroy` | Clear runtime resources. |
+| `syncTree` | Request a full tree for drift recovery or explicit resync. |
 
 **Section sources**
 
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L48)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L9-L41)
+- [packages/react-runtime/tests/protocol-contract.test.ts](file://packages/react-runtime/tests/protocol-contract.test.ts#L4-L28)
 
 ## PluginToHostAPI
 
-Methods the plugin calls on the host:
-
-```typescript
-interface PluginToHostAPI {
-  // UI Updates
-  updateTree(tree: UINode | null): void;
-  applyMutations(mutations: Mutation[]): void;
-
-  // Logging
-  log(level: "log" | "info" | "warn" | "error", args: JSONValue[]): void;
-  reportError(err: { message: string; stack?: string }): void;
-}
-```
-
-### Update Modes
-
-| Mode            | Method           | Description                      |
-| --------------- | ---------------- | -------------------------------- |
-| **Full**        | `updateTree`     | Send entire tree on every render |
-| **Incremental** | `applyMutations` | Send only changes                |
+The plugin-facing host API supports full-tree updates, mutation updates, console forwarding, and error reporting. Host controllers update local tree state and notify subscribers when these calls arrive.
 
 **Section sources**
 
-- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L50-L88)
+- [packages/protocol/src/rpc.ts](file://packages/protocol/src/rpc.ts#L43-L81)
+- [packages/host-sdk/src/controllers/worker.ts](file://packages/host-sdk/src/controllers/worker.ts#L32-L49)
 
-## UINode Tree Structure
+## UINode Payloads
 
-```typescript
-interface UINode {
-  id: string; // Unique identifier for reconciliation
-  type: string; // Layout tag OR custom component type
-  props: Record<string, JSONValue>; // JSON-serializable props only
-  children: (UINode | string)[]; // Nested nodes or text
-}
-```
-
-### JSONValue Type
-
-```typescript
-type JSONValue =
-  | null
-  | boolean
-  | number
-  | string
-  | JSONValue[]
-  | { [k: string]: JSONValue };
-```
-
-### Layout Tags
-
-Built-in HTML-like elements all hosts must support:
-
-```typescript
-type UILayoutTag =
-  | "div"
-  | "span"
-  | "p"
-  | "section"
-  | "header"
-  | "footer"
-  | "nav"
-  | "main"
-  | "ul"
-  | "ol"
-  | "li"
-  | "h1"
-  | "h2"
-  | "h3"
-  | "h4"
-  | "h5"
-  | "h6"
-  | "button"
-  | "input"
-  | "textarea"
-  | "select"
-  | "label"
-  | "form"
-  | "a"
-  | "img"
-  | "table"
-  | "thead"
-  | "tbody"
-  | "tr"
-  | "th"
-  | "td"
-  | "strong"
-  | "em"
-  | "code"
-  | "pre";
-```
+`UINode` payloads are JSON-safe trees. The stable `id` supports reconciliation and mutation targeting, while `type` may be a layout tag or product-defined component primitive resolved by a host registry.
 
 **Section sources**
 
-- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L1-L130)
+- [packages/protocol/src/tree.ts](file://packages/protocol/src/tree.ts#L4-L129)
 
 ## Handler Registry Pattern
 
-Functions cannot be serialized over RPC. The handler registry pattern solves this:
+Functions become handler IDs before serialization. React serialization accepts function props whose names match `on[A-Z]`, while protocol helpers describe the standard handler ID prop format used by host adapters.
 
 ```mermaid
 graph LR
-    F[Function] -->|register| R[Registry]
-    R -->|returns| ID[Handler ID]
-    ID -->|serialize| P[UINode props]
-    P -->|RPC| H[Host]
-    H -->|event| ID
-    ID -->|execute| R
-    R -->|invokes| F
+    Function[Plugin function] --> Registry[HandlerRegistry]
+    Registry --> HandlerId[handler_0]
+    HandlerId --> Props[_onClickHandlerId]
+    Props --> Host[Host event prop]
+    Host --> Execute[executeHandler]
+    Execute --> Registry
 ```
 
-### Event Prop Mapping
+**Diagram sources**
 
-| Event Prop | Handler ID Prop      |
-| ---------- | -------------------- |
-| `onClick`  | `_onClickHandlerId`  |
-| `onChange` | `_onChangeHandlerId` |
-| `onInput`  | `_onInputHandlerId`  |
-| `onSubmit` | `_onSubmitHandlerId` |
-| `onFocus`  | `_onFocusHandlerId`  |
-| `onBlur`   | `_onBlurHandlerId`   |
-
-### Helper Functions
-
-```typescript
-handlerIdProp("onClick"); // "_onClickHandlerId"
-isHandlerIdProp("_onClickHandlerId"); // true
-extractEventName("_onClickHandlerId"); // "onClick"
-```
+- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts#L1-L72)
+- [packages/react-renderer/src/serialization/serialize-props.ts](file://packages/react-renderer/src/serialization/serialize-props.ts#L22-L31)
 
 **Section sources**
 
-- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts)
-- [AGENTS.md](file://AGENTS.md#L138-L149)
+- [packages/protocol/src/events.ts](file://packages/protocol/src/events.ts#L1-L72)
+- [packages/react-renderer/src/serialization/handler-registry.ts](file://packages/react-renderer/src/serialization/handler-registry.ts#L1-L42)
 
-## Mutations
+## Incremental Mutations
 
-For incremental updates, mutations describe tree changes:
-
-```typescript
-type Mutation =
-  | AppendChildMutation
-  | InsertBeforeMutation
-  | RemoveChildMutation
-  | SetTextMutation
-  | SetPropsMutation
-  | SetRootMutation;
-```
-
-### Mutation Types
-
-| Type           | Purpose                     |
-| -------------- | --------------------------- |
-| `appendChild`  | Add node to parent          |
-| `insertBefore` | Insert at specific position |
-| `removeChild`  | Remove node from parent     |
-| `setText`      | Update text content         |
-| `setProps`     | Update node props           |
-| `setRoot`      | Replace entire root         |
+Incremental mode sends mutation batches instead of full trees. The protocol defines append, insert, remove, text, props, and root replacement mutations; host controllers apply them with `MutableTree`.
 
 **Section sources**
 
-- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts)
+- [packages/protocol/src/mutations.ts](file://packages/protocol/src/mutations.ts#L3-L81)
+- [packages/host-sdk/src/mutable-tree.ts](file://packages/host-sdk/src/mutable-tree.ts#L32-L64)

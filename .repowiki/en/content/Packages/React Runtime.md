@@ -2,209 +2,86 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/react-runtime/package.json](file://packages/react-runtime/package.json)
-- [AGENTS.md](file://AGENTS.md)
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L1-L45)
+- [packages/react-runtime/src/index.ts](file://packages/react-runtime/src/index.ts#L1-L12)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L26-L170)
+- [packages/react-runtime/src/worker-entry.ts](file://packages/react-runtime/src/worker-entry.ts#L1-L24)
+- [packages/react-runtime/src/ws-client-entry.ts](file://packages/react-runtime/src/ws-client-entry.ts#L1-L15)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L22-L274)
+- [packages/react-runtime/tsdown.config.ts](file://packages/react-runtime/tsdown.config.ts#L3-L9)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [Entry Points](#entry-points)
+2. [Entry Points](#entry-points)
+3. [Core Runtime Lifecycle](#core-runtime-lifecycle)
 4. [Worker Mode](#worker-mode)
-5. [WebSocket Mode](#websocket-mode)
-6. [Usage Examples](#usage-examples)
+5. [WebSocket Bridge Client Mode](#websocket-bridge-client-mode)
+6. [Update Modes and Benchmark Stats](#update-modes-and-benchmark-stats)
 
 ## Overview
 
-`@uniview/react-runtime` provides the bootstrap layer for React plugins. It handles:
-
-- RPC lifecycle management
-- Tree serialization and transmission
-- Handler execution
-- Multiple entry points for different environments
+`@uniview/react-runtime` bootstraps React plugins for Worker and WebSocket bridge execution. It creates the renderer, handler registry, mutation collector when needed, and kkrpc channel, then exposes the `HostToPluginAPI` required by the protocol.
 
 **Section sources**
 
-- [packages/react-runtime/package.json](file://packages/react-runtime/package.json)
-- [AGENTS.md](file://AGENTS.md#L111-L125)
-
-## Installation
-
-```bash
-pnpm add @uniview/react-runtime
-```
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L1-L45)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L26-L75)
 
 ## Entry Points
 
-Multi-entry package structure:
+The package exports the root runtime APIs from `.` and the server-side bridge client from `./ws-client`. The old plugin-as-server style entry point is not present.
 
 ```json
 {
   "exports": {
     ".": "./dist/index.mjs",
-    "./ws-client": "./dist/ws-client.mjs",
-    "./ws-server": "./dist/ws-server.mjs"
+    "./ws-client": "./dist/ws-client.mjs"
   }
 }
 ```
 
-| Entry         | Purpose                             |
-| ------------- | ----------------------------------- |
-| `.`           | Worker mode (Web Worker)            |
-| `./ws-client` | WebSocket client (Node.js/Deno/Bun) |
-| `./ws-server` | Deprecated server mode              |
+**Section sources**
+
+- [packages/react-runtime/package.json](file://packages/react-runtime/package.json#L7-L14)
+- [packages/react-runtime/tsdown.config.ts](file://packages/react-runtime/tsdown.config.ts#L3-L9)
+- [packages/react-runtime/src/index.ts](file://packages/react-runtime/src/index.ts#L1-L12)
+
+## Core Runtime Lifecycle
+
+During `initialize`, the runtime checks protocol version, creates `HandlerRegistry` and renderer bridge, subscribes to either full-tree or mutation updates, renders the React app with initial props, and sends updates to the host. Later host calls update props, execute registered handlers, request full-tree sync, or destroy runtime state.
 
 **Section sources**
 
-- [packages/react-runtime/package.json](file://packages/react-runtime/package.json)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L48-L119)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L121-L159)
 
 ## Worker Mode
 
-Bootstrap React plugin in a Web Worker:
-
-```typescript
-// worker.ts
-import { startWorkerPlugin } from "@uniview/react-runtime";
-import App from "./App";
-
-startWorkerPlugin({
-  App,
-  mode: "full", // or "incremental"
-});
-```
-
-### Options
-
-```typescript
-interface WorkerPluginOptions {
-  App: React.ComponentType;
-  mode?: "full" | "incremental";
-  initialProps?: Record<string, unknown>;
-}
-```
-
-### What It Does
-
-1. Creates `RenderBridge` and `HandlerRegistry`
-2. Renders `App` component
-3. Subscribes to tree updates
-4. Serializes tree with handler IDs
-5. Sends tree to host via kkrpc
-6. Exposes `executeHandler` for host events
+`startWorkerPlugin()` creates a `WorkerChildIO`, constructs an RPC channel, passes the runtime's exposed API into the channel, and starts the runtime. Worker options are `App` and optional update `mode`.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L54-L57)
+- [packages/react-runtime/src/worker-entry.ts](file://packages/react-runtime/src/worker-entry.ts#L1-L24)
 
-## WebSocket Mode
+## WebSocket Bridge Client Mode
 
-Connect server-side plugin to bridge:
-
-```typescript
-// client.ts
-import { connectToHostServer } from "@uniview/react-runtime/ws-client";
-import App from "./App";
-
-connectToHostServer({
-  App,
-  serverUrl: "ws://localhost:3000",
-  pluginId: "my-plugin",
-  mode: "incremental",
-});
-```
-
-### Options
-
-```typescript
-interface WebSocketPluginOptions {
-  App: React.ComponentType;
-  serverUrl: string;
-  pluginId: string;
-  mode?: "full" | "incremental";
-}
-```
-
-### Bridge Architecture
-
-```
-Plugin (Node.js) ←→ Bridge Server ←→ Browser Host
-```
-
-The plugin connects TO the bridge as a client. This avoids NAT/port issues.
+`connectToHostServer()` dynamically imports `ws-client` and creates a bridge client. The WebSocket client connects to `${serverUrl}/plugins/${pluginId}`, supports reconnection, resets runtime state on reconnect, and exposes the same host-facing API as Worker mode.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L151-L167)
+- [packages/react-runtime/src/ws-client-entry.ts](file://packages/react-runtime/src/ws-client-entry.ts#L1-L15)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L22-L90)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L111-L274)
 
-## Usage Examples
+## Update Modes and Benchmark Stats
 
-### Basic Plugin
-
-```tsx
-// App.tsx
-import { useState } from "react";
-
-export default function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <div className="p-4">
-      <p>Count: {count}</p>
-      <button onClick={() => setCount((c) => c + 1)}>Increment</button>
-    </div>
-  );
-}
-```
-
-```typescript
-// worker.ts
-import { startWorkerPlugin } from "@uniview/react-runtime";
-import App from "./App";
-
-startWorkerPlugin({ App });
-```
-
-### With Props
-
-```tsx
-// App.tsx
-interface Props {
-  userId: string;
-  theme: "light" | "dark";
-}
-
-export default function App({ userId, theme }: Props) {
-  return (
-    <div className={theme}>
-      <p>User: {userId}</p>
-    </div>
-  );
-}
-```
-
-```typescript
-// Host calls updateProps
-controller.updateProps({ theme: "dark" });
-```
-
-### Incremental Mode
-
-```typescript
-import { startWorkerPlugin } from "@uniview/react-runtime";
-import App from "./App";
-
-startWorkerPlugin({
-  App,
-  mode: "incremental", // Only send mutations
-});
-```
-
-Performance improvement for large lists:
-
-- Full tree: ~87KB/message
-- Incremental: ~69KB/message
+Full mode serializes and sends the current tree through `updateTree`. Incremental mode attaches a `MutationCollector` and sends mutation batches through `applyMutations`, while also tracking `bytesSent` and `messagesSent` on `globalThis.__uniview_stats` for benchmark demos.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md#L186-L192)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L37-L46)
+- [packages/react-runtime/src/runtime.ts](file://packages/react-runtime/src/runtime.ts#L71-L115)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L53-L90)
+- [packages/react-runtime/src/ws-client.ts](file://packages/react-runtime/src/ws-client.ts#L120-L168)

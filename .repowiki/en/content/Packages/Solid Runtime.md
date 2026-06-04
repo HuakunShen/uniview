@@ -2,113 +2,64 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json)
-- [AGENTS.md](file://AGENTS.md)
+- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json#L1-L43)
+- [packages/solid-runtime/src/index.ts](file://packages/solid-runtime/src/index.ts#L1-L18)
+- [packages/solid-runtime/src/runtime.ts](file://packages/solid-runtime/src/runtime.ts#L46-L219)
+- [packages/solid-runtime/src/worker-entry.ts](file://packages/solid-runtime/src/worker-entry.ts#L1-L24)
+- [packages/solid-runtime/src/ws-client-entry.ts](file://packages/solid-runtime/src/ws-client-entry.ts#L1-L15)
+- [packages/solid-runtime/src/ws-client.ts](file://packages/solid-runtime/src/ws-client.ts#L46-L220)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [Entry Points](#entry-points)
+2. [Entry Points](#entry-points)
+3. [Runtime Lifecycle](#runtime-lifecycle)
 4. [Worker Mode](#worker-mode)
 5. [WebSocket Mode](#websocket-mode)
-6. [Build Requirements](#build-requirements)
 
 ## Overview
 
-`@uniview/solid-runtime` provides the bootstrap layer for Solid.js plugins. Similar to `@uniview/react-runtime` but for Solid applications.
+`@uniview/solid-runtime` is the Solid counterpart to the React runtime. It uses `@uniview/solid-renderer`, kkrpc transports, protocol version checks, handler registries, and optional mutation collection to expose Solid plugins through the same `HostToPluginAPI` contract.
 
 **Section sources**
 
-- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json)
-
-## Installation
-
-```bash
-pnpm add @uniview/solid-runtime
-```
+- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json#L1-L43)
+- [packages/solid-runtime/src/index.ts](file://packages/solid-runtime/src/index.ts#L1-L18)
 
 ## Entry Points
 
-```json
-{
-  "exports": {
-    ".": "./dist/index.mjs",
-    "./ws-client": "./dist/ws-client.mjs"
-  }
-}
-```
-
-| Entry         | Purpose                  |
-| ------------- | ------------------------ |
-| `.`           | Worker mode (Web Worker) |
-| `./ws-client` | WebSocket client         |
+The package exports Worker/runtime APIs at `.` and bridge-client APIs at `./ws-client`. Both entry points are built by tsdown from package source.
 
 **Section sources**
 
-- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json)
+- [packages/solid-runtime/package.json](file://packages/solid-runtime/package.json#L7-L14)
+- [packages/solid-runtime/src/index.ts](file://packages/solid-runtime/src/index.ts#L1-L18)
+- [packages/solid-runtime/src/ws-client-entry.ts](file://packages/solid-runtime/src/ws-client-entry.ts#L1-L15)
+
+## Runtime Lifecycle
+
+The core runtime resets Solid root state before initialization and prop updates, creates a root node, configures either full-tree callbacks or mutation callbacks, renders the Solid component inside `createRoot`, executes handler IDs through `HandlerRegistry`, supports `syncTree`, and tears down with `destroy`.
+
+**Section sources**
+
+- [packages/solid-runtime/src/runtime.ts](file://packages/solid-runtime/src/runtime.ts#L57-L168)
+- [packages/solid-runtime/src/runtime.ts](file://packages/solid-runtime/src/runtime.ts#L170-L219)
 
 ## Worker Mode
 
-```typescript
-// worker.ts
-import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
-import App from "./App";
-
-startSolidWorkerPlugin({
-  App,
-  mode: "full",
-});
-```
-
-### Options
-
-```typescript
-interface SolidWorkerOptions {
-  App: () => JSX.Element;
-  mode?: "full" | "incremental";
-}
-```
-
-## WebSocket Mode
-
-```typescript
-import { createSolidWebSocketPluginClient } from "@uniview/solid-runtime/ws-client";
-import App from "./App";
-
-createSolidWebSocketPluginClient({
-  App,
-  serverUrl: "ws://localhost:3000",
-  pluginId: "solid-plugin",
-});
-```
-
-## Build Requirements
-
-Solid plugins require Babel transformation:
-
-```typescript
-// build.ts
-import { transformSync } from "@babel/core";
-import solid from "babel-preset-solid";
-
-// Transform JSX to universal Solid code
-const result = transformSync(code, {
-  presets: [[solid, { generate: "universal", hydratable: false }]],
-});
-```
-
-### esbuild Plugin
-
-```typescript
-import { solidPlugin } from "esbuild-plugin-solid";
-
-await build({
-  plugins: [solidPlugin()],
-});
-```
+`startSolidWorkerPlugin()` creates `WorkerChildIO`, constructs an RPC channel, and starts `createSolidPluginRuntime` with the Solid app and optional update mode.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md)
+- [packages/solid-runtime/src/worker-entry.ts](file://packages/solid-runtime/src/worker-entry.ts#L1-L24)
+
+## WebSocket Mode
+
+`connectSolidToHostServer()` dynamically imports the Solid bridge client. The client options mirror React's bridge client: `App`, `serverUrl`, `pluginId`, update mode, reconnect delay, and reconnect attempt limits.
+
+**Section sources**
+
+- [packages/solid-runtime/src/ws-client-entry.ts](file://packages/solid-runtime/src/ws-client-entry.ts#L1-L15)
+- [packages/solid-runtime/src/ws-client.ts](file://packages/solid-runtime/src/ws-client.ts#L46-L89)
+- [packages/solid-runtime/src/ws-client.ts](file://packages/solid-runtime/src/ws-client.ts#L115-L220)

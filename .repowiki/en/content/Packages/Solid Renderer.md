@@ -2,172 +2,76 @@
 
 <cite>
 **Referenced Files in This Document**
-- [packages/solid-renderer/package.json](file://packages/solid-renderer/package.json)
-- [packages/solid-renderer/src/index.ts](file://packages/solid-renderer/src/index.ts)
-- [AGENTS.md](file://AGENTS.md)
+- [packages/solid-renderer/package.json](file://packages/solid-renderer/package.json#L1-L39)
+- [packages/solid-renderer/src/index.ts](file://packages/solid-renderer/src/index.ts#L1-L56)
+- [packages/solid-renderer/src/renderer/reconciler.ts](file://packages/solid-renderer/src/renderer/reconciler.ts#L1-L181)
+- [packages/solid-renderer/src/serialization/serialize.ts](file://packages/solid-renderer/src/serialization/serialize.ts#L18-L52)
+- [packages/solid-renderer/src/serialization/serialize-props.ts](file://packages/solid-renderer/src/serialization/serialize-props.ts#L11-L51)
+- [packages/solid-renderer/src/mutation/mutation-collector.ts](file://packages/solid-renderer/src/mutation/mutation-collector.ts#L34-L218)
+- [examples/plugin-solid-example/build.ts](file://examples/plugin-solid-example/build.ts#L1-L115)
 </cite>
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Installation](#installation)
-3. [API Reference](#api-reference)
-4. [Build Requirements](#build-requirements)
-5. [Usage Examples](#usage-examples)
+2. [Public API](#public-api)
+3. [Universal Renderer](#universal-renderer)
+4. [Serialization](#serialization)
+5. [Build Requirements](#build-requirements)
 
 ## Overview
 
-`@uniview/solid-renderer` provides a Solid.js universal renderer that produces serializable UI trees. Similar to `@uniview/react-renderer` but for Solid.js applications.
-
-**Key Features:**
-
-- Solid.js universal renderer (no DOM)
-- Same serialization pipeline as React renderer
-- Handler registry for event serialization
-- Works in Web Workers, Node.js, Deno, Bun
+`@uniview/solid-renderer` provides a Solid universal renderer that produces the same protocol-compatible tree shape used by React plugins. It is DOM-free and designed for Worker and server-side plugin execution.
 
 **Section sources**
 
-- [packages/solid-renderer/package.json](file://packages/solid-renderer/package.json)
+- [packages/solid-renderer/package.json](file://packages/solid-renderer/package.json#L1-L39)
+- [packages/solid-renderer/src/index.ts](file://packages/solid-renderer/src/index.ts#L1-L56)
 
-## Installation
+## Public API
 
-```bash
-pnpm add @uniview/solid-renderer
-```
-
-## API Reference
-
-### Core Exports
-
-```typescript
-// Solid renderer API
-export { render, effect, memo, createElement } from "./renderer/reconciler";
-
-// Re-exports from solid-js
-export { For, Show, createSignal, createEffect, createMemo } from "solid-js";
-
-// Serialization
-export { HandlerRegistry } from "./serialization/handler-registry";
-export { serializeTree } from "./serialization/serialize";
-
-// Mutations
-export { MutationCollector } from "./mutation/mutation-collector";
-```
-
-### render
-
-```typescript
-import { render } from "@uniview/solid-renderer";
-
-const registry = new HandlerRegistry();
-const dispose = render(() => <App />, {
-  registry,
-  onUpdate: (root) => {
-    const tree = serializeTree(root, registry);
-    // Send tree to host
-  }
-});
-```
-
-### Serialization
-
-Same API as React renderer:
-
-```typescript
-import { serializeTree, HandlerRegistry } from "@uniview/solid-renderer";
-
-const registry = new HandlerRegistry();
-const tree = serializeTree(solidNode, registry);
-```
+The package exports Solid renderer primitives, Solid node types, serialization helpers, `HandlerRegistry`, `SolidMutationCollector`, and selected re-exports from `solid-js` such as `For`, `Show`, `createSignal`, and `createEffect`.
 
 **Section sources**
 
-- [packages/solid-renderer/src/index.ts](file://packages/solid-renderer/src/index.ts)
+- [packages/solid-renderer/src/index.ts](file://packages/solid-renderer/src/index.ts#L1-L56)
+
+## Universal Renderer
+
+The reconciler keeps module-level root and callback state, schedules updates on microtasks, creates element/text/slot nodes, collects mutations when a collector is active, and delegates Solid's platform hooks to a copied universal renderer implementation.
+
+```mermaid
+graph TD
+    SolidJS[Solid component] --> Universal[createRenderer universal hooks]
+    Universal --> Nodes[SolidNode tree]
+    Nodes --> Callback[update callback]
+    Nodes --> Mutations[SolidMutationCollector]
+```
+
+**Diagram sources**
+
+- [packages/solid-renderer/src/renderer/reconciler.ts](file://packages/solid-renderer/src/renderer/reconciler.ts#L7-L53)
+- [packages/solid-renderer/src/renderer/reconciler.ts](file://packages/solid-renderer/src/renderer/reconciler.ts#L55-L181)
+
+**Section sources**
+
+- [packages/solid-renderer/src/renderer/reconciler.ts](file://packages/solid-renderer/src/renderer/reconciler.ts#L1-L181)
+
+## Serialization
+
+Solid serialization converts element and text nodes to `UINode` and string children, skips slot nodes, and serializes event props using the protocol event helper set. Unlike React's regex-based handler detection, Solid serialization follows protocol `EVENT_PROPS`.
+
+**Section sources**
+
+- [packages/solid-renderer/src/serialization/serialize.ts](file://packages/solid-renderer/src/serialization/serialize.ts#L18-L52)
+- [packages/solid-renderer/src/serialization/serialize-props.ts](file://packages/solid-renderer/src/serialization/serialize-props.ts#L11-L51)
+- [packages/solid-renderer/src/mutation/mutation-collector.ts](file://packages/solid-renderer/src/mutation/mutation-collector.ts#L34-L218)
 
 ## Build Requirements
 
-Solid plugins require Babel transformation with `babel-preset-solid`:
-
-```typescript
-// build.ts
-import { transformSync } from "@babel/core";
-import solid from "babel-preset-solid";
-
-const result = transformSync(code, {
-  presets: [[solid, { generate: "universal", hydratable: false }]],
-});
-```
-
-### Why Universal Transform?
-
-The `generate: "universal"` option tells Solid to produce platform-agnostic code instead of DOM-specific code. This is required for:
-
-- Web Workers (no DOM)
-- Node.js (no DOM)
-- Server-side rendering
-
-### Build Example
-
-```typescript
-// examples/plugin-solid-example/build.ts
-import { build } from "esbuild";
-import { solidPlugin } from "esbuild-plugin-solid";
-
-await build({
-  entryPoints: ["src/worker.ts"],
-  bundle: true,
-  format: "iife",
-  plugins: [solidPlugin()],
-  outfile: "dist/plugin.js",
-});
-```
+Solid plugin examples compile with Babel and `babel-preset-solid` configured for `moduleName: "@uniview/solid-renderer"` and `generate: "universal"`. This transform is required because DOM-oriented Solid JSX output would not run in Worker or server-side plugin runtimes.
 
 **Section sources**
 
-- [AGENTS.md](file://AGENTS.md)
-
-## Usage Examples
-
-### Solid Component
-
-```tsx
-import { createSignal, For } from "solid-js";
-
-function TodoList() {
-  const [todos, setTodos] = createSignal([
-    { id: 1, text: "Learn Solid" },
-    { id: 2, text: "Build plugin" },
-  ]);
-
-  return (
-    <div>
-      <h1>Todos</h1>
-      <ul>
-        <For each={todos()}>
-          {(todo) => (
-            <li>
-              <span>{todo.text}</span>
-              <button onClick={() => removeTodo(todo.id)}>Delete</button>
-            </li>
-          )}
-        </For>
-      </ul>
-    </div>
-  );
-}
-```
-
-### With Runtime
-
-```typescript
-// worker.ts
-import { startSolidWorkerPlugin } from "@uniview/solid-runtime";
-import App from "./App";
-
-startSolidWorkerPlugin({ App });
-```
-
-**Section sources**
-
-- [AGENTS.md](file://AGENTS.md)
+- [examples/plugin-solid-example/build.ts](file://examples/plugin-solid-example/build.ts#L1-L31)
+- [examples/plugin-solid-example/build.ts](file://examples/plugin-solid-example/build.ts#L34-L115)
