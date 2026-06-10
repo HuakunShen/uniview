@@ -39,6 +39,32 @@ function createHandler(handlerId: string): EventHandler {
   };
 }
 
+function withoutEvent(handler?: EventHandler) {
+  if (!handler) return undefined;
+  return () => {
+    void handler();
+  };
+}
+
+function withInputValue(handler?: EventHandler) {
+  if (!handler) return undefined;
+  return (event: Event) => {
+    const target = event.target as
+      | HTMLInputElement
+      | HTMLTextAreaElement
+      | HTMLSelectElement;
+    void handler(target.value);
+  };
+}
+
+function submitWithoutEvent(handler?: EventHandler) {
+  if (!handler) return undefined;
+  return (event: Event) => {
+    event.preventDefault();
+    void handler();
+  };
+}
+
 function transformProps(
   nodeProps: Record<string, JSONValue>,
 ): TransformedProps {
@@ -112,7 +138,7 @@ function renderNode(node: UINode | string): VNode | string {
       {
         class: `cursor-pointer ${p.attrs.class || ""}`,
         ...p.attrs,
-        onClick: p.onClick,
+        onClick: withoutEvent(p.onClick),
       },
       renderChildren(),
     );
@@ -121,29 +147,41 @@ function renderNode(node: UINode | string): VNode | string {
   if (type === "input") {
     return h("input", {
       ...p.attrs,
-      onInput: p.onInput,
-      onChange: p.onChange,
+      onInput: withInputValue(p.onInput),
+      onChange: withInputValue(p.onChange),
     });
   }
 
   if (type === "textarea") {
     return h("textarea", {
       ...p.attrs,
-      onInput: p.onInput,
-      onChange: p.onChange,
+      onInput: withInputValue(p.onInput),
+      onChange: withInputValue(p.onChange),
     });
   }
 
   if (type === "select") {
-    return h("select", { ...p.attrs, onChange: p.onChange }, renderChildren());
+    return h(
+      "select",
+      { ...p.attrs, onChange: withInputValue(p.onChange) },
+      renderChildren(),
+    );
   }
 
   if (type === "a") {
-    return h("a", { ...p.attrs, onClick: p.onClick }, renderChildren());
+    return h(
+      "a",
+      { ...p.attrs, onClick: withoutEvent(p.onClick) },
+      renderChildren(),
+    );
   }
 
   if (type === "form") {
-    return h("form", { ...p.attrs, onSubmit: p.onSubmit }, renderChildren());
+    return h(
+      "form",
+      { ...p.attrs, onSubmit: submitWithoutEvent(p.onSubmit) },
+      renderChildren(),
+    );
   }
 
   if (LAYOUT_TAGS.includes(type as (typeof LAYOUT_TAGS)[number])) {

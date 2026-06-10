@@ -1,4 +1,5 @@
-import { RPCChannel, WorkerParentIO } from "kkrpc/browser";
+import { RPCChannel } from "kkrpc";
+import { workerTransport } from "kkrpc/worker";
 import type {
   UINode,
   JSONValue,
@@ -64,8 +65,8 @@ export function createWorkerController(
       worker = new Worker(blobURL, { type: "module" });
       URL.revokeObjectURL(blobURL);
 
-      const io = new WorkerParentIO(worker);
-      rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(io, {
+      const transport = workerTransport(worker);
+      rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(transport, {
         expose: hostAPI,
       });
 
@@ -85,6 +86,7 @@ export function createWorkerController(
           const api = rpc.getAPI();
           await api.destroy();
         } catch {}
+        rpc.destroy();
       }
       if (worker) {
         worker.terminate();

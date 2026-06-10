@@ -1,4 +1,6 @@
-import { RPCChannel, WebSocketClientIO } from "kkrpc/browser";
+import { RPCChannel } from "kkrpc";
+import type { RPCMessage, Transport } from "kkrpc";
+import { webSocketClientTransport } from "kkrpc/ws";
 import type {
   UINode,
   JSONValue,
@@ -22,7 +24,7 @@ export function createWebSocketController(
 ): PluginController {
   const { serverUrl, pluginId, initialProps } = opts;
 
-  let io: WebSocketClientIO | null = null;
+  let transport: Transport<RPCMessage> | null = null;
   let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
   let tree: UINode | null = null;
   let mutableTree = new MutableTree();
@@ -53,9 +55,9 @@ export function createWebSocketController(
     async connect() {
       try {
         const url = `${serverUrl}/host/${pluginId}`;
-        io = new WebSocketClientIO({ url });
+        transport = webSocketClientTransport({ url });
 
-        rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(io, {
+        rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(transport, {
           expose: hostAPI,
         });
 
@@ -80,9 +82,10 @@ export function createWebSocketController(
           const api = rpc.getAPI();
           await api.destroy();
         } catch {}
+        rpc.destroy();
       }
       rpc = null;
-      io = null;
+      transport = null;
       connected = false;
       tree = null;
       mutableTree = new MutableTree();

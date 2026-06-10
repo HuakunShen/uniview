@@ -1,6 +1,7 @@
 import type { ComponentType, ReactElement } from "react";
 import { createElement } from "react";
-import { ElysiaWebSocketClientIO, RPCChannel } from "kkrpc";
+import { RPCChannel } from "kkrpc";
+import { webSocketTransport } from "kkrpc/ws";
 import type {
   JSONValue,
   UINode,
@@ -88,12 +89,7 @@ export function createWebSocketPluginClient(
   const wsUrl = `${serverUrl}/plugins/${pluginId}`;
   let closed = false;
   let reconnectAttempts = 0;
-  let currentIo: ElysiaWebSocketClientIO | null = null;
-  let currentRpc: RPCChannel<
-    HostToPluginAPI,
-    PluginToHostAPI,
-    ElysiaWebSocketClientIO
-  > | null = null;
+  let currentRpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
 
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
@@ -214,10 +210,8 @@ export function createWebSocketPluginClient(
 
     console.log(`[Plugin:${pluginId}] Connecting to ${wsUrl}...`);
 
-    const io = new ElysiaWebSocketClientIO(wsUrl);
-    currentIo = io;
-
-    const ws = (io as unknown as { ws: WebSocket }).ws;
+    const ws = new WebSocket(wsUrl);
+    const transport = webSocketTransport(ws);
 
     ws.addEventListener("open", () => {
       console.log(`[Plugin:${pluginId}] Connected to bridge`);
@@ -231,7 +225,7 @@ export function createWebSocketPluginClient(
         `[Plugin:${pluginId}] Connection closed (code: ${event.code}, reason: ${event.reason || "none"})`,
       );
       resetRuntimeState();
-      currentIo = null;
+      currentRpc?.destroy();
       currentRpc = null;
 
       if (reconnectAttempts < maxReconnectAttempts) {
@@ -251,11 +245,9 @@ export function createWebSocketPluginClient(
       console.error(`[Plugin:${pluginId}] WebSocket error:`, error);
     });
 
-    currentRpc = new RPCChannel<
-      HostToPluginAPI,
-      PluginToHostAPI,
-      ElysiaWebSocketClientIO
-    >(io, { expose: createPluginAPI() });
+    currentRpc = new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transport, {
+      expose: createPluginAPI(),
+    });
   }
 
   connect();
@@ -265,8 +257,7 @@ export function createWebSocketPluginClient(
       new Promise((resolve) => {
         closed = true;
         resetRuntimeState();
-        currentIo?.destroy();
-        currentIo = null;
+        currentRpc?.destroy();
         currentRpc = null;
         resolve();
       }),

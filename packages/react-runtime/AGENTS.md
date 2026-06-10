@@ -20,9 +20,9 @@ src/
 
 | Task             | Location              | Notes                          |
 | ---------------- | --------------------- | ------------------------------ |
-| Worker bootstrap | `src/worker-entry.ts` | WorkerChildIO + RPCChannel     |
+| Worker bootstrap | `src/worker-entry.ts` | workerSelfTransport + RPCChannel |
 | Core runtime     | `src/runtime.ts`      | HandlerRegistry + tree updates |
-| Bridge client    | `src/ws-client.ts`    | ElysiaWebSocketClientIO        |
+| Bridge client    | `src/ws-client.ts`    | webSocketTransport             |
 
 ## CONVENTIONS
 
@@ -39,7 +39,7 @@ Entry points via package.json exports:
 1. Host calls `initialize()` → Runtime creates `HandlerRegistry` + renderer bridge
 2. Bridge subscribes to updates → `serializeTree()` replaces functions with IDs → `rpc.updateTree()`
 3. Host calls `executeHandler(handlerId, args)` → Registry executes handler in React context
-4. Host calls `destroy()` → `handlerRegistry.clear()`, `io.destroy()`
+4. Host calls `destroy()` → `handlerRegistry.clear()`, `channel.destroy()`
 
 ### Handler Registry Pattern
 

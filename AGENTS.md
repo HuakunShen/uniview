@@ -70,7 +70,7 @@ uniview/
 - **Package creation**: ALWAYS use `pnpm create tsdown@latest` - never manual config
 - **Templates**: `default`, `react`, `svelte` for tsdown
 - **Workspace**: `pnpm workspaces` + `turbo` orchestration
-- **Catalog**: `pnpm catalog` for `kkrpc` version management
+- **kkrpc source**: workspace-linked from `vendors/kkrpc/packages/kkrpc`; catalog tracks the external release line
 - **Standard scripts**: `pnpm build`, `pnpm dev`, `pnpm lint`, `pnpm format`
 
 ### TypeScript Configuration
@@ -172,9 +172,9 @@ Server-side plugins use **Bridge Server** pattern (not plugin-as-server):
 ### kkrpc Integration
 
 - **Protocol**: kkrpc for all RPC communication
-- **Transports**: Worker, WebSocket, HTTP, stdio (via kkrpc adapters)
-- **Version**: Managed via pnpm catalog in `pnpm-workspace.yaml`
-- **Import**: `import { RPCChannel } from "kkrpc"` (or `kkrpc/browser`)
+- **Transports**: Worker, WebSocket, HTTP, stdio (via kkrpc 1.0 transport factories)
+- **Version**: Source linked from `vendors/kkrpc/packages/kkrpc`; external release line tracked in `pnpm-workspace.yaml`
+- **Import**: `import { RPCChannel } from "kkrpc"` for core APIs; import runtime transports from explicit subpaths such as `kkrpc/worker` and `kkrpc/ws`
 
 ### Vendor Submodules
 
@@ -279,7 +279,7 @@ All controllers implement `PluginController` - host code unchanged when switchin
 Set-based subscriber pattern; multiple subscribers supported, cleanup via returned unsubscribe function.
 
 **Transport Abstraction**
-Worker uses `kkrpc`'s `WorkerParentIO`, WebSocket uses `WebSocketClientIO`, Main bypasses RPC entirely with direct renderer bridge.
+Worker uses `workerTransport()` from `kkrpc/worker`, WebSocket uses `webSocketClientTransport()` from `kkrpc/ws`, and Main bypasses RPC entirely with direct renderer bridge.
 
 **Status Reporting**
 `getStatus()` returns `{ mode, connected, lastError }` for UI state display.

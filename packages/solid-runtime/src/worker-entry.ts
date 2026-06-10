@@ -1,5 +1,6 @@
 import type { Component } from "solid-js";
-import { WorkerChildIO, RPCChannel } from "kkrpc";
+import { RPCChannel } from "kkrpc";
+import { workerSelfTransport } from "kkrpc/worker";
 import type { HostToPluginAPI, PluginToHostAPI, UpdateMode } from "@uniview/protocol";
 import { createSolidPluginRuntime } from "./runtime";
 
@@ -9,15 +10,14 @@ export interface StartSolidWorkerPluginOptions {
 }
 
 export function startSolidWorkerPlugin(opts: StartSolidWorkerPluginOptions): void {
-	const io = new WorkerChildIO();
+	const transport = workerSelfTransport();
 	const runtime = createSolidPluginRuntime(
-		{ App: opts.App, io, mode: opts.mode },
-		(ioInstance, expose) => {
-			return new RPCChannel<
-				HostToPluginAPI,
-				PluginToHostAPI,
-				typeof ioInstance
-			>(ioInstance, { expose });
+		{ App: opts.App, transport, mode: opts.mode },
+		(transportInstance, expose) => {
+			return new RPCChannel<HostToPluginAPI, PluginToHostAPI>(
+				transportInstance,
+				{ expose },
+			);
 		},
 	);
 	runtime.start();

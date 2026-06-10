@@ -1,6 +1,7 @@
 import type { Component } from "solid-js"
 import { createRoot } from "solid-js"
-import { ElysiaWebSocketClientIO, RPCChannel } from "kkrpc"
+import { RPCChannel } from "kkrpc"
+import { webSocketTransport } from "kkrpc/ws"
 import type {
 	JSONValue,
 	UINode,
@@ -89,12 +90,7 @@ export function createSolidWebSocketPluginClient(
 	const wsUrl = `${serverUrl}/plugins/${pluginId}`
 	let closed = false
 	let reconnectAttempts = 0
-	let currentIo: ElysiaWebSocketClientIO | null = null
-	let currentRpc: RPCChannel<
-		HostToPluginAPI,
-		PluginToHostAPI,
-		ElysiaWebSocketClientIO
-	> | null = null
+	let currentRpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null
 
 	let disposeRoot: (() => void) | null = null
 	let handlerRegistry: HandlerRegistry | null = null
@@ -321,10 +317,8 @@ export function createSolidWebSocketPluginClient(
 
 		console.log(`[Plugin:${pluginId}] Connecting to ${wsUrl}...`)
 
-		const io = new ElysiaWebSocketClientIO(wsUrl)
-		currentIo = io
-
-		const ws = (io as unknown as { ws: WebSocket }).ws
+		const ws = new WebSocket(wsUrl)
+		const transport = webSocketTransport(ws)
 
 		ws.addEventListener("open", () => {
 			console.log(`[Plugin:${pluginId}] Connected to bridge`)
@@ -338,7 +332,7 @@ export function createSolidWebSocketPluginClient(
 				`[Plugin:${pluginId}] Connection closed (code: ${event.code}, reason: ${event.reason || "none"})`,
 			)
 			resetRuntimeState()
-			currentIo = null
+			currentRpc?.destroy()
 			currentRpc = null
 
 			if (reconnectAttempts < maxReconnectAttempts) {
@@ -358,11 +352,9 @@ export function createSolidWebSocketPluginClient(
 			console.error(`[Plugin:${pluginId}] WebSocket error:`, error)
 		})
 
-		currentRpc = new RPCChannel<
-			HostToPluginAPI,
-			PluginToHostAPI,
-			ElysiaWebSocketClientIO
-		>(io, { expose: createPluginAPI() })
+		currentRpc = new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transport, {
+			expose: createPluginAPI(),
+		})
 	}
 
 	connect()
@@ -372,8 +364,7 @@ export function createSolidWebSocketPluginClient(
 			new Promise((resolve) => {
 				closed = true
 				resetRuntimeState()
-				currentIo?.destroy()
-				currentIo = null
+				currentRpc?.destroy()
 				currentRpc = null
 				resolve()
 			}),

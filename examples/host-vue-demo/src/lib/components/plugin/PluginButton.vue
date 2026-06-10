@@ -29,7 +29,7 @@ interface Props {
   variant?: PluginVariant | ButtonVariant;
   disabled?: boolean;
   class?: string;
-  onClick?: (...args: unknown[]) => void;
+  onClick?: () => void;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,8 +42,8 @@ const mappedVariant = computed(
     (props.variant as ButtonVariant),
 );
 
-function handleClick(event: Event) {
-  props.onClick?.(event);
+function handleClick() {
+  props.onClick?.();
 }
 </script>
 

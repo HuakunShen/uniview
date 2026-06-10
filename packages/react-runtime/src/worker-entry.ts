@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
-import { WorkerChildIO, RPCChannel } from "kkrpc";
+import { RPCChannel } from "kkrpc";
+import { workerSelfTransport } from "kkrpc/worker";
 import type { HostToPluginAPI, PluginToHostAPI, UpdateMode } from "@uniview/protocol";
 import { createPluginRuntime } from "./runtime";
 
@@ -9,15 +10,14 @@ export interface StartWorkerPluginOptions {
 }
 
 export function startWorkerPlugin(opts: StartWorkerPluginOptions): void {
-  const io = new WorkerChildIO();
+  const transport = workerSelfTransport();
   const runtime = createPluginRuntime(
-    { App: opts.App, io, mode: opts.mode },
-    (ioInstance, expose) => {
-      return new RPCChannel<
-        HostToPluginAPI,
-        PluginToHostAPI,
-        typeof ioInstance
-      >(ioInstance, { expose });
+    { App: opts.App, transport, mode: opts.mode },
+    (transportInstance, expose) => {
+      return new RPCChannel<HostToPluginAPI, PluginToHostAPI>(
+        transportInstance,
+        { expose },
+      );
     },
   );
   runtime.start();

@@ -7,7 +7,7 @@
 		variant?: 'primary' | 'secondary' | 'outline' | 'destructive' | 'ghost';
 		disabled?: boolean;
 		class?: string;
-		onclick?: () => void;
+		onclick?: () => void | Promise<void>;
 		children?: Snippet;
 		[key: string]: unknown;
 	}
@@ -29,13 +29,17 @@
 		destructive: 'destructive',
 		ghost: 'ghost'
 	};
+
+	function handleClick() {
+		void onclick?.();
+	}
 </script>
 
 <Button
 	variant={variantMap[variant] ?? 'secondary'}
 	{disabled}
 	class={className}
-	onclick={onclick}
+	onclick={handleClick}
 >
 	{#if children}
 		{@render children()}

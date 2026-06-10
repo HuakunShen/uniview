@@ -1,9 +1,10 @@
 packages:
   - packages/*
   - examples/*
+  - vendors/kkrpc/packages/*
   - docs
 
 catalog:
-  kkrpc: ^0.6.7
+  kkrpc: ^1.0.0
   react: ^19.2.4
   react-reconciler: ^0.33.0

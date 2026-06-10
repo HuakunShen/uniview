@@ -91,6 +91,41 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
     return result;
   }
 
+  function withoutEvent(handler?: EventHandler): (() => void) | undefined {
+    if (!handler) return undefined;
+    return () => {
+      void handler();
+    };
+  }
+
+  function withInputValue(
+    handler?: EventHandler,
+  ): ((event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => void) | undefined {
+    if (!handler) return undefined;
+    return (event) => {
+      void handler(event.currentTarget.value);
+    };
+  }
+
+  function withSelectValue(
+    handler?: EventHandler,
+  ): ((event: React.ChangeEvent<HTMLSelectElement>) => void) | undefined {
+    if (!handler) return undefined;
+    return (event) => {
+      void handler(event.currentTarget.value);
+    };
+  }
+
+  function submitWithoutEvent(
+    handler?: EventHandler,
+  ): ((event: React.FormEvent<HTMLFormElement>) => void) | undefined {
+    if (!handler) return undefined;
+    return (event) => {
+      event.preventDefault();
+      void handler();
+    };
+  }
+
   const { type, props, children } = node;
   const p = transformProps(props);
 
@@ -99,7 +134,7 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
       <button
         className={`cursor-pointer ${p.attrs.className || ""}`}
         {...p.attrs}
-        onClick={p.onClick}
+        onClick={withoutEvent(p.onClick)}
       >
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
@@ -109,16 +144,28 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
   }
 
   if (type === "input") {
-    return <input {...p.attrs} onInput={p.onInput} onChange={p.onChange} />;
+    return (
+      <input
+        {...p.attrs}
+        onInput={withInputValue(p.onInput)}
+        onChange={withInputValue(p.onChange)}
+      />
+    );
   }
 
   if (type === "textarea") {
-    return <textarea {...p.attrs} onInput={p.onInput} onChange={p.onChange} />;
+    return (
+      <textarea
+        {...p.attrs}
+        onInput={withInputValue(p.onInput)}
+        onChange={withInputValue(p.onChange)}
+      />
+    );
   }
 
   if (type === "select") {
     return (
-      <select {...p.attrs} onChange={p.onChange}>
+      <select {...p.attrs} onChange={withSelectValue(p.onChange)}>
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
         ))}
@@ -128,7 +175,7 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
 
   if (type === "a") {
     return (
-      <a {...p.attrs} onClick={p.onClick}>
+      <a {...p.attrs} onClick={withoutEvent(p.onClick)}>
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
         ))}
@@ -138,7 +185,7 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
 
   if (type === "form") {
     return (
-      <form {...p.attrs} onSubmit={p.onSubmit}>
+      <form {...p.attrs} onSubmit={submitWithoutEvent(p.onSubmit)}>
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
         ))}

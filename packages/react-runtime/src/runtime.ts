@@ -1,6 +1,6 @@
 import type { ReactElement, ComponentType } from "react";
 import { createElement } from "react";
-import type { RPCChannel, IoInterface } from "kkrpc";
+import type { RPCChannel, RPCMessage, Transport } from "kkrpc";
 import type {
   JSONValue,
   UINode,
@@ -23,9 +23,9 @@ interface RendererHandle extends RenderBridge {
   _container?: unknown;
 }
 
-export interface PluginRuntimeOptions<T extends IoInterface> {
+export interface PluginRuntimeOptions<T extends Transport<RPCMessage>> {
   App: ComponentType<unknown>;
-  io: T;
+  transport: T;
   mode?: UpdateMode;
 }
 
@@ -53,20 +53,20 @@ function assertProtocolVersion(protocolVersion: number): void {
   }
 }
 
-export function createPluginRuntime<T extends IoInterface>(
+export function createPluginRuntime<T extends Transport<RPCMessage>>(
   options: PluginRuntimeOptions<T>,
   createChannel: (
-    io: T,
+    transport: T,
     expose: HostToPluginAPI,
-  ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
+  ) => RPCChannel<HostToPluginAPI, PluginToHostAPI>,
 ): PluginRuntime {
-  const { App, io, mode = "full" } = options;
+  const { App, transport, mode = "full" } = options;
 
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
   let mutationCollector: MutationCollector | null = null;
-  let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+  let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
 
   // Stats tracking
   const stats: Stats = { bytesSent: 0, messagesSent: 0 };
@@ -155,16 +155,16 @@ export function createPluginRuntime<T extends IoInterface>(
       mutationCollector = null;
       handlerRegistry?.clear();
       handlerRegistry = null;
-      io.destroy?.();
     },
   };
 
   return {
     async start() {
-      rpc = createChannel(io, pluginAPI);
+      rpc = createChannel(transport, pluginAPI);
     },
     stop() {
-      io.destroy?.();
+      rpc?.destroy();
+      rpc = null;
     },
   };
 }

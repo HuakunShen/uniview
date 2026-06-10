@@ -29,7 +29,7 @@
   "dependencies": {
     "@uniview/protocol": "workspace:*",
     "@uniview/react-renderer": "workspace:*",
-    "kkrpc": "catalog:"
+    "kkrpc": "workspace:*"
   },
   "peerDependencies": {
     "react": "^19.0.0"

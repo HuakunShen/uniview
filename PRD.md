@@ -456,13 +456,15 @@ export class SolidPluginRuntime {
 
 ```typescript
 // packages/solid-runtime/src/worker-entry.ts
-import { RPCChannel, WorkerChildIO } from "kkrpc";
+import { RPCChannel } from "kkrpc";
+import { workerSelfTransport } from "kkrpc/worker";
 import { SolidPluginRuntime } from "./runtime";
 import type { HostToPluginAPI, PluginToHostAPI } from "@uniview/protocol";
 
 export function startWorkerPlugin(Components: Record<string, any>) {
-  const io = new WorkerChildIO();
-  const channel = new RPCChannel<HostToPluginAPI, PluginToHostAPI>(io);
+  const channel = new RPCChannel<HostToPluginAPI, PluginToHostAPI>(
+    workerSelfTransport(),
+  );
 
   let runtime: SolidPluginRuntime;
 

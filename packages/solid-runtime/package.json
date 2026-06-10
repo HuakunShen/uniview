@@ -29,7 +29,7 @@
   "dependencies": {
     "@uniview/protocol": "workspace:*",
     "@uniview/solid-renderer": "workspace:*",
-    "kkrpc": "catalog:"
+    "kkrpc": "workspace:*"
   },
   "peerDependencies": {
     "solid-js": "^1.9.0"

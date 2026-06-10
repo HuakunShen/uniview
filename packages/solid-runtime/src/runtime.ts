@@ -1,6 +1,6 @@
 import type { Component } from "solid-js";
 import { createRoot } from "solid-js";
-import type { RPCChannel, IoInterface } from "kkrpc";
+import type { RPCChannel, RPCMessage, Transport } from "kkrpc";
 import type {
   JSONValue,
   UINode,
@@ -43,9 +43,9 @@ function assertProtocolVersion(protocolVersion: number): void {
   }
 }
 
-export interface SolidPluginRuntimeOptions<T extends IoInterface> {
+export interface SolidPluginRuntimeOptions<T extends Transport<RPCMessage>> {
   App: Component<Record<string, unknown>>;
-  io: T;
+  transport: T;
   mode?: UpdateMode;
 }
 
@@ -54,19 +54,19 @@ export interface SolidPluginRuntime {
   stop(): void;
 }
 
-export function createSolidPluginRuntime<T extends IoInterface>(
+export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
   options: SolidPluginRuntimeOptions<T>,
   createChannel: (
-    io: T,
+    transport: T,
     expose: HostToPluginAPI,
-  ) => RPCChannel<HostToPluginAPI, PluginToHostAPI, T>,
+  ) => RPCChannel<HostToPluginAPI, PluginToHostAPI>,
 ): SolidPluginRuntime {
-  const { App, io, mode = "full" } = options;
+  const { App, transport, mode = "full" } = options;
 
   let disposeRoot: (() => void) | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
   let mutationCollector: SolidMutationCollector | null = null;
-  let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI, T> | null = null;
+  let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
 
   // Stats tracking
   const stats: Stats = { bytesSent: 0, messagesSent: 0 };
@@ -204,16 +204,16 @@ export function createSolidPluginRuntime<T extends IoInterface>(
 
     async destroy() {
       resetState();
-      io.destroy?.();
     },
   };
 
   return {
     async start() {
-      rpc = createChannel(io, pluginAPI);
+      rpc = createChannel(transport, pluginAPI);
     },
     stop() {
-      io.destroy?.();
+      rpc?.destroy();
+      rpc = null;
     },
   };
 }
