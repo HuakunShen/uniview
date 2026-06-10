@@ -1,7 +1,7 @@
 packages:
   - packages/*
   - examples/*
-  - vendors/kkrpc/packages/*
+  - ../kkrpc/packages/kkrpc
   - docs
 
 catalog:
