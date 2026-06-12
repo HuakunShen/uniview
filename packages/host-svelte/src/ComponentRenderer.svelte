@@ -4,6 +4,7 @@
 	import { LAYOUT_TAGS, isHandlerIdProp, extractEventName } from "@uniview/protocol";
 	import type { PluginController, ComponentRegistry } from "@uniview/host-sdk";
 	import type { Component } from "svelte";
+	import { serializeHandlerArgs } from "./event-handlers";
 	import Self from "./ComponentRenderer.svelte";
 
 	interface Props {
@@ -15,9 +16,9 @@
 	const controller = getContext<PluginController>("uniview:controller");
 	const registry = getContext<ComponentRegistry<Component>>("uniview:registry");
 
-	function createHandler(handlerId: string) {
+	function createHandler(handlerId: string, eventName: string) {
 		return async (...args: unknown[]) => {
-			await controller.executeHandler(handlerId, args as JSONValue[]);
+			await controller.executeHandler(handlerId, serializeHandlerArgs(eventName, args));
 		};
 	}
 
@@ -45,7 +46,7 @@
 			if (isHandlerIdProp(key)) {
 				const eventName = extractEventName(key);
 				if (eventName && typeof value === "string") {
-					const handler = createHandler(value);
+					const handler = createHandler(value, eventName);
 					let matched = true;
 					if (eventName === "onChange") {
 						result.oninput = handler;
