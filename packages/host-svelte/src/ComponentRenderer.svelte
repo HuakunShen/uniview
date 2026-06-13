@@ -16,6 +16,8 @@
 	const controller = getContext<PluginController>("uniview:controller");
 	const registry = getContext<ComponentRegistry<Component>>("uniview:registry");
 
+	const VOID_ELEMENTS = new Set(["hr", "br", "img", "wbr"])
+
 	function createHandler(handlerId: string, eventName: string) {
 		return async (...args: unknown[]) => {
 			await controller.executeHandler(handlerId, serializeHandlerArgs(eventName, args));
@@ -169,6 +171,9 @@
 
 {#if typeof node === "string"}
 	{node}
+{:else if VOID_ELEMENTS.has(node.type)}
+	{@const p = transformProps(node.props)}
+	<svelte:element this={node.type} {...p.attrs} />
 {:else if node.type === "button"}
 	{@const p = transformProps(node.props)}
 	<button class="cursor-pointer {p.attrs.class || ''}" {...p.attrs} use:attachEvents={p}>
