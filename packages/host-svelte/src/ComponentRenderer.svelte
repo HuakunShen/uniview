@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from "svelte";
-	import type { UINode, JSONValue } from "@uniview/protocol";
+	import type { UINode } from "@uniview/protocol";
 	import { LAYOUT_TAGS, isHandlerIdProp, extractEventName } from "@uniview/protocol";
 	import type { PluginController, ComponentRegistry } from "@uniview/host-sdk";
 	import type { Component } from "svelte";
