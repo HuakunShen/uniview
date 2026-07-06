@@ -2,6 +2,8 @@ import React from "react";
 import type { UINode, JSONValue } from "@uniview/protocol";
 import {
   LAYOUT_TAGS,
+  TEXT_NODE_TYPE,
+  textContent,
   isHandlerIdProp,
   extractEventName,
 } from "@uniview/protocol";
@@ -34,6 +36,10 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
 
   if (typeof node === "string") {
     return <>{node}</>;
+  }
+
+  if (node.type === TEXT_NODE_TYPE) {
+    return <>{node.text}</>;
   }
 
   function createHandler(handlerId: string): EventHandler {
@@ -216,10 +222,10 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
   if (registry?.has(type)) {
     const RegisteredComponent = registry.get(type)!;
     const textChildren = children
-      .filter((child): child is string => typeof child === "string")
+      .map((child) => textContent(child) ?? "")
       .join("");
     const nonTextChildren = children.filter(
-      (child) => typeof child !== "string",
+      (child) => textContent(child) === null,
     );
 
     const componentProps: Record<string, unknown> = {

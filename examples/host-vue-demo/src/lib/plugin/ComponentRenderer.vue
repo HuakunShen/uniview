@@ -2,6 +2,8 @@
 import { computed, h, type VNode, type Component as VueComponent } from "vue";
 import type { UINode, JSONValue } from "@uniview/protocol";
 import {
+  TEXT_NODE_TYPE,
+  textContent,
   LAYOUT_TAGS,
   isHandlerIdProp,
   extractEventName,
@@ -121,6 +123,10 @@ function renderNode(node: UINode | string): VNode | string {
     return node;
   }
 
+  if (node.type === TEXT_NODE_TYPE) {
+    return node.text ?? "";
+  }
+
   const { type, props: nodeProps, children } = node;
   const p = transformProps(nodeProps);
 
@@ -195,10 +201,10 @@ function renderNode(node: UINode | string): VNode | string {
   if (registry?.has(type)) {
     const RegisteredComponent = registry.get(type) as VueComponent;
     const textChildren = children
-      .filter((child): child is string => typeof child === "string")
+      .map((child) => textContent(child) ?? "")
       .join("");
     const nonTextChildren = children.filter(
-      (child) => typeof child !== "string",
+      (child) => textContent(child) === null,
     ) as UINode[];
 
     const componentProps = {
