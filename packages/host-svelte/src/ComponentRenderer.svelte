@@ -182,7 +182,7 @@
 {:else if node.type === "button"}
 	{@const p = transformProps(node.props)}
 	<button class="cursor-pointer {p.attrs.class || ''}" {...p.attrs} use:attachEvents={p}>
-		{#each node.children as child}
+		{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 			<Self node={child} />
 		{/each}
 	</button>
@@ -195,28 +195,28 @@
 {:else if node.type === "select"}
 	{@const p = transformProps(node.props)}
 	<select {...p.attrs} use:attachEvents={p}>
-		{#each node.children as child}
+		{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 			<Self node={child} />
 		{/each}
 	</select>
 {:else if node.type === "a"}
 	{@const p = transformProps(node.props)}
 	<a {...p.attrs} use:attachEvents={p}>
-		{#each node.children as child}
+		{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 			<Self node={child} />
 		{/each}
 	</a>
 {:else if node.type === "form"}
 	{@const p = transformProps(node.props)}
 	<form {...p.attrs} use:attachEvents={p}>
-		{#each node.children as child}
+		{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 			<Self node={child} />
 		{/each}
 	</form>
 {:else if LAYOUT_TAGS.includes(node.type as typeof LAYOUT_TAGS[number])}
 	{@const p = transformProps(node.props)}
 	<svelte:element this={node.type} {...p.attrs} use:attachEvents={p}>
-		{#each node.children as child}
+		{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 			<Self node={child} />
 		{/each}
 	</svelte:element>
@@ -245,7 +245,7 @@
 	{#if nonTextChildren.length > 0 || textChildren}
 		<RegisteredComponent {...componentProps}>
 			{#if textChildren}{textChildren}{/if}
-			{#each nonTextChildren as child}
+			{#each nonTextChildren as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 				<Self node={child} />
 			{/each}
 		</RegisteredComponent>
