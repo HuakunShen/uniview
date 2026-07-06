@@ -155,29 +155,11 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
         rpc.getAPI().applyMutations(mutations);
       });
 
-      // Full tree on every flush is (still) required in incremental mode:
-      // solid has no setRoot mutation — the host tree is seeded from
-      // updateTree, and mutations that replace the top-level element
-      // reference the internal container id which hosts never see. Proper
-      // root seeding is tracked in BACKLOG; until then the full tree is
-      // the correctness backstop.
-      setUpdateCallback(() => {
-        if (!handlerRegistry || !rpc) return;
-
-        const currentRoot = getRootNode();
-        if (!currentRoot || currentRoot.children.length === 0) return;
-
-        // Don't clear handler registry in incremental mode
-        // The mutation collector manages handler lifecycle
-
-        const serializedTree = serializeTree(
-          currentRoot.children[0],
-          handlerRegistry,
-        ) as UINode | null;
-
-        trackStats(serializedTree);
-        rpc.getAPI().updateTree(serializedTree);
-      });
+      // No full-tree backstop: the reconciler now emits a setRoot mutation
+      // whenever the plugin's top-level element attaches to (or leaves) the
+      // synthetic container, so the host seeds and stays in sync from
+      // mutations alone. syncTree() remains the explicit full-tree recovery
+      // path if a host detects drift.
     } else {
       // Full tree mode (default)
       setUpdateCallback(() => {

@@ -121,34 +121,62 @@ function _detachFromParent(node: AnyNode): void {
 	}
 }
 
+/**
+ * Emit a setRoot mutation seeding the host from the container's real root
+ * element. Solid mounts the plugin into a synthetic container (`rootNode`,
+ * id "root") the host never sees; appendChild/removeChild against that
+ * container referenced the internal "root" id, so incremental hosts could
+ * never seed their tree and the runtime had to resend the whole tree every
+ * flush. Addressing container-level changes as setRoot fixes that — every
+ * later mutation then references real node ids.
+ */
+function _syncContainerRoot(): void {
+	if (!mutationCollector || !rootNode) return;
+	const root = rootNode.children.find((c) => c._type !== "slot") ?? null;
+	mutationCollector.collectSetRoot(root ?? null);
+}
+
 function _insertNode(parent: SolidNode, node: AnyNode, anchor?: AnyNode): void {
 	// Detach first (may be a move) — and only then resolve the anchor index,
 	// since detaching from the same parent shifts sibling positions.
 	_detachFromParent(node);
 	node.parent = parent;
 
+	const isContainerInsert = parent === rootNode;
+
 	if (anchor) {
 		const anchorIndex = parent.children.indexOf(anchor as SolidNode | SolidTextNode | SolidSlotNode);
 		if (anchorIndex !== -1) {
 			parent.children.splice(anchorIndex, 0, node as SolidNode | SolidTextNode | SolidSlotNode);
-			mutationCollector?.collectInsertBefore(parent, node, anchor);
+			if (!isContainerInsert) mutationCollector?.collectInsertBefore(parent, node, anchor);
 		} else {
 			parent.children.push(node as SolidNode | SolidTextNode | SolidSlotNode);
-			mutationCollector?.collectAppendChild(parent, node);
+			if (!isContainerInsert) mutationCollector?.collectAppendChild(parent, node);
 		}
 	} else {
 		parent.children.push(node as SolidNode | SolidTextNode | SolidSlotNode);
-		mutationCollector?.collectAppendChild(parent, node);
+		if (!isContainerInsert) mutationCollector?.collectAppendChild(parent, node);
 	}
+
+	// Attaching the plugin's top-level element to the container = (re)seed root.
+	if (isContainerInsert) _syncContainerRoot();
 
 	scheduleUpdate();
 }
 
 function _removeNode(parent: SolidNode, node: AnyNode): void {
 	const index = parent.children.indexOf(node as SolidNode | SolidTextNode | SolidSlotNode);
+	const wasContainerChild = parent === rootNode;
 	if (index !== -1) {
 		parent.children.splice(index, 1);
-		mutationCollector?.collectRemoveChild(parent, node);
+		// Removing from the container replaces/clears the root; represent it as
+		// setRoot rather than removeChild(parentId:"root").
+		if (wasContainerChild) {
+			mutationCollector?.cleanupHandlers(node);
+			_syncContainerRoot();
+		} else {
+			mutationCollector?.collectRemoveChild(parent, node);
+		}
 	}
 	node.parent = null;
 	scheduleUpdate();

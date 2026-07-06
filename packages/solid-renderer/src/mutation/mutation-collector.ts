@@ -90,7 +90,7 @@ export class SolidMutationCollector {
 	 * Clean up handlers for a removed subtree.
 	 * Recursively releases every handler id owned by the removed nodes.
 	 */
-	private cleanupHandlers(node: AnyNode): void {
+	cleanupHandlers(node: AnyNode): void {
 		if (!isElementNode(node)) {
 			return;
 		}
@@ -179,7 +179,7 @@ export class SolidMutationCollector {
 	/**
 	 * Collect a setRoot mutation.
 	 */
-	collectSetRoot(rootNode: SolidNode | null): void {
+	collectSetRoot(rootNode: AnyNode | null): void {
 		if (rootNode === null) {
 			const mutation: SetRootMutation = {
 				type: "setRoot",
