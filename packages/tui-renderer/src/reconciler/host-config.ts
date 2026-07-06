@@ -112,7 +112,23 @@ export const hostConfig: HostConfig<
   },
 
   appendChildToContainer(container: Container, child: Instance): void {
+    if (container.rootInstance !== null && container.rootInstance !== child) {
+      throw new Error(
+        "[uniview] plugin root must be a single element — wrap top-level siblings (fragment children) in one parent element",
+      );
+    }
     container.rootInstance = child;
+  },
+
+  insertInContainerBefore(
+    container: Container,
+    _child: Instance,
+    _beforeChild: Instance,
+  ): void {
+    void container;
+    throw new Error(
+      "[uniview] plugin root must be a single element — wrap top-level siblings (fragment children) in one parent element",
+    );
   },
 
   insertBefore(

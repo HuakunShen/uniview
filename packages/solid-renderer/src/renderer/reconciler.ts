@@ -10,12 +10,25 @@ let mutationUpdateCallback: ((mutations: Mutation[]) => void) | null = null;
 let mutationCollector: SolidMutationCollector | null = null;
 let rootNode: SolidNode | null = null;
 let scheduled = false;
+let warnedMultipleRoots = false;
 
 function scheduleUpdate() {
 	if (scheduled) return;
 	scheduled = true;
 	queueMicrotask(() => {
 		scheduled = false;
+
+		// The protocol tree has a single root; runtimes serialize
+		// rootNode.children[0] and silently dropped any siblings.
+		if (!warnedMultipleRoots && rootNode) {
+			const roots = rootNode.children.filter((c) => c._type !== "slot");
+			if (roots.length > 1) {
+				warnedMultipleRoots = true;
+				console.error(
+					"[uniview] plugin root must be a single element — wrap top-level siblings in one parent element (only the first is rendered)",
+				);
+			}
+		}
 
 		// Flush mutations if collector is active
 		if (mutationCollector && mutationUpdateCallback) {
@@ -50,6 +63,7 @@ export function getRootNode(): SolidNode | null {
 
 export function setRootNode(node: SolidNode | null): void {
 	rootNode = node;
+	warnedMultipleRoots = false;
 }
 
 function _createElement(tagName: string): SolidNode {

@@ -144,8 +144,29 @@ export const hostConfig: HostConfig<
   },
 
   appendChildToContainer(container: Container, child: Instance): void {
+    if (container.rootInstance !== null && container.rootInstance !== child) {
+      // The protocol tree has exactly one root; silently overwriting it
+      // used to drop every top-level sibling but the last.
+      throw new Error(
+        "[uniview] plugin root must be a single element — wrap top-level siblings (fragment children) in one parent element",
+      );
+    }
     container.rootInstance = child;
     activeContainer?.mutationCollector?.collectSetRoot(child);
+  },
+
+  insertInContainerBefore(
+    container: Container,
+    _child: Instance,
+    _beforeChild: Instance,
+  ): void {
+    // Only reachable with multiple container children, which the protocol
+    // does not support (single-root tree). Previously this method was
+    // missing entirely and React crashed with a bare TypeError.
+    void container;
+    throw new Error(
+      "[uniview] plugin root must be a single element — wrap top-level siblings (fragment children) in one parent element",
+    );
   },
 
   insertBefore(
