@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "svelte-host-demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@uniview/example-host-svelte", "run", "svelte"],
+      "port": 5173
+    }
+  ]
+}
