@@ -1,4 +1,4 @@
-import type { UINode } from "@uniview/protocol";
+import { TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
 import type { InternalNode, TextNode } from "../reconciler/types";
 import type { HandlerRegistry } from "./handler-registry";
 import { serializeProps } from "./serialize-props";
@@ -38,7 +38,15 @@ function serializeNode(
   }
 
   if (isTextNode(instance)) {
-    return instance.text;
+    // Protocol v3: text children are explicit nodes with stable ids so
+    // mutations can address them (insertBefore anchors, setText).
+    return {
+      id: instance.id,
+      type: TEXT_NODE_TYPE,
+      props: {},
+      children: [],
+      text: instance.text,
+    };
   }
 
   const serializedChildren: (UINode | string)[] = [];

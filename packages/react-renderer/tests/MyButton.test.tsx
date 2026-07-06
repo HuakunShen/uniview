@@ -1,4 +1,4 @@
-import type { Mutation } from "@uniview/protocol";
+import { textContent, type Mutation } from "@uniview/protocol";
 import { createElement } from "react";
 import { describe, expect, test } from "vitest";
 import {
@@ -120,7 +120,7 @@ describe("react renderer", () => {
           (mutation.type === "appendChild" ||
             mutation.type === "insertBefore") &&
           mutation.node.type === "span" &&
-          mutation.node.children.includes("b"),
+          mutation.node.children.some((child) => textContent(child) === "b"),
       ),
       `Expected list growth mutation, got ${JSON.stringify(updateBatch)}`,
     ).toBe(true);

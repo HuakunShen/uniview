@@ -1,3 +1,4 @@
+import { TEXT_NODE_TYPE } from "@uniview/protocol";
 import type {
 	AppendChildMutation,
 	InsertBeforeMutation,
@@ -48,19 +49,21 @@ export class MutationCollector {
 	 * Serialize a node and its entire subtree for mutations.
 	 * This recursively processes all children and registers handlers.
 	 */
-	private serializeSubtree(
-		node: InternalNode | TextNode,
-	): UINode | string | null {
+	private serializeSubtree(node: InternalNode | TextNode): UINode {
 		if (isTextNode(node)) {
-			return node.text;
+			// Protocol v3: text children are explicit nodes with stable ids.
+			return {
+				id: node.id,
+				type: TEXT_NODE_TYPE,
+				props: {},
+				children: [],
+				text: node.text,
+			};
 		}
 
-		const serializedChildren: (UINode | string)[] = [];
+		const serializedChildren: UINode[] = [];
 		for (const child of node.children) {
-			const serializedChild = this.serializeSubtree(child);
-			if (serializedChild !== null) {
-				serializedChildren.push(serializedChild);
-			}
+			serializedChildren.push(this.serializeSubtree(child));
 		}
 
 		return {
@@ -91,21 +94,10 @@ export class MutationCollector {
 	 * Collect an appendChild mutation.
 	 */
 	collectAppendChild(parent: InternalNode, child: InternalNode | TextNode): void {
-		const serializedChild = this.serializeSubtree(child);
-		if (serializedChild === null) return;
-
 		const mutation: AppendChildMutation = {
 			type: "appendChild",
 			parentId: parent.id,
-			node:
-				typeof serializedChild === "string"
-					? ({
-							id: isTextNode(child) ? child.id : "",
-							type: "text",
-							props: {},
-							children: [serializedChild],
-						} as UINode)
-					: serializedChild,
+			node: this.serializeSubtree(child),
 		};
 		this.pendingMutations.push(mutation);
 	}
@@ -118,24 +110,11 @@ export class MutationCollector {
 		child: InternalNode | TextNode,
 		beforeChild: InternalNode | TextNode,
 	): void {
-		const serializedChild = this.serializeSubtree(child);
-		if (serializedChild === null) return;
-
-		const beforeId = isTextNode(beforeChild) ? beforeChild.id : beforeChild.id;
-
 		const mutation: InsertBeforeMutation = {
 			type: "insertBefore",
 			parentId: parent.id,
-			node:
-				typeof serializedChild === "string"
-					? ({
-							id: isTextNode(child) ? child.id : "",
-							type: "text",
-							props: {},
-							children: [serializedChild],
-						} as UINode)
-					: serializedChild,
-			beforeId,
+			node: this.serializeSubtree(child),
+			beforeId: beforeChild.id,
 		};
 		this.pendingMutations.push(mutation);
 	}
@@ -194,20 +173,9 @@ export class MutationCollector {
 			return;
 		}
 
-		const serialized = this.serializeSubtree(rootInstance);
-		if (serialized === null || typeof serialized === "string") {
-			// Root cannot be a text node, create a wrapper
-			const mutation: SetRootMutation = {
-				type: "setRoot",
-				node: null,
-			};
-			this.pendingMutations.push(mutation);
-			return;
-		}
-
 		const mutation: SetRootMutation = {
 			type: "setRoot",
-			node: serialized,
+			node: this.serializeSubtree(rootInstance),
 		};
 		this.pendingMutations.push(mutation);
 	}
