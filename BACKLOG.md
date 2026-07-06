@@ -43,7 +43,9 @@ localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
   slot now renders children in original order (no more text-first reorder),
   stale `textNodeId` doc comment fixed
 - #16 kunkun sdk plugin-entry is still a third runtime bootstrap copy
-- #17 CI, #18 e2e coverage gaps (reorder/text/keydown/crash/reconnect specs)
+- ~~#17 CI~~ **DONE** — `.github/workflows/ci.yml`: build+types+unit on
+  ubuntu, Playwright e2e (Bun + chromium), AppKit host tests on macOS
+- #18 e2e coverage gaps (reorder/text/keydown/crash/reconnect specs)
 
 ## Original status snapshot (as of 2026-07-07, pre-fix)
 
@@ -223,9 +225,12 @@ mode is exempt (serializes locally, tree well-formed by construction).
 
 ## Infra / testing
 
-### 17. No CI
-`.github/workflows/` only has deploy-docs. Add build + check-types + unit + e2e on PR.
-For a load-bearing dependency this is the highest-leverage infra item.
+### 17. No CI — DONE
+~~`.github/workflows/` only has deploy-docs.~~ Added `ci.yml`: three jobs on
+push/PR — (1) build + check-types + unit tests (ubuntu), (2) Playwright e2e
+with Bun for the bridge server + chromium (uploads the `.reports/` html on
+failure), (3) AppKit host `tests/run.sh` on macOS. Checkout uses
+`submodules: recursive` for the workspace-linked vendor packages.
 
 ### 18. Test coverage gaps (aligned with the bugs above)
 E2E (Playwright/Cypress) covers 3 hosts × 3 runtimes happy paths + benchmark, but NOT:
