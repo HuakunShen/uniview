@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getContext } from "svelte";
 	import type { UINode } from "@uniview/protocol";
-	import { LAYOUT_TAGS, isHandlerIdProp, extractEventName } from "@uniview/protocol";
+	import { LAYOUT_TAGS, TEXT_NODE_TYPE, isHandlerIdProp, extractEventName, textContent } from "@uniview/protocol";
 	import type { PluginController, ComponentRegistry } from "@uniview/host-sdk";
 	import type { Component } from "svelte";
 	import { serializeHandlerArgs } from "./event-handlers";
@@ -176,6 +176,8 @@
 
 {#if typeof node === "string"}
 	{node}
+{:else if node.type === TEXT_NODE_TYPE}
+	{node.text}
 {:else if VOID_ELEMENTS.has(node.type)}
 	{@const p = transformProps(node.props)}
 	<svelte:element this={node.type} {...p.attrs} />
@@ -223,8 +225,8 @@
 {:else if registry?.has(node.type)}
 	{@const RegisteredComponent = registry.get(node.type)}
 	{@const p = transformProps(node.props)}
-	{@const textChildren = node.children.filter((child): child is string => typeof child === 'string').join('')}
-	{@const nonTextChildren = node.children.filter((child) => typeof child !== 'string')}
+	{@const textChildren = node.children.map((child) => textContent(child) ?? '').join('')}
+	{@const nonTextChildren = node.children.filter((child) => textContent(child) === null)}
 	{@const componentProps = {
 		...p.attrs,
 		// Pass UINode children so registered components can manage their own child rendering
