@@ -17,6 +17,10 @@ struct UINodeView: View {
     @ViewBuilder
     private func renderNode(_ node: UINode) -> some View {
         switch node.type {
+        case UINode.textNodeType:
+            // Protocol v3 text node — content is in `text`.
+            Text(node.text ?? "")
+                .frame(maxWidth: .infinity, alignment: .leading)
         case "div":
             renderDiv(node)
         case "p", "span":
@@ -167,7 +171,12 @@ struct UINodeView: View {
             case .text(let text):
                 result.append(text)
             case .node(let nested):
-                result.append(extractTextContent(nested))
+                if nested.isTextNode {
+                    // Protocol v3: text lives in the node's `text` field.
+                    result.append(nested.text ?? "")
+                } else {
+                    result.append(extractTextContent(nested))
+                }
             }
         }
         return result

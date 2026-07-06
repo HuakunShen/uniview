@@ -41,8 +41,8 @@ final class MutableUINodeTree {
         case .removeChild(let parentId, let nodeId):
             applyRemoveChild(parentId: parentId, nodeId: nodeId)
 
-        case .setText(let parentId, let childIndex, let text):
-            applySetText(parentId: parentId, childIndex: childIndex, text: text)
+        case .setText(let nodeId, let text):
+            applySetText(nodeId: nodeId, text: text)
 
         case .setProps(let nodeId, let props):
             applySetProps(nodeId: nodeId, props: props)
@@ -142,28 +142,21 @@ final class MutableUINodeTree {
         updateNode(id: parentId, replacement: newParent)
     }
 
-    private func applySetText(parentId: String, childIndex: Int, text: String) {
-        guard let parent = nodeIndex[parentId],
-              childIndex >= 0,
-              childIndex < parent.children.count else {
-            return
-        }
+    private func applySetText(nodeId: String, text: String) {
+        // Protocol v3: the text node is addressed directly by its stable id
+        // and carries its content in the `text` field.
+        guard let node = nodeIndex[nodeId] else { return }
 
-        var newChildren = parent.children
-        if case .node(let replacedNode) = newChildren[childIndex] {
-            unindexNode(replacedNode)
-        }
-        newChildren[childIndex] = .text(text)
-
-        let newParent = UINode(
-            id: parent.id,
-            type: parent.type,
-            props: parent.props,
-            children: newChildren
+        let newNode = UINode(
+            id: node.id,
+            type: node.type,
+            props: node.props,
+            children: node.children,
+            text: text
         )
 
-        nodeIndex[parentId] = newParent
-        updateNode(id: parentId, replacement: newParent)
+        nodeIndex[nodeId] = newNode
+        updateNode(id: nodeId, replacement: newNode)
     }
 
     private func applySetProps(nodeId: String, props: [String: JSONValue]) {

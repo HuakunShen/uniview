@@ -41,11 +41,11 @@ final class NodeViewModel {
         self.children = node.children.compactMap { child in
             switch child {
             case .node(let childNode):
-                // br is folded into textContent as \n, not a child view
-                if childNode.type == "br" { return nil }
+                // br and v3 #text nodes are folded into textContent, not child views
+                if childNode.type == "br" || childNode.isTextNode { return nil }
                 return NodeViewModel(from: childNode)
             case .text:
-                return nil // Text is folded into textContent
+                return nil // Legacy bare-string text is folded into textContent
             }
         }
     }
@@ -60,6 +60,9 @@ final class NodeViewModel {
             case .node(let node):
                 if node.type == "br" {
                     result += "\n"
+                } else if node.isTextNode {
+                    // Protocol v3: text lives in the node's `text` field.
+                    result += node.text ?? ""
                 } else {
                     result += extractText(from: node.children)
                 }

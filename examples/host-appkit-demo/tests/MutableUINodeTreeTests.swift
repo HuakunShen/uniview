@@ -23,7 +23,7 @@ struct MutableUINodeTreeTests {
         let json = """
         [
             {"type":"setProps","nodeId":"label","props":{"className":"hot"}},
-            {"type":"setText","parentId":"label","childIndex":0,"text":"after"},
+            {"type":"setText","nodeId":"label-text","text":"after"},
             {"type":"setRoot","node":null}
         ]
         """
@@ -50,12 +50,12 @@ struct MutableUINodeTreeTests {
 
         let next = tree.applyMutations([
             .setProps(nodeId: "label", props: ["className": .string("hot")]),
-            .setText(parentId: "label", childIndex: 0, text: "after"),
+            .setText(nodeId: "label-text", text: "after"),
         ])
 
         let label = elementChild(next, at: 0)
         expect(label?.props["className"] == .string("hot"), "setProps updates indexed child")
-        expect(label?.children == [.text("after")], "setText updates child text")
+        expect(textNodeChild(label, at: 0)?.text == "after", "setText updates text node by id")
     }
 
     private static func testAppendsInsertsAndRemovesChildren() {
@@ -73,25 +73,25 @@ struct MutableUINodeTreeTests {
             ),
         ])
 
-        expect(childLabels(tree.getTree()) == ["label", "tail", "middle", "last"], "append and insert update order")
+        expect(childLabels(tree.getTree()) == ["label", "tail-text", "middle", "last"], "append and insert update order")
 
         let afterRemove = tree.applyMutations([
             .removeChild(parentId: "root", nodeId: "middle")
         ])
 
-        expect(childLabels(afterRemove) == ["label", "tail", "last"], "removeChild removes indexed child")
+        expect(childLabels(afterRemove) == ["label", "tail-text", "last"], "removeChild removes indexed child")
     }
 
     private static func testPropagatesNestedMutationsToRoot() {
         let tree = MutableUINodeTree(root: createNestedRoot())
 
         let afterText = tree.applyMutations([
-            .setText(parentId: "nested-label", childIndex: 0, text: "after")
+            .setText(nodeId: "nested-label-text", text: "after")
         ])
 
         let sectionAfterText = elementChild(afterText, at: 0)
         let labelAfterText = elementChild(sectionAfterText, at: 0)
-        expect(labelAfterText?.children == [.text("after")], "nested setText propagates to root")
+        expect(textNodeChild(labelAfterText, at: 0)?.text == "after", "nested setText propagates to root")
 
         let afterAppend = tree.applyMutations([
             .appendChild(
@@ -116,14 +116,19 @@ struct MutableUINodeTreeTests {
         expect(tree.getTree() == nil, "cleared tree is retained")
     }
 
+    private static func textNode(_ id: String, _ text: String) -> UINode {
+        UINode(id: id, type: UINode.textNodeType, text: text)
+    }
+
     private static func createRoot() -> UINode {
+        // Protocol v3: text children are explicit #text nodes with stable ids.
         UINode(
             id: "root",
             type: "div",
             props: ["className": .string("root")],
             children: [
-                .node(UINode(id: "label", type: "span", children: [.text("before")])),
-                .text("tail"),
+                .node(UINode(id: "label", type: "span", children: [.node(textNode("label-text", "before"))])),
+                .node(textNode("tail-text", "tail")),
             ]
         )
     }
@@ -137,12 +142,18 @@ struct MutableUINodeTreeTests {
                     id: "section",
                     type: "section",
                     children: [
-                        .node(UINode(id: "nested-label", type: "span", children: [.text("before")])),
+                        .node(UINode(id: "nested-label", type: "span", children: [.node(textNode("nested-label-text", "before"))])),
                         .node(UINode(id: "nested-list", type: "div")),
                     ]
                 )),
             ]
         )
+    }
+
+    /// Return the child at `index` if it is a v3 #text node.
+    private static func textNodeChild(_ node: UINode?, at index: Int) -> UINode? {
+        guard let child = elementChild(node, at: index), child.isTextNode else { return nil }
+        return child
     }
 
     private static func elementChild(_ node: UINode?, at index: Int) -> UINode? {

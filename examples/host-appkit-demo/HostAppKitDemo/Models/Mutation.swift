@@ -7,7 +7,9 @@ enum Mutation: Decodable, Equatable {
     case appendChild(parentId: String, node: UINode)
     case insertBefore(parentId: String, node: UINode, beforeId: String)
     case removeChild(parentId: String, nodeId: String)
-    case setText(parentId: String, childIndex: Int, text: String)
+    // Protocol v3: setText addresses a text node by its stable id (was
+    // parentId + childIndex, which corrupted the wrong child on divergence).
+    case setText(nodeId: String, text: String)
     case setProps(nodeId: String, props: [String: JSONValue])
     case setRoot(node: UINode?)
 
@@ -17,7 +19,6 @@ enum Mutation: Decodable, Equatable {
         case node
         case beforeId
         case nodeId
-        case childIndex
         case text
         case props
     }
@@ -57,8 +58,7 @@ enum Mutation: Decodable, Equatable {
 
         case .setText:
             self = .setText(
-                parentId: try container.decode(String.self, forKey: .parentId),
-                childIndex: try container.decode(Int.self, forKey: .childIndex),
+                nodeId: try container.decode(String.self, forKey: .nodeId),
                 text: try container.decode(String.self, forKey: .text)
             )
 

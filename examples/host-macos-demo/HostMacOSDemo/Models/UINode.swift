@@ -169,32 +169,46 @@ struct UINode: Codable, Equatable {
     
     /// Child nodes or text content
     let children: [UINodeChild]
-    
+
+    /// Text content for `#text` nodes (protocol v3). nil for element nodes.
+    let text: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case type
         case props
         case children
+        case text
     }
-    
-    init(id: String, type: String, props: [String: JSONValue] = [:], children: [UINodeChild] = []) {
+
+    init(id: String, type: String, props: [String: JSONValue] = [:], children: [UINodeChild] = [], text: String? = nil) {
         self.id = id
         self.type = type
         self.props = props
         self.children = children
+        self.text = text
     }
 }
 
 // MARK: - UINode Extensions
 
 extension UINode {
+    /// Protocol v3: text children are explicit nodes of this type carrying
+    /// their content in `text` (instead of bare JSON strings).
+    static let textNodeType = "#text"
+
+    /// Whether this node is a v3 text node.
+    var isTextNode: Bool {
+        type == UINode.textNodeType
+    }
+
     /// Extract a handler ID prop for a given event name
     /// Convention: onClick -> _onClickHandlerId
     func handlerId(for eventName: String) -> String? {
         let propName = "_\(eventName)HandlerId"
         return props[propName]?.stringValue
     }
-    
+
     /// Check if this node is a layout tag (HTML-like element)
     var isLayoutTag: Bool {
         UINode.layoutTags.contains(type)

@@ -20,7 +20,13 @@ localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
 
 **STILL OPEN:**
 - kunkun-side v3 adaptation (uiNodeChildren text nodes, sdk plugin-entry) — Phase 6
-- Swift demo hosts (appkit/macos) not adapted to protocol v3
+- ~~Swift demo hosts (appkit/macos) not adapted to protocol v3~~ **DONE** —
+  both `UINode` models gained a `text` field + `#text` helpers; appkit
+  `Mutation.setText` is now `(nodeId, text)` and `MutableUINodeTree.applySetText`
+  addresses text nodes by id; appkit `NodeViewModel` and macOS `UINodeRenderer`
+  fold/render `#text` nodes instead of dropping them as "Unknown". appkit Swift
+  test suite updated + green (11 binaries via tests/run.sh); macOS renderer
+  type-checks
 - ~~solid incremental mode sends full tree per flush~~ **DONE** — the reconciler
   now emits a `setRoot` mutation whenever the plugin root attaches to / leaves
   the synthetic container, so the host seeds and stays in sync from mutations
