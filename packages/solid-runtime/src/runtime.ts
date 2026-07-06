@@ -1,5 +1,6 @@
 import type { Component } from "solid-js";
 import { createRoot } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 import type { RPCChannel, RPCMessage, Transport } from "kkrpc";
 import type {
   JSONValue,
@@ -64,6 +65,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
   const { App, transport, mode = "full" } = options;
 
   let disposeRoot: (() => void) | null = null;
+  let setProps: ((props: Record<string, unknown>) => void) | null = null;
   let handlerRegistry: HandlerRegistry | null = null;
   let mutationCollector: SolidMutationCollector | null = null;
   let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
@@ -77,6 +79,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
       disposeRoot();
       disposeRoot = null;
     }
+    setProps = null;
     setMutationCollector(null);
     mutationCollector = null;
     handlerRegistry?.clear();
@@ -114,8 +117,12 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
         rpc.getAPI().applyMutations(mutations);
       });
 
-      // Also set up full tree callback for initial render
-      // Mutations only capture changes, not initial state
+      // Full tree on every flush is (still) required in incremental mode:
+      // solid has no setRoot mutation — the host tree is seeded from
+      // updateTree, and mutations that replace the top-level element
+      // reference the internal container id which hosts never see. Proper
+      // root seeding is tracked in BACKLOG; until then the full tree is
+      // the correctness backstop.
       setUpdateCallback(() => {
         if (!handlerRegistry || !rpc) return;
 
@@ -164,7 +171,14 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
     }
 
     disposeRoot = createRoot((dispose) => {
-      render(() => App(props), rootNode);
+      // Props go through a store so updateProps() can update them
+      // reactively instead of tearing down and rebuilding the whole tree
+      // (which lost all plugin state on every host-side prop change).
+      const [propsStore, updatePropsStore] = createStore<
+        Record<string, unknown>
+      >({ ...props });
+      setProps = (next) => updatePropsStore(reconcile(next, { merge: true }));
+      render(() => App(propsStore), rootNode);
       return dispose;
     });
   }
@@ -177,8 +191,15 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
     },
 
     async updateProps(props: JSONValue) {
+      const next = (props ?? {}) as Record<string, unknown>;
+      if (setProps) {
+        // Reactive update — matches the react runtime's re-render-in-place
+        // semantics instead of a full teardown that lost plugin state.
+        setProps(next);
+        return;
+      }
       resetState();
-      setupRuntime((props ?? {}) as Record<string, unknown>);
+      setupRuntime(next);
     },
 
     async executeHandler(handlerId, args) {
@@ -214,6 +235,8 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
       rpc = createChannel(transport, pluginAPI);
     },
     stop() {
+      // Full teardown so a stopped runtime leaves no live reactive root.
+      resetState();
       rpc?.destroy();
       rpc = null;
     },

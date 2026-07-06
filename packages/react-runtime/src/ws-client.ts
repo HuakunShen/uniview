@@ -1,25 +1,12 @@
-import type { ComponentType, ReactElement } from "react";
-import { createElement } from "react";
+import type { ComponentType } from "react";
 import { RPCChannel } from "kkrpc";
 import { webSocketTransport } from "kkrpc/ws";
 import type {
-  JSONValue,
-  UINode,
   HostToPluginAPI,
   PluginToHostAPI,
   UpdateMode,
-  Mutation,
 } from "@uniview/protocol";
-import { PROTOCOL_VERSION } from "@uniview/protocol";
-import {
-  createRenderer,
-  unmount,
-  render,
-  serializeTree,
-  HandlerRegistry,
-  MutationCollector,
-  type RenderBridge,
-} from "@uniview/react-renderer";
+import { createPluginRuntime, type PluginRuntime } from "./runtime";
 
 export interface WebSocketPluginClientOptions {
   App: ComponentType<unknown>;
@@ -37,40 +24,19 @@ export interface WebSocketPluginClient {
   close(): Promise<void>;
 }
 
-interface RendererHandle extends RenderBridge {
-  _container?: unknown;
-}
-
 /**
  * Creates a WebSocket plugin client with automatic reconnection.
  *
  * Unlike Worker mode, WebSocket plugin clients are long-running processes
- * that need to handle connection drops gracefully. This implementation:
+ * that need to handle connection drops gracefully. This wraps the shared
+ * createPluginRuntime — the same implementation Worker mode uses — with a
+ * reconnect loop; each (re)connection gets a fresh runtime and the old one
+ * is fully stopped (tree unmounted) first.
  *
- * 1. Connects to the bridge server
- * 2. Waits for host to connect and call initialize()
- * 3. If connection drops, automatically reconnects
- * 4. State resets on each new connection (host re-initializes)
+ * (Previously this file was a hand-copied fork of the runtime that had
+ * drifted: incremental mode sent BOTH mutations and a full tree on every
+ * commit, and reconnects leaked the old bridge subscriptions.)
  */
-// Stats tracking for benchmarks
-interface Stats {
-  bytesSent: number;
-  messagesSent: number;
-}
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __uniview_stats: Stats | undefined;
-}
-
-function assertProtocolVersion(protocolVersion: number): void {
-  if (protocolVersion !== PROTOCOL_VERSION) {
-    throw new Error(
-      `Protocol version mismatch: host=${protocolVersion}, plugin=${PROTOCOL_VERSION}`,
-    );
-  }
-}
-
 export function createWebSocketPluginClient(
   opts: WebSocketPluginClientOptions,
 ): WebSocketPluginClient {
@@ -83,133 +49,10 @@ export function createWebSocketPluginClient(
     maxReconnectAttempts = Infinity,
   } = opts;
 
-  // Stats tracking
-  const stats: Stats = { bytesSent: 0, messagesSent: 0 };
-  globalThis.__uniview_stats = stats;
-
   const wsUrl = `${serverUrl}/plugins/${pluginId}`;
   let closed = false;
   let reconnectAttempts = 0;
-  let currentRpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
-
-  let bridge: RendererHandle | null = null;
-  let currentElement: ReactElement | null = null;
-  let handlerRegistry: HandlerRegistry | null = null;
-  let mutationCollector: MutationCollector | null = null;
-
-  function resetRuntimeState() {
-    if (bridge) {
-      // Unmount the previous root: without this a re-initialize (host
-      // reconnect) leaked a live React tree whose effects kept running.
-      unmount(bridge);
-    }
-    bridge = null;
-    currentElement = null;
-    mutationCollector = null;
-    handlerRegistry?.clear();
-    handlerRegistry = null;
-  }
-
-  function createPluginAPI(): HostToPluginAPI {
-    return {
-      async initialize(req) {
-        assertProtocolVersion(req.protocolVersion);
-        resetRuntimeState();
-
-        handlerRegistry = new HandlerRegistry();
-        bridge = createRenderer();
-
-        if (mode === "incremental") {
-          // Set up mutation collection
-          mutationCollector = new MutationCollector(handlerRegistry);
-          bridge.mutationCollector = mutationCollector;
-
-          bridge.subscribeMutations((mutations: Mutation[]) => {
-            if (!currentRpc) return;
-
-            // Track stats
-            const bytes = JSON.stringify(mutations).length;
-            stats.bytesSent += bytes;
-            stats.messagesSent++;
-
-            currentRpc.getAPI().applyMutations(mutations);
-          });
-
-          // Also send full tree for initial render
-          bridge.subscribe(() => {
-            if (!bridge || !handlerRegistry || !currentRpc) return;
-
-            const serializedTree = serializeTree(
-              bridge.rootInstance,
-              handlerRegistry,
-            ) as UINode | null;
-
-            // Track stats
-            const bytes = JSON.stringify(serializedTree).length;
-            stats.bytesSent += bytes;
-            stats.messagesSent++;
-
-            currentRpc.getAPI().updateTree(serializedTree);
-          });
-        } else {
-          // Full tree mode (default)
-          bridge.subscribe(() => {
-            if (!bridge || !handlerRegistry || !currentRpc) return;
-
-            const serializedTree = serializeTree(
-              bridge.rootInstance,
-              handlerRegistry,
-            ) as UINode | null;
-
-            // Track stats
-            const bytes = JSON.stringify(serializedTree).length;
-            stats.bytesSent += bytes;
-            stats.messagesSent++;
-
-            currentRpc.getAPI().updateTree(serializedTree);
-          });
-        }
-
-        currentElement = createElement(App, (req.props ?? {}) as object);
-        render(currentElement, bridge);
-      },
-
-      async updateProps(props: JSONValue) {
-        if (!bridge || !currentElement) return;
-
-        const newElement = createElement(
-          (currentElement as unknown as { type: ComponentType<unknown> }).type,
-          (props ?? {}) as object,
-        );
-        currentElement = newElement;
-        render(newElement, bridge);
-      },
-
-      async executeHandler(handlerId, args) {
-        if (!handlerRegistry) return;
-        await handlerRegistry.execute(handlerId, ...args);
-      },
-
-      async syncTree() {
-        if (!bridge || !handlerRegistry || !currentRpc) return;
-
-        const serializedTree = serializeTree(
-          bridge.rootInstance ?? null,
-          handlerRegistry,
-        ) as UINode | null;
-
-        const bytes = JSON.stringify(serializedTree).length;
-        stats.bytesSent += bytes;
-        stats.messagesSent++;
-
-        currentRpc.getAPI().updateTree(serializedTree);
-      },
-
-      async destroy() {
-        resetRuntimeState();
-      },
-    };
-  }
+  let runtime: PluginRuntime | null = null;
 
   function connect() {
     if (closed) return;
@@ -230,9 +73,8 @@ export function createWebSocketPluginClient(
       console.log(
         `[Plugin:${pluginId}] Connection closed (code: ${event.code}, reason: ${event.reason || "none"})`,
       );
-      resetRuntimeState();
-      currentRpc?.destroy();
-      currentRpc = null;
+      runtime?.stop();
+      runtime = null;
 
       if (reconnectAttempts < maxReconnectAttempts) {
         reconnectAttempts++;
@@ -251,21 +93,23 @@ export function createWebSocketPluginClient(
       console.error(`[Plugin:${pluginId}] WebSocket error:`, error);
     });
 
-    currentRpc = new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transport, {
-      expose: createPluginAPI(),
-    });
+    runtime = createPluginRuntime(
+      { App, transport, mode },
+      (transportInstance, expose) =>
+        new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transportInstance, {
+          expose,
+        }),
+    );
+    void runtime.start();
   }
 
   connect();
 
   return {
-    close: () =>
-      new Promise((resolve) => {
-        closed = true;
-        resetRuntimeState();
-        currentRpc?.destroy();
-        currentRpc = null;
-        resolve();
-      }),
+    close: async () => {
+      closed = true;
+      runtime?.stop();
+      runtime = null;
+    },
   };
 }

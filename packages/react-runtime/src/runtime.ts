@@ -174,6 +174,9 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
       rpc = createChannel(transport, pluginAPI);
     },
     stop() {
+      // Full teardown: unmount the tree (effect cleanups) before dropping
+      // the channel, so a stopped runtime leaves nothing running.
+      resetRuntimeState();
       rpc?.destroy();
       rpc = null;
     },

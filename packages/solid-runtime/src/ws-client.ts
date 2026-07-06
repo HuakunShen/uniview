@@ -1,48 +1,8 @@
 import type { Component } from "solid-js"
-import { createRoot } from "solid-js"
 import { RPCChannel } from "kkrpc"
 import { webSocketTransport } from "kkrpc/ws"
-import type {
-	JSONValue,
-	UINode,
-	HostToPluginAPI,
-	PluginToHostAPI,
-	UpdateMode,
-	Mutation,
-} from "@uniview/protocol"
-import { PROTOCOL_VERSION } from "@uniview/protocol"
-import {
-	render,
-	setUpdateCallback,
-	setMutationUpdateCallback,
-	setMutationCollector,
-	setRootNode,
-	getRootNode,
-	serializeTree,
-	HandlerRegistry,
-	resetIdCounter,
-	SolidMutationCollector,
-	type SolidNode,
-} from "@uniview/solid-renderer"
-
-// Stats tracking for benchmarks
-interface Stats {
-	bytesSent: number
-	messagesSent: number
-}
-
-declare global {
-	// eslint-disable-next-line no-var
-	var __uniview_stats: Stats | undefined
-}
-
-function assertProtocolVersion(protocolVersion: number): void {
-	if (protocolVersion !== PROTOCOL_VERSION) {
-		throw new Error(
-			`Protocol version mismatch: host=${protocolVersion}, plugin=${PROTOCOL_VERSION}`,
-		)
-	}
-}
+import type { HostToPluginAPI, PluginToHostAPI, UpdateMode } from "@uniview/protocol"
+import { createSolidPluginRuntime, type SolidPluginRuntime } from "./runtime"
 
 export interface SolidWebSocketPluginClientOptions {
 	App: Component<Record<string, unknown>>
@@ -64,12 +24,14 @@ export interface SolidWebSocketPluginClient {
  * Creates a WebSocket plugin client with automatic reconnection.
  *
  * Unlike Worker mode, WebSocket plugin clients are long-running processes
- * that need to handle connection drops gracefully. This implementation:
+ * that need to handle connection drops gracefully. This wraps the shared
+ * createSolidPluginRuntime — the same implementation Worker mode uses —
+ * with a reconnect loop; each (re)connection gets a fresh runtime and the
+ * old one is fully stopped (reactive root disposed) first.
  *
- * 1. Connects to the bridge server
- * 2. Waits for host to connect and call initialize()
- * 3. If connection drops, automatically reconnects
- * 4. State resets on each new connection (host re-initializes)
+ * (Previously this file was a hand-copied fork of the runtime that had
+ * drifted: updateProps tore down and rebuilt the whole tree, and the
+ * per-update handlerRegistry.clear() reused handler ids.)
  */
 export function createSolidWebSocketPluginClient(
 	opts: SolidWebSocketPluginClientOptions,
@@ -83,238 +45,10 @@ export function createSolidWebSocketPluginClient(
 		maxReconnectAttempts = Infinity,
 	} = opts
 
-	// Stats tracking
-	const stats: Stats = { bytesSent: 0, messagesSent: 0 }
-	globalThis.__uniview_stats = stats
-
 	const wsUrl = `${serverUrl}/plugins/${pluginId}`
 	let closed = false
 	let reconnectAttempts = 0
-	let currentRpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null
-
-	let disposeRoot: (() => void) | null = null
-	let handlerRegistry: HandlerRegistry | null = null
-	let mutationCollector: SolidMutationCollector | null = null
-
-	function resetRuntimeState() {
-		if (disposeRoot) {
-			disposeRoot()
-			disposeRoot = null
-		}
-		setMutationCollector(null)
-		mutationCollector = null
-		handlerRegistry?.clear()
-		handlerRegistry = null
-		setRootNode(null)
-	}
-
-	function createPluginAPI(): HostToPluginAPI {
-		return {
-			async initialize(req) {
-				assertProtocolVersion(req.protocolVersion)
-				resetRuntimeState()
-
-				handlerRegistry = new HandlerRegistry()
-				resetIdCounter()
-
-				const rootNode: SolidNode = {
-					_type: "element",
-					id: "root",
-					type: "div",
-					props: {},
-					children: [],
-					parent: null,
-				}
-				setRootNode(rootNode)
-
-				if (mode === "incremental") {
-					// Set up mutation collection
-					mutationCollector = new SolidMutationCollector(handlerRegistry)
-					setMutationCollector(mutationCollector)
-
-					setMutationUpdateCallback((mutations: Mutation[]) => {
-						if (!currentRpc) return
-
-						// Track stats
-						const bytes = JSON.stringify(mutations).length
-						stats.bytesSent += bytes
-						stats.messagesSent++
-
-						currentRpc.getAPI().applyMutations(mutations)
-					})
-
-					// Also send full tree for initial render
-					setUpdateCallback(() => {
-						if (!handlerRegistry || !currentRpc) return
-
-						const currentRoot = getRootNode()
-						if (!currentRoot || currentRoot.children.length === 0) return
-
-						// Don't clear handler registry in incremental mode
-
-						const serializedTree = serializeTree(
-							currentRoot.children[0],
-							handlerRegistry,
-						) as UINode | null
-
-						// Track stats
-						const bytes = JSON.stringify(serializedTree).length
-						stats.bytesSent += bytes
-						stats.messagesSent++
-
-						currentRpc.getAPI().updateTree(serializedTree)
-					})
-				} else {
-					// Full tree mode (default)
-					setUpdateCallback(() => {
-						if (!handlerRegistry || !currentRpc) return
-
-						const currentRoot = getRootNode()
-						if (!currentRoot || currentRoot.children.length === 0) return
-
-						// No clear() here: it reset the id counter, so handler ids
-						// were reused and late event RPCs could hit the wrong handler.
-						// serializeTree sweeps stale nodes itself now.
-
-						const serializedTree = serializeTree(
-							currentRoot.children[0],
-							handlerRegistry,
-						) as UINode | null
-
-						// Track stats
-						const bytes = JSON.stringify(serializedTree).length
-						stats.bytesSent += bytes
-						stats.messagesSent++
-
-						currentRpc.getAPI().updateTree(serializedTree)
-					})
-				}
-
-				disposeRoot = createRoot((dispose) => {
-					render(
-						() => App((req.props ?? {}) as Record<string, unknown>),
-						rootNode,
-					)
-					return dispose
-				})
-			},
-
-			async updateProps(props: JSONValue) {
-				resetRuntimeState()
-
-				handlerRegistry = new HandlerRegistry()
-				resetIdCounter()
-
-				const rootNode: SolidNode = {
-					_type: "element",
-					id: "root",
-					type: "div",
-					props: {},
-					children: [],
-					parent: null,
-				}
-				setRootNode(rootNode)
-
-				if (mode === "incremental") {
-					// Set up mutation collection
-					mutationCollector = new SolidMutationCollector(handlerRegistry)
-					setMutationCollector(mutationCollector)
-
-					setMutationUpdateCallback((mutations: Mutation[]) => {
-						if (!currentRpc) return
-
-						// Track stats
-						const bytes = JSON.stringify(mutations).length
-						stats.bytesSent += bytes
-						stats.messagesSent++
-
-						currentRpc.getAPI().applyMutations(mutations)
-					})
-
-					// Also send full tree for initial render
-					setUpdateCallback(() => {
-						if (!handlerRegistry || !currentRpc) return
-
-						const currentRoot = getRootNode()
-						if (!currentRoot || currentRoot.children.length === 0) return
-
-						// Don't clear handler registry in incremental mode
-
-						const serializedTree = serializeTree(
-							currentRoot.children[0],
-							handlerRegistry,
-						) as UINode | null
-
-						// Track stats
-						const bytes = JSON.stringify(serializedTree).length
-						stats.bytesSent += bytes
-						stats.messagesSent++
-
-						currentRpc.getAPI().updateTree(serializedTree)
-					})
-				} else {
-					// Full tree mode (default)
-					setUpdateCallback(() => {
-						if (!handlerRegistry || !currentRpc) return
-
-						const currentRoot = getRootNode()
-						if (!currentRoot || currentRoot.children.length === 0) return
-
-						// No clear() here: it reset the id counter, so handler ids
-						// were reused and late event RPCs could hit the wrong handler.
-						// serializeTree sweeps stale nodes itself now.
-
-						const serializedTree = serializeTree(
-							currentRoot.children[0],
-							handlerRegistry,
-						) as UINode | null
-
-						// Track stats
-						const bytes = JSON.stringify(serializedTree).length
-						stats.bytesSent += bytes
-						stats.messagesSent++
-
-						currentRpc.getAPI().updateTree(serializedTree)
-					})
-				}
-
-				disposeRoot = createRoot((dispose) => {
-					render(
-						() => App((props ?? {}) as Record<string, unknown>),
-						rootNode,
-					)
-					return dispose
-				})
-			},
-
-			async executeHandler(handlerId, args) {
-				if (!handlerRegistry) return
-				await handlerRegistry.execute(handlerId, ...args)
-			},
-
-			async syncTree() {
-				if (!currentRpc || !handlerRegistry) return
-
-				const currentRoot = getRootNode()
-				if (!currentRoot || currentRoot.children.length === 0) return
-
-				const serializedTree = serializeTree(
-					currentRoot.children[0],
-					handlerRegistry,
-				) as UINode | null
-
-				const bytes = JSON.stringify(serializedTree).length
-				stats.bytesSent += bytes
-				stats.messagesSent++
-
-				currentRpc.getAPI().updateTree(serializedTree)
-			},
-
-			async destroy() {
-				resetRuntimeState()
-			},
-		}
-	}
+	let runtime: SolidPluginRuntime | null = null
 
 	function connect() {
 		if (closed) return
@@ -335,9 +69,8 @@ export function createSolidWebSocketPluginClient(
 			console.log(
 				`[Plugin:${pluginId}] Connection closed (code: ${event.code}, reason: ${event.reason || "none"})`,
 			)
-			resetRuntimeState()
-			currentRpc?.destroy()
-			currentRpc = null
+			runtime?.stop()
+			runtime = null
 
 			if (reconnectAttempts < maxReconnectAttempts) {
 				reconnectAttempts++
@@ -356,21 +89,23 @@ export function createSolidWebSocketPluginClient(
 			console.error(`[Plugin:${pluginId}] WebSocket error:`, error)
 		})
 
-		currentRpc = new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transport, {
-			expose: createPluginAPI(),
-		})
+		runtime = createSolidPluginRuntime(
+			{ App, transport, mode },
+			(transportInstance, expose) =>
+				new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transportInstance, {
+					expose,
+				}),
+		)
+		void runtime.start()
 	}
 
 	connect()
 
 	return {
-		close: () =>
-			new Promise((resolve) => {
-				closed = true
-				resetRuntimeState()
-				currentRpc?.destroy()
-				currentRpc = null
-				resolve()
-			}),
+		close: async () => {
+			closed = true
+			runtime?.stop()
+			runtime = null
+		},
 	}
 }
