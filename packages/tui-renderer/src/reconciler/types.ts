@@ -9,6 +9,7 @@ export interface TuiNode {
 export interface TextNode {
   _isTextNode: true;
   text: string;
+  parent: TuiNode | null;
 }
 
 export interface TuiContainer {
