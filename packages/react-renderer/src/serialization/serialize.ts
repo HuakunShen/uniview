@@ -37,6 +37,11 @@ function serializeNode(
     return null;
   }
 
+  // Suspense-hidden nodes stay mounted but are not part of the visible tree
+  if (instance.hidden) {
+    return null;
+  }
+
   if (isTextNode(instance)) {
     // Protocol v3: text children are explicit nodes with stable ids so
     // mutations can address them (insertBefore anchors, setText).

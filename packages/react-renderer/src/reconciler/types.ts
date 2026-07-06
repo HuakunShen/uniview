@@ -4,6 +4,8 @@ export interface InternalNode {
   children: (InternalNode | TextNode)[];
   id: string;
   parent: InternalNode | null;
+  /** Suspense visibility — hidden nodes stay mounted but are not serialized */
+  hidden?: boolean;
 }
 
 export interface TextNode {
@@ -11,4 +13,6 @@ export interface TextNode {
   text: string;
   id: string; // Stable ID for mutation-based updates
   parent: InternalNode | null; // Parent reference for mutations
+  /** Suspense visibility — hidden nodes stay mounted but are not serialized */
+  hidden?: boolean;
 }

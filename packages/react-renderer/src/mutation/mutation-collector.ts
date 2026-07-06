@@ -49,7 +49,12 @@ export class MutationCollector {
 	 * Serialize a node and its entire subtree for mutations.
 	 * This recursively processes all children and registers handlers.
 	 */
-	private serializeSubtree(node: InternalNode | TextNode): UINode {
+	private serializeSubtree(node: InternalNode | TextNode): UINode | null {
+		// Suspense-hidden nodes stay mounted but are not part of the visible tree
+		if (node.hidden) {
+			return null;
+		}
+
 		if (isTextNode(node)) {
 			// Protocol v3: text children are explicit nodes with stable ids.
 			return {
@@ -63,7 +68,10 @@ export class MutationCollector {
 
 		const serializedChildren: UINode[] = [];
 		for (const child of node.children) {
-			serializedChildren.push(this.serializeSubtree(child));
+			const serializedChild = this.serializeSubtree(child);
+			if (serializedChild !== null) {
+				serializedChildren.push(serializedChild);
+			}
 		}
 
 		return {
@@ -94,10 +102,13 @@ export class MutationCollector {
 	 * Collect an appendChild mutation.
 	 */
 	collectAppendChild(parent: InternalNode, child: InternalNode | TextNode): void {
+		const serializedChild = this.serializeSubtree(child);
+		if (serializedChild === null) return;
+
 		const mutation: AppendChildMutation = {
 			type: "appendChild",
 			parentId: parent.id,
-			node: this.serializeSubtree(child),
+			node: serializedChild,
 		};
 		this.pendingMutations.push(mutation);
 	}
@@ -110,13 +121,89 @@ export class MutationCollector {
 		child: InternalNode | TextNode,
 		beforeChild: InternalNode | TextNode,
 	): void {
+		const serializedChild = this.serializeSubtree(child);
+		if (serializedChild === null) return;
+
+		// The anchor may be Suspense-hidden (absent on the host) — resolve to
+		// the next visible sibling, or fall back to an append.
+		const anchor = beforeChild.hidden
+			? this.nextVisibleSibling(parent, beforeChild)
+			: beforeChild;
+		if (!anchor) {
+			const mutation: AppendChildMutation = {
+				type: "appendChild",
+				parentId: parent.id,
+				node: serializedChild,
+			};
+			this.pendingMutations.push(mutation);
+			return;
+		}
+
 		const mutation: InsertBeforeMutation = {
 			type: "insertBefore",
 			parentId: parent.id,
-			node: this.serializeSubtree(child),
-			beforeId: beforeChild.id,
+			node: serializedChild,
+			beforeId: anchor.id,
 		};
 		this.pendingMutations.push(mutation);
+	}
+
+	/** Find the next non-hidden sibling after `node` in `parent`. */
+	private nextVisibleSibling(
+		parent: InternalNode,
+		node: InternalNode | TextNode,
+	): InternalNode | TextNode | null {
+		const index = parent.children.indexOf(node);
+		if (index === -1) return null;
+		for (let i = index + 1; i < parent.children.length; i++) {
+			const sibling = parent.children[i];
+			if (sibling && !sibling.hidden) return sibling;
+		}
+		return null;
+	}
+
+	/**
+	 * Collect mutations for a Suspense hide: the node leaves the host tree
+	 * but stays mounted, so its handlers are NOT released.
+	 */
+	collectHide(node: InternalNode | TextNode): void {
+		const parent = node.parent;
+		if (!parent) return;
+
+		const mutation: RemoveChildMutation = {
+			type: "removeChild",
+			parentId: parent.id,
+			nodeId: node.id,
+		};
+		this.pendingMutations.push(mutation);
+	}
+
+	/**
+	 * Collect mutations for a Suspense unhide: re-insert the subtree at its
+	 * position among currently visible siblings.
+	 */
+	collectUnhide(node: InternalNode | TextNode): void {
+		const parent = node.parent;
+		if (!parent) return;
+
+		const serialized = this.serializeSubtree(node);
+		if (serialized === null) return;
+
+		const anchor = this.nextVisibleSibling(parent, node);
+		if (anchor) {
+			this.pendingMutations.push({
+				type: "insertBefore",
+				parentId: parent.id,
+				node: serialized,
+				beforeId: anchor.id,
+			});
+		} else {
+			this.pendingMutations.push({
+				type: "appendChild",
+				parentId: parent.id,
+				node: serialized,
+			});
+		}
 	}
 
 	/**

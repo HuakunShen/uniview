@@ -249,6 +249,31 @@ export const hostConfig: HostConfig<
     return instance;
   },
 
+  // Suspense visibility: React hides mounted content while a boundary
+  // shows its fallback. Hidden nodes stay in the internal tree but are
+  // excluded from serialization; in incremental mode the collector emits
+  // remove/insert mutations so hosts converge.
+  hideInstance(instance: Instance): void {
+    instance.hidden = true;
+    activeContainer?.mutationCollector?.collectHide(instance);
+  },
+
+  unhideInstance(instance: Instance, _props: Props): void {
+    instance.hidden = false;
+    activeContainer?.mutationCollector?.collectUnhide(instance);
+  },
+
+  hideTextInstance(textInstance: TextInstance): void {
+    textInstance.hidden = true;
+    activeContainer?.mutationCollector?.collectHide(textInstance);
+  },
+
+  unhideTextInstance(textInstance: TextInstance, text: string): void {
+    textInstance.text = text;
+    textInstance.hidden = false;
+    activeContainer?.mutationCollector?.collectUnhide(textInstance);
+  },
+
   preparePortalMount(): void {},
 
   scheduleTimeout: setTimeout,
