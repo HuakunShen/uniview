@@ -21,4 +21,36 @@ describe("serializeHandlerArgs", () => {
   it("keeps already-serializable custom arguments", () => {
     expect(serializeHandlerArgs("onClick", ["id-1", { ok: true }])).toEqual(["id-1", { ok: true }]);
   });
+
+  it("serializes keyboard events with key, code, and modifiers", () => {
+    const event = {
+      type: "keydown",
+      key: "Enter",
+      code: "Enter",
+      altKey: false,
+      ctrlKey: false,
+      metaKey: true,
+      shiftKey: false,
+      target: {},
+      preventDefault() {},
+    };
+    // ComponentRenderer passes the raw event through — previously
+    // keydown/keyup were stripped to zero args before reaching here, so
+    // plugins never learned which key was pressed.
+    expect(serializeHandlerArgs("onKeyDown", [event])).toEqual([
+      {
+        key: "Enter",
+        code: "Enter",
+        altKey: false,
+        ctrlKey: false,
+        metaKey: true,
+        shiftKey: false,
+      },
+    ]);
+  });
+
+  it("drops non-serializable submit events", () => {
+    const event = { type: "submit", target: {}, preventDefault() {} };
+    expect(serializeHandlerArgs("onSubmit", [event])).toEqual([]);
+  });
 });

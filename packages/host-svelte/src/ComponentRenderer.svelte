@@ -108,21 +108,19 @@
 		return result;
 	}
 
-	// Wrap event handler to extract serializable data from DOM events
-	function wrapEventListener(event: string, handler: (...args: unknown[]) => void, el: HTMLElement): EventListener {
-		if ((event === 'input' || event === 'change') && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
-			return (e: Event) => {
-				const target = e.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-				handler(target.value);
-			};
-		}
+	// Pass the raw DOM event through — createHandler runs it through
+	// serializeHandlerArgs, which extracts input values, keyboard payloads
+	// (key/code/modifiers), and strips non-serializable events. Previously
+	// keydown/keyup were wrapped as () => handler(), so plugins never saw
+	// which key was pressed.
+	function wrapEventListener(event: string, handler: (...args: unknown[]) => void): EventListener {
 		if (event === 'submit') {
 			return (e: Event) => {
 				e.preventDefault();
-				handler();
+				handler(e);
 			};
 		}
-		return () => handler();
+		return (e: Event) => handler(e);
 	}
 
 	// Action to attach events dynamically
@@ -145,7 +143,7 @@
 		for (const [event, propKey] of Object.entries(eventMap)) {
 			const handler = handlers[propKey] as ((...args: unknown[]) => void) | undefined;
 			if (handler) {
-				const listener = wrapEventListener(event, handler, el);
+				const listener = wrapEventListener(event, handler);
 				el.addEventListener(event, listener);
 				cleanup.push(() => el.removeEventListener(event, listener));
 			}
@@ -161,7 +159,7 @@
 				for (const [event, propKey] of Object.entries(eventMap)) {
 					const handler = newHandlers[propKey] as ((...args: unknown[]) => void) | undefined;
 					if (handler) {
-						const listener = wrapEventListener(event, handler, el);
+						const listener = wrapEventListener(event, handler);
 						el.addEventListener(event, listener);
 						cleanup.push(() => void el.removeEventListener(event, listener));
 					}
