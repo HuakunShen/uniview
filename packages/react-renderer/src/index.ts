@@ -1,6 +1,7 @@
 export {
   createRenderer,
   render,
+  unmount,
   createRenderBridge,
   type RenderBridge,
 } from "./reconciler/renderer";

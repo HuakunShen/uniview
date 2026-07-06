@@ -5,6 +5,7 @@ import type { PluginController, HostMode } from "../types";
 import {
   createRenderBridge,
   render,
+  unmount,
   serializeTree,
   HandlerRegistry,
   MutationCollector,
@@ -71,6 +72,12 @@ export function createMainController(
     },
 
     async disconnect() {
+      if (bridge) {
+        // Unmount: in main-thread mode the plugin runs in the host page —
+        // dropping references without unmounting leaked live effects/timers
+        // directly into the host for every connect/disconnect cycle.
+        unmount(bridge);
+      }
       bridge = null;
       currentElement = null;
       handlerRegistry?.clear();

@@ -35,4 +35,17 @@ export function render(element: ReactElement, handle: RendererHandle): void {
   reconciler.updateContainer(element, handle._container, null, () => {});
 }
 
+/**
+ * Unmount the tree rendered into this handle, running effect cleanups and
+ * releasing the container. Without this, destroy() only dropped references
+ * while timers/effects/subscriptions in the plugin kept running forever.
+ */
+export function unmount(handle: RendererHandle): void {
+  if (handle._container) {
+    reconciler.updateContainer(null, handle._container, null, () => {});
+    handle._container = undefined;
+  }
+  handle.rootInstance = null;
+}
+
 export { createRenderBridge, type RenderBridge };

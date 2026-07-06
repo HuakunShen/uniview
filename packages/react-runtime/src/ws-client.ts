@@ -13,6 +13,7 @@ import type {
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import {
   createRenderer,
+  unmount,
   render,
   serializeTree,
   HandlerRegistry,
@@ -97,6 +98,11 @@ export function createWebSocketPluginClient(
   let mutationCollector: MutationCollector | null = null;
 
   function resetRuntimeState() {
+    if (bridge) {
+      // Unmount the previous root: without this a re-initialize (host
+      // reconnect) leaked a live React tree whose effects kept running.
+      unmount(bridge);
+    }
     bridge = null;
     currentElement = null;
     mutationCollector = null;

@@ -13,6 +13,7 @@ import { PROTOCOL_VERSION } from "@uniview/protocol";
 import {
   createRenderer,
   render,
+  unmount,
   serializeTree,
   HandlerRegistry,
   MutationCollector,
@@ -72,9 +73,23 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
   const stats: Stats = { bytesSent: 0, messagesSent: 0 };
   globalThis.__uniview_stats = stats;
 
+  function resetRuntimeState() {
+    if (bridge) {
+      // Unmount the previous root: without this a re-initialize (host
+      // reconnect) leaked a live React tree whose effects kept running.
+      unmount(bridge);
+    }
+    bridge = null;
+    currentElement = null;
+    mutationCollector = null;
+    handlerRegistry?.clear();
+    handlerRegistry = null;
+  }
+
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
       assertProtocolVersion(req.protocolVersion);
+      resetRuntimeState();
 
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderer();
@@ -150,11 +165,7 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     },
 
     async destroy() {
-      bridge = null;
-      currentElement = null;
-      mutationCollector = null;
-      handlerRegistry?.clear();
-      handlerRegistry = null;
+      resetRuntimeState();
     },
   };
 
