@@ -5,7 +5,32 @@
 > Context: kunkun (the critical consumer) uses **worker mode + incremental (mutation)
 > update mode** — P0 items all hit that exact path.
 
-## Status snapshot (as of 2026-07-07)
+## Status snapshot (updated after the 2026-07-07 fix round)
+
+**DONE in the fix round (commits a5b6b59..8b94f07 on main):** P0-1 (solid/tui
+ports + anchor guards), P0-2 (protocol v3 text nodes — `#text` type, setText
+by nodeId, all renderers/hosts updated), P0-3 (stable `${nodeId}:${propName}`
+handler ids, per-node release, sweep; solid clear()-reuse fixed), P1 #4-#10
+(root guard, Suspense via hidden nodes, destroy unmounts, error reporting
+end-to-end + PluginHost banner, keydown passthrough, ws-clients rebuilt on
+shared runtimes, bridge heartbeat + bounded host wait + message buffering,
+nested-fn warning), quick wins #11-#13 (stats behind debug option,
+MutableTree parent index, keyed each). Also: kkrpc 2.0 validated; all
+localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
+
+**STILL OPEN:**
+- kunkun-side v3 adaptation (uiNodeChildren text nodes, sdk plugin-entry) — Phase 6
+- Swift demo hosts (appkit/macos) not adapted to protocol v3
+- solid incremental mode still sends full tree per flush as correctness
+  backstop — needs a proper root-seeding design (no setRoot mutation in the
+  solid reconciler; top-level element swaps reference the internal container id)
+- #14 Zod validators still dead code (wire into RPC in dev mode or delete)
+- #15 remaining misc cleanups (null props dropped, registered-component
+  title hack ordering)
+- #16 kunkun sdk plugin-entry is still a third runtime bootstrap copy
+- #17 CI, #18 e2e coverage gaps (reorder/text/keydown/crash/reconnect specs)
+
+## Original status snapshot (as of 2026-07-07, pre-fix)
 
 - `/Users/hk/Dev/uniview` checkout was 4 commits behind origin/main (`git pull` needed).
 - The keyed-reorder detach fix (P0-1) exists **uncommitted** in the kunkun submodule
