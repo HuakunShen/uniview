@@ -158,26 +158,33 @@ export const hostConfig: HostConfig<
     // beforeChild index, since detaching from the same parent shifts it.
     detachFromParent(child);
     const index = parent.children.indexOf(beforeChild);
-    if (index !== -1) {
-      child.parent = parent;
-      parent.children.splice(index, 0, child);
-      activeContainer?.mutationCollector?.collectInsertBefore(
-        parent,
-        child,
-        beforeChild,
+    if (index === -1) {
+      // React guarantees beforeChild is a child of parent; reaching this
+      // means the internal tree already diverged from React's view. The
+      // child was detached above — appending keeps it in the tree instead
+      // of silently dropping it, but the order is no longer trustworthy.
+      console.error(
+        `[uniview] insertBefore anchor ${"_isTextNode" in beforeChild ? "text" : beforeChild.type}#${beforeChild.id} not found under ${parent.type}#${parent.id}; appending instead (tree state diverged)`,
       );
+      child.parent = parent;
+      parent.children.push(child);
+      activeContainer?.mutationCollector?.collectAppendChild(parent, child);
+      return;
     }
+    child.parent = parent;
+    parent.children.splice(index, 0, child);
+    activeContainer?.mutationCollector?.collectInsertBefore(
+      parent,
+      child,
+      beforeChild,
+    );
   },
 
   removeChild(parent: Instance, child: Instance | TextInstance): void {
     const index = parent.children.indexOf(child);
     if (index !== -1) {
       parent.children.splice(index, 1);
-      if ("_isTextNode" in child) {
-        child.parent = null;
-      } else {
-        child.parent = null;
-      }
+      child.parent = null;
       activeContainer?.mutationCollector?.collectRemoveChild(parent, child);
     }
   },

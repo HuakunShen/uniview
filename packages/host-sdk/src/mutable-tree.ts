@@ -178,13 +178,23 @@ export class MutableTree {
     if (!parent) return;
 
     // Find insertion index based on beforeId
-    let insertIndex = parent.children.length;
+    let insertIndex = -1;
     for (let i = 0; i < parent.children.length; i++) {
       const child = parent.children[i];
       if (typeof child !== "string" && child.id === mutation.beforeId) {
         insertIndex = i;
         break;
       }
+    }
+    if (insertIndex === -1) {
+      // The anchor should always be present; a miss means the host tree
+      // diverged from the plugin tree (known cause until protocol v3:
+      // text-node anchors serialize as bare strings and carry no id).
+      // Append as recovery so the node isn't lost, but order is wrong.
+      console.error(
+        `[uniview] insertBefore anchor ${mutation.beforeId} not found under ${mutation.parentId}; appending instead (tree state diverged)`,
+      );
+      insertIndex = parent.children.length;
     }
 
     // Create new parent with inserted child
