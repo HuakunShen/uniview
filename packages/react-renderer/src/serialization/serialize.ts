@@ -12,7 +12,24 @@ function isTextNode(node: unknown): node is TextNode {
   );
 }
 
+/**
+ * Serialize a full tree from the root. Brackets the walk with a registry
+ * sweep so handlers owned by nodes that left the tree are released —
+ * without this, full update mode leaks handlers for every removed node.
+ */
 export function serializeTree(
+  instance: InternalNode | TextNode | null,
+  registry: HandlerRegistry,
+): UINode | string | null {
+  registry.beginSweep();
+  try {
+    return serializeNode(instance, registry);
+  } finally {
+    registry.endSweep();
+  }
+}
+
+function serializeNode(
   instance: InternalNode | TextNode | null,
   registry: HandlerRegistry,
 ): UINode | string | null {
@@ -26,7 +43,7 @@ export function serializeTree(
 
   const serializedChildren: (UINode | string)[] = [];
   for (const child of instance.children) {
-    const serializedChild = serializeTree(
+    const serializedChild = serializeNode(
       child as InternalNode | TextNode,
       registry,
     );
@@ -37,7 +54,7 @@ export function serializeTree(
 
   return {
     type: instance.type,
-    props: serializeProps(instance.props, registry),
+    props: serializeProps(instance.props, registry, instance.id),
     children: serializedChildren,
     id: instance.id,
   };

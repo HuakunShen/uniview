@@ -65,7 +65,7 @@ export class MutationCollector {
 
 		return {
 			type: node.type,
-			props: serializeProps(node.props, this.handlerRegistry),
+			props: serializeProps(node.props, this.handlerRegistry, node.id),
 			children: serializedChildren,
 			id: node.id,
 		};
@@ -73,25 +73,15 @@ export class MutationCollector {
 
 	/**
 	 * Clean up handlers for a removed subtree.
-	 * Recursively removes all handler IDs from the registry.
+	 * Recursively releases every handler id owned by the removed nodes.
 	 */
 	private cleanupHandlers(node: InternalNode | TextNode): void {
 		if (isTextNode(node)) {
 			return;
 		}
 
-		// Remove handlers from this node's props
-		for (const [, value] of Object.entries(node.props)) {
-			if (typeof value === "function") {
-				// Handlers are registered during serialization, but we don't track
-				// the IDs directly. The registry's clear() is called between full renders,
-				// but for incremental mode, we need to be more careful.
-				// For now, we rely on the fact that handler IDs are not reused
-				// and stale entries in the registry are harmless.
-			}
-		}
+		this.handlerRegistry.releaseNode(node.id);
 
-		// Recursively clean up children
 		for (const child of node.children) {
 			this.cleanupHandlers(child);
 		}
@@ -174,7 +164,7 @@ export class MutationCollector {
 		const mutation: SetPropsMutation = {
 			type: "setProps",
 			nodeId: instance.id,
-			props: serializeProps(instance.props, this.handlerRegistry),
+			props: serializeProps(instance.props, this.handlerRegistry, instance.id),
 		};
 		this.pendingMutations.push(mutation);
 	}
