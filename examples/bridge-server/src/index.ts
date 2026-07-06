@@ -121,4 +121,4 @@ new Elysia()
 
   .listen(3000);
 
-console.log("🌉 Bridge server listening on http://localhost:3000");
+console.log("🌉 Bridge server listening on http://127.0.0.1:3000");

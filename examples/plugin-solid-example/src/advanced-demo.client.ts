@@ -3,6 +3,6 @@ import App from "./advanced-demo"
 
 createSolidWebSocketPluginClient({
 	App,
-	serverUrl: "ws://localhost:3000",
+	serverUrl: "ws://127.0.0.1:3000",
 	pluginId: "solid-advanced-demo",
 })

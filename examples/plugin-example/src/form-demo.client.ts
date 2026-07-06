@@ -3,7 +3,7 @@ import FormDemo from "./form-demo";
 
 connectToHostServer({
   App: FormDemo,
-  serverUrl: "ws://localhost:3000",
+  serverUrl: "ws://127.0.0.1:3000",
   pluginId: "form-demo",
   mode: "incremental",
 });

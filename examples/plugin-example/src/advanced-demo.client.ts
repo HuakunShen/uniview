@@ -3,6 +3,6 @@ import AdvancedDemo from "./advanced-demo";
 
 connectToHostServer({
   App: AdvancedDemo,
-  serverUrl: "ws://localhost:3000",
+  serverUrl: "ws://127.0.0.1:3000",
   pluginId: "advanced-demo",
 });

@@ -65,14 +65,14 @@
 		if (currentDemo === 'benchmark') {
 			// Benchmark plugins have -full and -incremental variants
 			const mode = updateMode === 'full' ? 'full' : 'incremental';
-			return `http://localhost:3000/${framework}/benchmark-${mode}.worker.js`;
+			return `http://127.0.0.1:3000/${framework}/benchmark-${mode}.worker.js`;
 		}
 		const demo = currentDemo === 'simple' ? 'simple-demo' : 'advanced-demo';
-		return `http://localhost:3000/${framework}/${demo}.worker.js`;
+		return `http://127.0.0.1:3000/${framework}/${demo}.worker.js`;
 	});
 
 	// Bridge server URL for Node.js mode (single server for all plugins)
-	const bridgeServerUrl = 'ws://localhost:3000';
+	const bridgeServerUrl = 'ws://127.0.0.1:3000';
 
 	// Plugin ID based on current demo and framework
 	let pluginId = $derived.by(() => {
