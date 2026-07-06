@@ -99,9 +99,48 @@ export class MutableTree {
   }
 
   /**
+   * Find the parent node currently containing a child with the given id.
+   */
+  private findParentOf(node: UINode | null, childId: string): UINode | null {
+    if (!node) return null;
+    for (const child of node.children) {
+      if (typeof child === "string") continue;
+      if (child.id === childId) return node;
+      const found = this.findParentOf(child, childId);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  /**
+   * Detach a node from wherever it currently sits in the tree, if present.
+   * appendChild/insertBefore mutations are also used to MOVE existing nodes
+   * (keyed list reorders); without detaching first the node would appear
+   * twice. The subtree is intentionally NOT unindexed — it is about to be
+   * re-inserted.
+   */
+  private detachExistingNode(nodeId: string): void {
+    const parent = this.findParentOf(this.tree, nodeId);
+    if (!parent) return;
+
+    const newChildren = parent.children.filter(
+      (child) => typeof child === "string" || child.id !== nodeId,
+    );
+    const newParent: UINode = { ...parent, children: newChildren };
+    this.nodeIndex.set(parent.id, newParent);
+    if (this.tree?.id === parent.id) {
+      this.tree = newParent;
+    } else {
+      this.replaceNodeInTree(this.tree, parent.id, newParent);
+    }
+  }
+
+  /**
    * Apply appendChild mutation.
    */
   private applyAppendChild(mutation: { parentId: string; node: UINode }): void {
+    // Detach first: this mutation may be moving an existing node.
+    this.detachExistingNode(mutation.node.id);
     const parent = this.nodeIndex.get(mutation.parentId);
     if (!parent) return;
 
@@ -132,6 +171,9 @@ export class MutableTree {
     node: UINode;
     beforeId: string;
   }): void {
+    // Detach first (may be a move), and only then resolve the parent — a
+    // same-parent detach replaces the parent's index entry.
+    this.detachExistingNode(mutation.node.id);
     const parent = this.nodeIndex.get(mutation.parentId);
     if (!parent) return;
 

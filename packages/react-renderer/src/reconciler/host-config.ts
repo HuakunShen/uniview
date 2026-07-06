@@ -33,6 +33,21 @@ function generateTextNodeId(): string {
   return `text-${textNodeCounter++}`;
 }
 
+/**
+ * Remove a child from its current parent's children array (if attached).
+ * React's commitPlacement reuses appendChild/insertBefore to MOVE existing
+ * keyed instances; DOM insertBefore auto-detaches, an array-based host
+ * config must do it explicitly or reorders duplicate the child.
+ */
+function detachFromParent(child: Instance | TextInstance): void {
+  const prevParent = child.parent;
+  if (!prevParent) return;
+  const index = prevParent.children.indexOf(child);
+  if (index !== -1) {
+    prevParent.children.splice(index, 1);
+  }
+}
+
 export const hostConfig: HostConfig<
   Type,
   Props,
@@ -119,13 +134,12 @@ export const hostConfig: HostConfig<
   },
 
   appendChild(parent: Instance, child: Instance | TextInstance): void {
-    if ("_isTextNode" in child) {
-      child.parent = parent;
-      parent.children.push(child);
-    } else {
-      child.parent = parent;
-      parent.children.push(child);
-    }
+    // React reuses appendChild to MOVE an existing keyed child (e.g. list
+    // reorders). Detach it from its current parent first, otherwise it ends
+    // up in the children array twice.
+    detachFromParent(child);
+    child.parent = parent;
+    parent.children.push(child);
     activeContainer?.mutationCollector?.collectAppendChild(parent, child);
   },
 
@@ -139,13 +153,13 @@ export const hostConfig: HostConfig<
     child: Instance | TextInstance,
     beforeChild: Instance | TextInstance,
   ): void {
+    // Like appendChild, insertBefore is also used to MOVE existing keyed
+    // children during reorders. Detach first — and only then resolve the
+    // beforeChild index, since detaching from the same parent shifts it.
+    detachFromParent(child);
     const index = parent.children.indexOf(beforeChild);
     if (index !== -1) {
-      if ("_isTextNode" in child) {
-        child.parent = parent;
-      } else {
-        child.parent = parent;
-      }
+      child.parent = parent;
       parent.children.splice(index, 0, child);
       activeContainer?.mutationCollector?.collectInsertBefore(
         parent,

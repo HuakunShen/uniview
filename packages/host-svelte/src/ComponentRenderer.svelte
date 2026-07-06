@@ -47,9 +47,13 @@
 
 			if (isHandlerIdProp(key)) {
 				const eventName = extractEventName(key);
+				// extractEventName returns null for handler props outside the
+				// DOM event whitelist (EVENT_PROPS); those must still be passed
+				// through below, not dropped.
+				let matched = false;
 				if (eventName && typeof value === "string") {
 					const handler = createHandler(value, eventName);
-					let matched = true;
+					matched = true;
 					if (eventName === "onChange") {
 						result.oninput = handler;
 						result.onchange = handler;
@@ -74,11 +78,12 @@
 					} else {
 						matched = false;
 					}
-					// Pass through unrecognized handler ID props as-is
-					// (e.g. custom app-level handlers like _onSearchTextChangeHandlerId)
-					if (!matched) {
-						attrs[key] = value;
-					}
+				}
+				// Pass through unrecognized handler ID props as-is so registered
+				// host components can relay them via executeHandler
+				// (e.g. app-level handlers like _onSearchTextChangeHandlerId)
+				if (!matched && typeof value === "string") {
+					attrs[key] = value;
 				}
 				continue;
 			}
