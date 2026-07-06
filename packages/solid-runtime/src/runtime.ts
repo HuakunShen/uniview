@@ -48,6 +48,11 @@ export interface SolidPluginRuntimeOptions<T extends Transport<RPCMessage>> {
   App: Component<Record<string, unknown>>;
   transport: T;
   mode?: UpdateMode;
+  /**
+   * Enable benchmark stats (globalThis.__uniview_stats). Costs an extra
+   * JSON.stringify of every payload per update — keep off in production.
+   */
+  debug?: boolean;
 }
 
 export interface SolidPluginRuntime {
@@ -62,7 +67,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
     expose: HostToPluginAPI,
   ) => RPCChannel<HostToPluginAPI, PluginToHostAPI>,
 ): SolidPluginRuntime {
-  const { App, transport, mode = "full" } = options;
+  const { App, transport, mode = "full", debug = false } = options;
 
   let disposeRoot: (() => void) | null = null;
   let setProps: ((props: Record<string, unknown>) => void) | null = null;
@@ -70,9 +75,17 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
   let mutationCollector: SolidMutationCollector | null = null;
   let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
 
-  // Stats tracking
+  // Stats tracking (debug only — the stringify below doubles
+  // serialization cost per update)
   const stats: Stats = { bytesSent: 0, messagesSent: 0 };
-  globalThis.__uniview_stats = stats;
+  if (debug) {
+    globalThis.__uniview_stats = stats;
+  }
+  function trackStats(payload: unknown): void {
+    if (!debug) return;
+    stats.bytesSent += JSON.stringify(payload).length;
+    stats.messagesSent++;
+  }
 
   /** Forward a plugin-side error to the host's reportError RPC. */
   function reportErrorToHost(error: unknown): void {
@@ -138,12 +151,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
 
       setMutationUpdateCallback((mutations: Mutation[]) => {
         if (!rpc) return;
-
-        // Track stats
-        const bytes = JSON.stringify(mutations).length;
-        stats.bytesSent += bytes;
-        stats.messagesSent++;
-
+        trackStats(mutations);
         rpc.getAPI().applyMutations(mutations);
       });
 
@@ -167,11 +175,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
           handlerRegistry,
         ) as UINode | null;
 
-        // Track stats
-        const bytes = JSON.stringify(serializedTree).length;
-        stats.bytesSent += bytes;
-        stats.messagesSent++;
-
+        trackStats(serializedTree);
         rpc.getAPI().updateTree(serializedTree);
       });
     } else {
@@ -191,11 +195,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
           handlerRegistry,
         ) as UINode | null;
 
-        // Track stats
-        const bytes = JSON.stringify(serializedTree).length;
-        stats.bytesSent += bytes;
-        stats.messagesSent++;
-
+        trackStats(serializedTree);
         rpc.getAPI().updateTree(serializedTree);
       });
     }
@@ -248,10 +248,7 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
         handlerRegistry,
       ) as UINode | null;
 
-      const bytes = JSON.stringify(serializedTree).length;
-      stats.bytesSent += bytes;
-      stats.messagesSent++;
-
+      trackStats(serializedTree);
       rpc.getAPI().updateTree(serializedTree);
     },
 

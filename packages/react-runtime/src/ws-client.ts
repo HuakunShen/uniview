@@ -18,6 +18,8 @@ export interface WebSocketPluginClientOptions {
   reconnectDelay?: number;
   /** Max reconnection attempts (default: Infinity) */
   maxReconnectAttempts?: number;
+  /** Enable benchmark stats (globalThis.__uniview_stats) */
+  debug?: boolean;
 }
 
 export interface WebSocketPluginClient {
@@ -47,6 +49,7 @@ export function createWebSocketPluginClient(
     mode = "full",
     reconnectDelay = 1000,
     maxReconnectAttempts = Infinity,
+    debug = false,
   } = opts;
 
   const wsUrl = `${serverUrl}/plugins/${pluginId}`;
@@ -94,7 +97,7 @@ export function createWebSocketPluginClient(
     });
 
     runtime = createPluginRuntime(
-      { App, transport, mode },
+      { App, transport, mode, debug },
       (transportInstance, expose) =>
         new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transportInstance, {
           expose,

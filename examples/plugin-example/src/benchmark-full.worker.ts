@@ -4,4 +4,5 @@ import { BenchmarkApp } from "./benchmark";
 startWorkerPlugin({
   App: BenchmarkApp,
   mode: "full",
+  debug: true,
 });

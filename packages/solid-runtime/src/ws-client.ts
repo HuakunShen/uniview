@@ -14,6 +14,8 @@ export interface SolidWebSocketPluginClientOptions {
 	reconnectDelay?: number
 	/** Max reconnection attempts (default: Infinity) */
 	maxReconnectAttempts?: number
+	/** Enable benchmark stats (globalThis.__uniview_stats) */
+	debug?: boolean
 }
 
 export interface SolidWebSocketPluginClient {
@@ -43,6 +45,7 @@ export function createSolidWebSocketPluginClient(
 		mode = "full",
 		reconnectDelay = 1000,
 		maxReconnectAttempts = Infinity,
+		debug = false,
 	} = opts
 
 	const wsUrl = `${serverUrl}/plugins/${pluginId}`
@@ -90,7 +93,7 @@ export function createSolidWebSocketPluginClient(
 		})
 
 		runtime = createSolidPluginRuntime(
-			{ App, transport, mode },
+			{ App, transport, mode, debug },
 			(transportInstance, expose) =>
 				new RPCChannel<HostToPluginAPI, PluginToHostAPI>(transportInstance, {
 					expose,

@@ -28,6 +28,11 @@ export interface PluginRuntimeOptions<T extends Transport<RPCMessage>> {
   App: ComponentType<unknown>;
   transport: T;
   mode?: UpdateMode;
+  /**
+   * Enable benchmark stats (globalThis.__uniview_stats). Costs an extra
+   * JSON.stringify of every payload per update — keep off in production.
+   */
+  debug?: boolean;
 }
 
 export interface PluginRuntime {
@@ -61,7 +66,7 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     expose: HostToPluginAPI,
   ) => RPCChannel<HostToPluginAPI, PluginToHostAPI>,
 ): PluginRuntime {
-  const { App, transport, mode = "full" } = options;
+  const { App, transport, mode = "full", debug = false } = options;
 
   let bridge: RendererHandle | null = null;
   let currentElement: ReactElement | null = null;
@@ -69,9 +74,17 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
   let mutationCollector: MutationCollector | null = null;
   let rpc: RPCChannel<HostToPluginAPI, PluginToHostAPI> | null = null;
 
-  // Stats tracking
+  // Stats tracking (debug only — the stringify below doubles
+  // serialization cost per update)
   const stats: Stats = { bytesSent: 0, messagesSent: 0 };
-  globalThis.__uniview_stats = stats;
+  if (debug) {
+    globalThis.__uniview_stats = stats;
+  }
+  function trackStats(payload: unknown): void {
+    if (!debug) return;
+    stats.bytesSent += JSON.stringify(payload).length;
+    stats.messagesSent++;
+  }
 
   function resetRuntimeState() {
     if (bridge) {
@@ -135,12 +148,7 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
 
         bridge.subscribeMutations((mutations: Mutation[]) => {
           if (!rpc) return;
-
-          // Track stats
-          const bytes = JSON.stringify(mutations).length;
-          stats.bytesSent += bytes;
-          stats.messagesSent++;
-
+          trackStats(mutations);
           rpc.getAPI().applyMutations(mutations);
         });
 
@@ -154,11 +162,7 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
             handlerRegistry,
           ) as UINode | null;
 
-          // Track stats
-          const bytes = JSON.stringify(serializedTree).length;
-          stats.bytesSent += bytes;
-          stats.messagesSent++;
-
+          trackStats(serializedTree);
           rpc.getAPI().updateTree(serializedTree);
         });
       }
@@ -191,10 +195,7 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
         handlerRegistry,
       ) as UINode | null;
 
-      const bytes = JSON.stringify(serializedTree).length;
-      stats.bytesSent += bytes;
-      stats.messagesSent++;
-
+      trackStats(serializedTree);
       rpc.getAPI().updateTree(serializedTree);
     },
 

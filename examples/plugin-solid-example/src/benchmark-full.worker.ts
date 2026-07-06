@@ -4,4 +4,5 @@ import { BenchmarkApp } from "./benchmark";
 startSolidWorkerPlugin({
 	App: BenchmarkApp,
 	mode: "full",
+	debug: true,
 });

@@ -7,12 +7,14 @@ import { createPluginRuntime } from "./runtime";
 export interface StartWorkerPluginOptions {
   App: ComponentType<unknown>;
   mode?: UpdateMode;
+  /** Enable benchmark stats (globalThis.__uniview_stats) */
+  debug?: boolean;
 }
 
 export function startWorkerPlugin(opts: StartWorkerPluginOptions): void {
   const transport = workerSelfTransport();
   const runtime = createPluginRuntime(
-    { App: opts.App, transport, mode: opts.mode },
+    { App: opts.App, transport, mode: opts.mode, debug: opts.debug },
     (transportInstance, expose) => {
       return new RPCChannel<HostToPluginAPI, PluginToHostAPI>(
         transportInstance,

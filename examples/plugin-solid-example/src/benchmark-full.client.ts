@@ -9,6 +9,7 @@ await connectSolidToHostServer({
 	serverUrl,
 	pluginId,
 	mode: "full",
+	debug: true,
 });
 
 console.log(`[${pluginId}] Connected to ${serverUrl}`);
