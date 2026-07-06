@@ -1,652 +1,138 @@
+/**
+ * Integration tests against the REAL bridge implementation (the previous
+ * test file exercised a copied inline reimplementation, so the actual
+ * server code was never under test).
+ */
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
-import { Elysia } from "elysia";
-import { readFile } from "fs/promises";
-import { join } from "path";
-import { fileURLToPath } from "url";
+import { createBridgeServer, type BridgeServer } from "./bridge";
 
-const __dirname = fileURLToPath(new URL(".", import.meta.url));
+let bridge: BridgeServer;
+let port: number;
 
-// Bridge server implementation (copied for testing)
-const connections = new Map<string, { pluginWs?: any; hostWs?: any }>();
-
-function normalizeMessage(message: unknown): string {
-  let msgStr =
-    typeof message === "string"
-      ? message
-      : message instanceof Buffer
-        ? message.toString()
-        : JSON.stringify(message);
-  if (!msgStr.endsWith("\n")) msgStr += "\n";
-  return msgStr;
+function open(url: string): Promise<WebSocket> {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    ws.onopen = () => resolve(ws);
+    ws.onerror = (e) => reject(e);
+  });
 }
 
-describe("Bridge Server Integration Tests", () => {
-  let server: Elysia | undefined;
-  let port: number;
+function nextMessage(ws: WebSocket): Promise<string> {
+  return new Promise((resolve) => {
+    ws.onmessage = (event) => resolve(String(event.data));
+  });
+}
 
-  beforeAll(async () => {
-    server = new Elysia()
-      .get("/:filename", async ({ params }) => {
-        try {
-          const filePath = join(
-            __dirname,
-            "../../plugin-example/dist",
-            params.filename,
-          );
-          const content = await readFile(filePath);
-          return new Response(new Uint8Array(content), {
-            headers: {
-              "Content-Type": "application/javascript",
-              "Access-Control-Allow-Origin": "*",
-            },
-          });
-        } catch {
-          return new Response("Not found", { status: 404 });
-        }
-      })
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-      .ws("/plugins/:pluginId", {
-        open(ws) {
-          const pluginId = ws.data.params.pluginId;
-          if (!connections.has(pluginId)) {
-            connections.set(pluginId, {});
-          }
-          connections.get(pluginId)!.pluginWs = ws;
-        },
-        message(ws, message: unknown) {
-          const pluginId = ws.data.params.pluginId;
-          const conn = connections.get(pluginId);
-          if (conn?.hostWs) {
-            conn.hostWs.send(normalizeMessage(message));
-          }
-        },
-        close(ws) {
-          const pluginId = ws.data.params.pluginId;
-          const conn = connections.get(pluginId);
-          if (conn) {
-            conn.pluginWs = undefined;
-            if (!conn.hostWs) connections.delete(pluginId);
-          }
-        },
-      })
+beforeAll(() => {
+  bridge = createBridgeServer({
+    port: 0,
+    quiet: true,
+    hostWaitMs: 500,
+    heartbeatIntervalMs: 60_000,
+  });
+  port = bridge.port;
+});
 
-      .ws("/host/:pluginId", {
-        open(ws) {
-          const pluginId = ws.data.params.pluginId;
-          const conn = connections.get(pluginId);
+afterAll(() => {
+  bridge.stop();
+});
 
-          if (!conn?.pluginWs) {
-            ws.close(1000, "Plugin not ready");
-            return;
-          }
-          if (conn.hostWs) {
-            conn.hostWs.close(1000, "Replaced by new connection");
-          }
+describe("bridge server", () => {
+  it("forwards messages in both directions with newline framing", async () => {
+    const plugin = await open(`ws://127.0.0.1:${port}/plugins/fwd`);
+    const host = await open(`ws://127.0.0.1:${port}/host/fwd`);
 
-          conn.hostWs = ws;
-        },
-        message(ws, message: unknown) {
-          const pluginId = ws.data.params.pluginId;
-          const conn = connections.get(pluginId);
-          if (conn?.pluginWs) {
-            conn.pluginWs.send(normalizeMessage(message));
-          }
-        },
-        close(ws) {
-          const pluginId = ws.data.params.pluginId;
-          const conn = connections.get(pluginId);
-          if (conn) {
-            conn.hostWs = undefined;
-            if (!conn.pluginWs) connections.delete(pluginId);
-          }
-        },
-      })
+    const toPlugin = nextMessage(plugin);
+    host.send(JSON.stringify({ t: "q", id: "1" }));
+    expect(await toPlugin).toBe(JSON.stringify({ t: "q", id: "1" }) + "\n");
 
-      .listen({ port: 0, hostname: "127.0.0.1" });
+    const toHost = nextMessage(host);
+    plugin.send(JSON.stringify({ t: "r", id: "1" }));
+    expect(await toHost).toBe(JSON.stringify({ t: "r", id: "1" }) + "\n");
 
-    port = server.server?.port ?? 0;
-    if (!port) {
-      throw new Error("Bridge Server test server did not expose a port");
-    }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    plugin.close();
+    host.close();
+    await sleep(50);
   });
 
-  afterAll(async () => {
-    if (server) {
-      server.stop();
-    }
-    // Clear connections
-    connections.clear();
+  it("buffers host messages while the plugin is absent and flushes on arrival", async () => {
+    // Host connects FIRST and immediately sends (like kkrpc initialize)
+    const host = await open(`ws://127.0.0.1:${port}/host/late-plugin`);
+    host.send("hello-1");
+    host.send("hello-2");
+    await sleep(50);
+
+    // Plugin arrives late — buffered messages must be delivered in order
+    const received: string[] = [];
+    const plugin = await open(`ws://127.0.0.1:${port}/plugins/late-plugin`);
+    plugin.onmessage = (event) => received.push(String(event.data));
+    await sleep(100);
+
+    expect(received).toEqual(["hello-1\n", "hello-2\n"]);
+
+    plugin.close();
+    host.close();
+    await sleep(50);
   });
 
-  describe("Scenario 1: Plugin connects → Host connects → bidirectional message forwarding", () => {
-    it("should forward messages from plugin to host", async () => {
-      const pluginId = "test-plugin-1";
-      const messages: string[] = [];
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up host message listener
-      hostWs.onmessage = (event) => {
-        messages.push(event.data);
-      };
-
-      // Send message from plugin
-      const testMessage = "Hello from plugin";
-      pluginWs.send(testMessage);
-
-      // Wait for message to be forwarded
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify message was forwarded
-      expect(messages).toContain(testMessage + "\n");
-
-      // Cleanup
-      pluginWs.close();
-      hostWs.close();
+  it("closes a waiting host after the bounded wait if no plugin shows up", async () => {
+    const host = await open(`ws://127.0.0.1:${port}/host/never-plugin`);
+    const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+      host.onclose = (event) =>
+        resolve({ code: event.code, reason: event.reason });
     });
 
-    it("should forward messages from host to plugin", async () => {
-      const pluginId = "test-plugin-2";
-      const messages: string[] = [];
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up plugin message listener
-      pluginWs.onmessage = (event) => {
-        messages.push(event.data);
-      };
-
-      // Send message from host
-      const testMessage = "Hello from host";
-      hostWs.send(testMessage);
-
-      // Wait for message to be forwarded
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify message was forwarded
-      expect(messages).toContain(testMessage + "\n");
-
-      // Cleanup
-      pluginWs.close();
-      hostWs.close();
-    });
-
-    it("should handle bidirectional message exchange", async () => {
-      const pluginId = "test-plugin-3";
-      const pluginMessages: string[] = [];
-      const hostMessages: string[] = [];
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up message listeners
-      pluginWs.onmessage = (event) => {
-        pluginMessages.push(event.data);
-      };
-      hostWs.onmessage = (event) => {
-        hostMessages.push(event.data);
-      };
-
-      // Exchange messages
-      pluginWs.send("Message 1 from plugin");
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      hostWs.send("Message 1 from host");
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      pluginWs.send("Message 2 from plugin");
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      hostWs.send("Message 2 from host");
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      // Verify all messages were forwarded
-      expect(hostMessages).toContain("Message 1 from plugin\n");
-      expect(hostMessages).toContain("Message 2 from plugin\n");
-      expect(pluginMessages).toContain("Message 1 from host\n");
-      expect(pluginMessages).toContain("Message 2 from host\n");
-
-      // Cleanup
-      pluginWs.close();
-      hostWs.close();
-    });
-
-    it("should normalize messages with newline", async () => {
-      const pluginId = "test-plugin-4";
-      const messages: string[] = [];
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up host message listener
-      hostWs.onmessage = (event) => {
-        messages.push(event.data);
-      };
-
-      // Send message without newline
-      const testMessage = "Test message";
-      pluginWs.send(testMessage);
-
-      // Wait for message to be forwarded
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify message has newline appended
-      expect(messages[0]).toBe(testMessage + "\n");
-
-      // Cleanup
-      pluginWs.close();
-      hostWs.close();
-    });
+    const result = await closed;
+    expect(result.code).toBe(1013);
+    expect(result.reason).toContain("Plugin not available");
   });
 
-  describe("Scenario 2: Host connects first (Plugin not ready) → receives error", () => {
-    it("should reject host connection with close code 1000 when plugin not ready", async () => {
-      const pluginId = "test-plugin-5";
-      let closeCode: number | undefined;
-      let closeReason: string | undefined;
+  it("keeps the plugin connected when the host disconnects", async () => {
+    const plugin = await open(`ws://127.0.0.1:${port}/plugins/sticky`);
+    const host = await open(`ws://127.0.0.1:${port}/host/sticky`);
 
-      // Try to connect host WITHOUT plugin being connected first
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
+    let pluginClosed = false;
+    plugin.onclose = () => {
+      pluginClosed = true;
+    };
 
-      // Wait for connection close
-      await new Promise<void>((resolve) => {
-        hostWs.onclose = (event) => {
-          closeCode = event.code;
-          closeReason = event.reason;
-          resolve();
-        };
-      });
+    host.close();
+    await sleep(100);
+    expect(pluginClosed).toBe(false);
 
-      // Verify connection was rejected with correct code and reason
-      expect(closeCode).toBe(1000);
-      expect(closeReason).toBe("Plugin not ready");
-    });
-
-    it("should allow host connection after plugin connects", async () => {
-      const pluginId = "test-plugin-6";
-      let hostConnected = false;
-
-      // Create plugin connection first
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Now try to connect host
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => {
-          hostConnected = true;
-          resolve();
-        };
-        // Set timeout in case connection fails
-        setTimeout(() => resolve(), 500);
-      });
-
-      // Verify host connected successfully
-      expect(hostConnected).toBe(true);
-
-      // Cleanup
-      pluginWs.close();
-      hostWs.close();
-    });
+    plugin.close();
+    await sleep(50);
   });
 
-  describe("Scenario 3: Second Host connects to same Plugin → first Host is replaced", () => {
-    it("should close first host connection when second host connects", async () => {
-      const pluginId = "test-plugin-7";
-      let firstHostClosed = false;
-      let firstHostCloseCode: number | undefined;
-      let firstHostCloseReason: string | undefined;
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create first host connection
-      const firstHostWs = new WebSocket(
-        `ws://127.0.0.1:${port}/host/${pluginId}`,
-      );
-
-      // Wait for first host to connect
-      await new Promise<void>((resolve) => {
-        firstHostWs.onopen = () => resolve();
-      });
-
-      // Set up close listener for first host
-      firstHostWs.onclose = (event) => {
-        firstHostClosed = true;
-        firstHostCloseCode = event.code;
-        firstHostCloseReason = event.reason;
-      };
-
-      // Create second host connection
-      const secondHostWs = new WebSocket(
-        `ws://127.0.0.1:${port}/host/${pluginId}`,
-      );
-
-      // Wait for second host to connect
-      await new Promise<void>((resolve) => {
-        secondHostWs.onopen = () => resolve();
-      });
-
-      // Wait for first host to close
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify first host was closed with correct code and reason
-      expect(firstHostClosed).toBe(true);
-      expect(firstHostCloseCode).toBe(1000);
-      expect(firstHostCloseReason).toBe("Replaced by new connection");
-
-      // Cleanup
-      pluginWs.close();
-      secondHostWs.close();
+  it("replaces an existing host connection", async () => {
+    const plugin = await open(`ws://127.0.0.1:${port}/plugins/replace`);
+    const host1 = await open(`ws://127.0.0.1:${port}/host/replace`);
+    const host1Closed = new Promise<number>((resolve) => {
+      host1.onclose = (event) => resolve(event.code);
     });
 
-    it("should route messages to second host after replacement", async () => {
-      const pluginId = "test-plugin-8";
-      const firstHostMessages: string[] = [];
-      const secondHostMessages: string[] = [];
+    const host2 = await open(`ws://127.0.0.1:${port}/host/replace`);
+    expect(await host1Closed).toBe(1000);
 
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
+    // New host receives plugin traffic
+    const toHost2 = nextMessage(host2);
+    plugin.send("after-replace");
+    expect(await toHost2).toBe("after-replace\n");
 
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create first host connection
-      const firstHostWs = new WebSocket(
-        `ws://127.0.0.1:${port}/host/${pluginId}`,
-      );
-
-      // Wait for first host to connect
-      await new Promise<void>((resolve) => {
-        firstHostWs.onopen = () => resolve();
-      });
-
-      // Set up message listener for first host
-      firstHostWs.onmessage = (event) => {
-        firstHostMessages.push(event.data);
-      };
-
-      // Create second host connection (replaces first)
-      const secondHostWs = new WebSocket(
-        `ws://127.0.0.1:${port}/host/${pluginId}`,
-      );
-
-      // Wait for second host to connect
-      await new Promise<void>((resolve) => {
-        secondHostWs.onopen = () => resolve();
-      });
-
-      // Set up message listener for second host
-      secondHostWs.onmessage = (event) => {
-        secondHostMessages.push(event.data);
-      };
-
-      // Wait for first host to close
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Send message from plugin
-      pluginWs.send("Message after replacement");
-
-      // Wait for message to be forwarded
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify message was routed to second host, not first
-      expect(secondHostMessages).toContain("Message after replacement\n");
-      expect(firstHostMessages.length).toBe(0);
-
-      // Cleanup
-      pluginWs.close();
-      secondHostWs.close();
-    });
-
-    it("should handle multiple sequential host replacements", async () => {
-      const pluginId = "test-plugin-9";
-      const closedHosts: { code: number; reason: string }[] = [];
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create and replace hosts multiple times
-      for (let i = 0; i < 3; i++) {
-        const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-        // Wait for host to connect
-        await new Promise<void>((resolve) => {
-          hostWs.onopen = () => resolve();
-        });
-
-        // Set up close listener
-        hostWs.onclose = (event) => {
-          closedHosts.push({ code: event.code, reason: event.reason });
-        };
-
-        // Wait before creating next host
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-
-      // Wait for all close events
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      // Verify first two hosts were replaced
-      expect(closedHosts.length).toBeGreaterThanOrEqual(2);
-      expect(closedHosts[0].code).toBe(1000);
-      expect(closedHosts[0].reason).toBe("Replaced by new connection");
-
-      // Cleanup
-      pluginWs.close();
-    });
+    plugin.close();
+    host2.close();
+    await sleep(50);
   });
 
-  describe("Edge cases and robustness", () => {
-    it("should handle plugin disconnection while host is connected", async () => {
-      const pluginId = "test-plugin-10";
-      let hostStillConnected = true;
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up host close listener
-      hostWs.onclose = () => {
-        hostStillConnected = false;
-      };
-
-      // Disconnect plugin
-      pluginWs.close();
-
-      // Wait for cleanup
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Host should still be connected (bridge doesn't close host when plugin disconnects)
-      expect(hostStillConnected).toBe(true);
-
-      // Cleanup
-      hostWs.close();
-    });
-
-    it("should handle host disconnection while plugin is connected", async () => {
-      const pluginId = "test-plugin-11";
-      let pluginStillConnected = true;
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up plugin close listener
-      pluginWs.onclose = () => {
-        pluginStillConnected = false;
-      };
-
-      // Disconnect host
-      hostWs.close();
-
-      // Wait for cleanup
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Plugin should still be connected (bridge doesn't close plugin when host disconnects)
-      expect(pluginStillConnected).toBe(true);
-
-      // Cleanup
-      pluginWs.close();
-    });
-
-    it("should handle JSON message forwarding", async () => {
-      const pluginId = "test-plugin-12";
-      const messages: string[] = [];
-
-      // Create plugin connection
-      const pluginWs = new WebSocket(
-        `ws://127.0.0.1:${port}/plugins/${pluginId}`,
-      );
-
-      // Wait for plugin to connect
-      await new Promise<void>((resolve) => {
-        pluginWs.onopen = () => resolve();
-      });
-
-      // Create host connection
-      const hostWs = new WebSocket(`ws://127.0.0.1:${port}/host/${pluginId}`);
-
-      // Wait for host to connect
-      await new Promise<void>((resolve) => {
-        hostWs.onopen = () => resolve();
-      });
-
-      // Set up host message listener
-      hostWs.onmessage = (event) => {
-        messages.push(event.data);
-      };
-
-      // Send JSON message from plugin
-      const jsonMessage = { type: "test", data: { value: 42 } };
-      pluginWs.send(JSON.stringify(jsonMessage));
-
-      // Wait for message to be forwarded
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      // Verify JSON message was forwarded with newline
-      expect(messages[0]).toBe(JSON.stringify(jsonMessage) + "\n");
-
-      // Cleanup
-      pluginWs.close();
-      hostWs.close();
-    });
+  it("serves 404 for unknown files and routes", async () => {
+    const res = await fetch(`http://127.0.0.1:${port}/react/nope.js`);
+    // no pluginDirs configured in this test server
+    expect(res.status).toBe(404);
+    const res2 = await fetch(`http://127.0.0.1:${port}/unknown`);
+    expect(res2.status).toBe(404);
   });
 });
