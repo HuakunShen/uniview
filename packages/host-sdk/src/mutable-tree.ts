@@ -3,12 +3,17 @@ import type { Mutation, UINode, JSONValue } from "@uniview/protocol";
 /**
  * MutableTree applies incremental mutations to a UINode tree.
  *
- * This class maintains indexes for efficient lookups and produces
- * new root references on each mutation to trigger Svelte $state reactivity.
+ * It maintains two indexes — id -> node and id -> parentId — so every
+ * mutation is O(depth): detaching a moved node and rebuilding the ancestor
+ * chain walk UP via the parent index instead of scanning the whole tree
+ * (which made an N-row keyed reorder O(N²) per batch). Each mutation
+ * produces new object references along the root path to trigger Svelte
+ * $state reactivity.
  */
 export class MutableTree {
   private tree: UINode | null = null;
   private nodeIndex: Map<string, UINode> = new Map();
+  private parentIndex: Map<string, string> = new Map();
 
   /**
    * Initialize the tree with a full UINode (from setRoot or first updateTree).
@@ -65,32 +70,39 @@ export class MutableTree {
   }
 
   /**
-   * Rebuild the node index from the current tree.
+   * Rebuild both indexes from the current tree.
    */
   private rebuildIndex(): void {
     this.nodeIndex.clear();
+    this.parentIndex.clear();
     if (this.tree) {
-      this.indexNode(this.tree);
+      this.indexNode(this.tree, null);
     }
   }
 
   /**
-   * Recursively index a node and its children.
+   * Recursively index a node (and its subtree) under the given parent.
    */
-  private indexNode(node: UINode): void {
+  private indexNode(node: UINode, parentId: string | null): void {
     this.nodeIndex.set(node.id, node);
+    if (parentId !== null) {
+      this.parentIndex.set(node.id, parentId);
+    } else {
+      this.parentIndex.delete(node.id);
+    }
     for (const child of node.children) {
       if (typeof child !== "string") {
-        this.indexNode(child);
+        this.indexNode(child, node.id);
       }
     }
   }
 
   /**
-   * Remove a node and its children from the index.
+   * Remove a node and its children from both indexes.
    */
   private unindexNode(node: UINode): void {
     this.nodeIndex.delete(node.id);
+    this.parentIndex.delete(node.id);
     for (const child of node.children) {
       if (typeof child !== "string") {
         this.unindexNode(child);
@@ -99,17 +111,37 @@ export class MutableTree {
   }
 
   /**
-   * Find the parent node currently containing a child with the given id.
+   * Replace the node with the given id by a new object and rebuild the
+   * ancestor chain (new references) up to the root via the parent index.
    */
-  private findParentOf(node: UINode | null, childId: string): UINode | null {
-    if (!node) return null;
-    for (const child of node.children) {
-      if (typeof child === "string") continue;
-      if (child.id === childId) return node;
-      const found = this.findParentOf(child, childId);
-      if (found) return found;
+  private replaceNode(targetId: string, newNode: UINode): void {
+    this.nodeIndex.set(targetId, newNode);
+
+    let childId = targetId;
+    let childNode = newNode;
+    while (this.tree && this.tree.id !== childId) {
+      const parentId = this.parentIndex.get(childId);
+      if (parentId === undefined) return; // not attached to the root
+      const parent = this.nodeIndex.get(parentId);
+      if (!parent) return;
+
+      const currentChildId = childId;
+      const newParent: UINode = {
+        ...parent,
+        children: parent.children.map((child) =>
+          typeof child !== "string" && child.id === currentChildId
+            ? childNode
+            : child,
+        ),
+      };
+      this.nodeIndex.set(parentId, newParent);
+      childId = parentId;
+      childNode = newParent;
     }
-    return null;
+
+    if (this.tree && this.tree.id === childId) {
+      this.tree = childNode;
+    }
   }
 
   /**
@@ -120,19 +152,19 @@ export class MutableTree {
    * re-inserted.
    */
   private detachExistingNode(nodeId: string): void {
-    const parent = this.findParentOf(this.tree, nodeId);
+    const parentId = this.parentIndex.get(nodeId);
+    if (parentId === undefined) return;
+    const parent = this.nodeIndex.get(parentId);
     if (!parent) return;
 
-    const newChildren = parent.children.filter(
-      (child) => typeof child === "string" || child.id !== nodeId,
-    );
-    const newParent: UINode = { ...parent, children: newChildren };
-    this.nodeIndex.set(parent.id, newParent);
-    if (this.tree?.id === parent.id) {
-      this.tree = newParent;
-    } else {
-      this.replaceNodeInTree(this.tree, parent.id, newParent);
-    }
+    const newParent: UINode = {
+      ...parent,
+      children: parent.children.filter(
+        (child) => typeof child === "string" || child.id !== nodeId,
+      ),
+    };
+    this.parentIndex.delete(nodeId);
+    this.replaceNode(parentId, newParent);
   }
 
   /**
@@ -144,23 +176,13 @@ export class MutableTree {
     const parent = this.nodeIndex.get(mutation.parentId);
     if (!parent) return;
 
-    // Create new parent reference with updated children
     const newParent: UINode = {
       ...parent,
       children: [...parent.children, mutation.node],
     };
 
-    // Update index
-    this.nodeIndex.set(mutation.parentId, newParent);
-    this.indexNode(mutation.node);
-
-    // Update tree if root was modified
-    if (this.tree?.id === mutation.parentId) {
-      this.tree = newParent;
-    } else {
-      // Update parent reference in tree
-      this.replaceNodeInTree(this.tree, mutation.parentId, newParent);
-    }
+    this.indexNode(mutation.node, mutation.parentId);
+    this.replaceNode(mutation.parentId, newParent);
   }
 
   /**
@@ -188,16 +210,14 @@ export class MutableTree {
     }
     if (insertIndex === -1) {
       // The anchor should always be present; a miss means the host tree
-      // diverged from the plugin tree (known cause until protocol v3:
-      // text-node anchors serialize as bare strings and carry no id).
-      // Append as recovery so the node isn't lost, but order is wrong.
+      // diverged from the plugin tree. Append as recovery so the node
+      // isn't lost, but order is no longer trustworthy.
       console.error(
         `[uniview] insertBefore anchor ${mutation.beforeId} not found under ${mutation.parentId}; appending instead (tree state diverged)`,
       );
       insertIndex = parent.children.length;
     }
 
-    // Create new parent with inserted child
     const newChildren = [...parent.children];
     newChildren.splice(insertIndex, 0, mutation.node);
 
@@ -206,16 +226,8 @@ export class MutableTree {
       children: newChildren,
     };
 
-    // Update index
-    this.nodeIndex.set(mutation.parentId, newParent);
-    this.indexNode(mutation.node);
-
-    // Update tree
-    if (this.tree?.id === mutation.parentId) {
-      this.tree = newParent;
-    } else {
-      this.replaceNodeInTree(this.tree, mutation.parentId, newParent);
-    }
+    this.indexNode(mutation.node, mutation.parentId);
+    this.replaceNode(mutation.parentId, newParent);
   }
 
   /**
@@ -228,7 +240,6 @@ export class MutableTree {
     const parent = this.nodeIndex.get(mutation.parentId);
     if (!parent) return;
 
-    // Find and remove the child
     const newChildren = parent.children.filter((child) => {
       if (typeof child === "string") return true;
       if (child.id === mutation.nodeId) {
@@ -243,15 +254,7 @@ export class MutableTree {
       children: newChildren,
     };
 
-    // Update index
-    this.nodeIndex.set(mutation.parentId, newParent);
-
-    // Update tree
-    if (this.tree?.id === mutation.parentId) {
-      this.tree = newParent;
-    } else {
-      this.replaceNodeInTree(this.tree, mutation.parentId, newParent);
-    }
+    this.replaceNode(mutation.parentId, newParent);
   }
 
   /**
@@ -268,20 +271,10 @@ export class MutableTree {
       return;
     }
 
-    const newNode: UINode = {
+    this.replaceNode(mutation.nodeId, {
       ...node,
       text: mutation.text,
-    };
-
-    // Update index
-    this.nodeIndex.set(mutation.nodeId, newNode);
-
-    // Update tree
-    if (this.tree?.id === mutation.nodeId) {
-      this.tree = newNode;
-    } else {
-      this.replaceNodeInTree(this.tree, mutation.nodeId, newNode);
-    }
+    });
   }
 
   /**
@@ -294,66 +287,9 @@ export class MutableTree {
     const node = this.nodeIndex.get(mutation.nodeId);
     if (!node) return;
 
-    const newNode: UINode = {
+    this.replaceNode(mutation.nodeId, {
       ...node,
       props: mutation.props,
-    };
-
-    // Update index
-    this.nodeIndex.set(mutation.nodeId, newNode);
-
-    // Update tree
-    if (this.tree?.id === mutation.nodeId) {
-      this.tree = newNode;
-    } else {
-      this.replaceNodeInTree(this.tree, mutation.nodeId, newNode);
-    }
-  }
-
-  /**
-   * Recursively replace a node in the tree.
-   */
-  private replaceNodeInTree(
-    node: UINode | null,
-    targetId: string,
-    newNode: UINode,
-  ): UINode | null {
-    if (!node) return null;
-
-    if (node.id === targetId) {
-      this.nodeIndex.set(targetId, newNode);
-      if (this.tree?.id === targetId) {
-        this.tree = newNode;
-      }
-      return newNode;
-    }
-
-    let replaced = false;
-    const newChildren = node.children.map((child) => {
-      if (typeof child === "string") return child;
-
-      const updatedChild = this.replaceNodeInTree(child, targetId, newNode);
-      if (updatedChild) {
-        replaced = true;
-        return updatedChild;
-      }
-
-      return child;
     });
-
-    if (!replaced) {
-      return null;
-    }
-
-    const updatedNode: UINode = {
-      ...node,
-      children: newChildren,
-    };
-    this.nodeIndex.set(node.id, updatedNode);
-    if (this.tree?.id === node.id) {
-      this.tree = updatedNode;
-    }
-
-    return updatedNode;
   }
 }
