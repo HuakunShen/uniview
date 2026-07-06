@@ -90,7 +90,27 @@ function _replaceText(textNode: SolidTextNode, value: string): void {
 	scheduleUpdate();
 }
 
+/**
+ * Remove a node from its current parent's children array (if attached).
+ * Solid's universal renderer reuses insertNode to MOVE existing nodes
+ * (keyed list reorders); DOM insertBefore auto-detaches, an array-based
+ * children model must do it explicitly or reorders duplicate the node.
+ */
+function _detachFromParent(node: AnyNode): void {
+	const prevParent = node.parent;
+	if (!prevParent) return;
+	const index = prevParent.children.indexOf(
+		node as SolidNode | SolidTextNode | SolidSlotNode,
+	);
+	if (index !== -1) {
+		prevParent.children.splice(index, 1);
+	}
+}
+
 function _insertNode(parent: SolidNode, node: AnyNode, anchor?: AnyNode): void {
+	// Detach first (may be a move) — and only then resolve the anchor index,
+	// since detaching from the same parent shifts sibling positions.
+	_detachFromParent(node);
 	node.parent = parent;
 
 	if (anchor) {
