@@ -8,9 +8,11 @@ import type { JSONValue, UINode } from "./tree";
 export type UpdateMode = "full" | "incremental";
 
 /**
- * Append a child node to a parent
- * For element nodes, the full serialized subtree is provided in `node`
- * For text nodes, `textNodeId` and `text` are set, and `node` is omitted
+ * Append a child node to a parent.
+ * The full serialized subtree is provided in `node`; text children are
+ * explicit `{type: TEXT_NODE_TYPE, text}` nodes since protocol v3.
+ * Hosts must treat this as a MOVE when the node already exists in the
+ * tree (detach from its current position first).
  */
 export interface AppendChildMutation {
 	type: "appendChild";
@@ -19,9 +21,10 @@ export interface AppendChildMutation {
 }
 
 /**
- * Insert a child node before a reference node
- * For element nodes, the full serialized subtree is provided in `node`
- * For text nodes, `textNodeId` and `text` are set, and `node` is omitted
+ * Insert a child node before a reference node.
+ * The full serialized subtree is provided in `node`; `beforeId` may
+ * reference an element or a text node. Hosts must treat this as a MOVE
+ * when the node already exists in the tree.
  */
 export interface InsertBeforeMutation {
 	type: "insertBefore";
@@ -41,12 +44,13 @@ export interface RemoveChildMutation {
 }
 
 /**
- * Update the text content of a text node
+ * Update the content of a text node, addressed by its stable node id
+ * (protocol v3 — previously addressed by parentId + childIndex, which
+ * corrupted the wrong child whenever host and plugin trees diverged)
  */
 export interface SetTextMutation {
 	type: "setText";
-	parentId: string;
-	childIndex: number;
+	nodeId: string;
 	text: string;
 }
 

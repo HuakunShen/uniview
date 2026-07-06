@@ -255,41 +255,32 @@ export class MutableTree {
   }
 
   /**
-   * Apply setText mutation.
+   * Apply setText mutation (protocol v3: addressed by the text node's
+   * stable id, not parentId + childIndex which corrupted the wrong child
+   * whenever host and plugin trees diverged).
    */
-  private applySetText(mutation: {
-    parentId: string;
-    childIndex: number;
-    text: string;
-  }): void {
-    const parent = this.nodeIndex.get(mutation.parentId);
-    if (!parent) return;
-
-    // Validate child index
-    if (
-      mutation.childIndex < 0 ||
-      mutation.childIndex >= parent.children.length
-    ) {
+  private applySetText(mutation: { nodeId: string; text: string }): void {
+    const node = this.nodeIndex.get(mutation.nodeId);
+    if (!node) {
+      console.error(
+        `[uniview] setText target ${mutation.nodeId} not found (tree state diverged)`,
+      );
       return;
     }
 
-    // Create new children array with updated text
-    const newChildren = [...parent.children];
-    newChildren[mutation.childIndex] = mutation.text;
-
-    const newParent: UINode = {
-      ...parent,
-      children: newChildren,
+    const newNode: UINode = {
+      ...node,
+      text: mutation.text,
     };
 
     // Update index
-    this.nodeIndex.set(mutation.parentId, newParent);
+    this.nodeIndex.set(mutation.nodeId, newNode);
 
     // Update tree
-    if (this.tree?.id === mutation.parentId) {
-      this.tree = newParent;
+    if (this.tree?.id === mutation.nodeId) {
+      this.tree = newNode;
     } else {
-      this.replaceNodeInTree(this.tree, mutation.parentId, newParent);
+      this.replaceNodeInTree(this.tree, mutation.nodeId, newNode);
     }
   }
 

@@ -1,6 +1,10 @@
-import type { UINode } from "@uniview/protocol";
+import { TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
 import { describe, expect, test } from "vitest";
 import { MutableTree } from "../src/mutable-tree";
+
+function textNode(id: string, text: string): UINode {
+  return { id, type: TEXT_NODE_TYPE, props: {}, children: [], text };
+}
 
 function createRoot(): UINode {
   return {
@@ -8,8 +12,13 @@ function createRoot(): UINode {
     type: "div",
     props: { className: "root" },
     children: [
-      { id: "label", type: "span", props: {}, children: ["before"] },
-      "tail",
+      {
+        id: "label",
+        type: "span",
+        props: {},
+        children: [textNode("label-text", "before")],
+      },
+      textNode("tail-text", "tail"),
     ],
   };
 }
@@ -25,7 +34,12 @@ function createNestedRoot(): UINode {
         type: "section",
         props: {},
         children: [
-          { id: "nested-label", type: "span", props: {}, children: ["before"] },
+          {
+            id: "nested-label",
+            type: "span",
+            props: {},
+            children: [textNode("nested-label-text", "before")],
+          },
           { id: "nested-list", type: "div", props: {}, children: [] },
         ],
       },
@@ -66,18 +80,22 @@ describe("MutableTree", () => {
     }
   });
 
-  test("applies setText by parent and child index", () => {
+  test("applies setText by text node id", () => {
     const tree = new MutableTree();
     tree.init(createRoot());
 
     const next = tree.applyMutations([
-      { type: "setText", parentId: "label", childIndex: 0, text: "after" },
+      { type: "setText", nodeId: "label-text", text: "after" },
     ]);
 
     const label = next?.children[0];
     expect(typeof label).not.toBe("string");
     if (typeof label !== "string") {
-      expect(label.children).toEqual(["after"]);
+      const text = label.children[0];
+      expect(typeof text).not.toBe("string");
+      if (typeof text !== "string") {
+        expect(text.text).toBe("after");
+      }
     }
   });
 
@@ -104,7 +122,7 @@ describe("MutableTree", () => {
       afterInsert?.children.map((child) =>
         typeof child === "string" ? child : child.id,
       ),
-    ).toEqual(["label", "tail", "middle", "last"]);
+    ).toEqual(["label", "tail-text", "middle", "last"]);
 
     const afterRemove = tree.applyMutations([
       { type: "removeChild", parentId: "root", nodeId: "middle" },
@@ -114,7 +132,7 @@ describe("MutableTree", () => {
       afterRemove?.children.map((child) =>
         typeof child === "string" ? child : child.id,
       ),
-    ).toEqual(["label", "tail", "last"]);
+    ).toEqual(["label", "tail-text", "last"]);
   });
 
   test("replaces the root with setRoot", () => {
@@ -149,18 +167,14 @@ describe("MutableTree", () => {
     tree.init(createNestedRoot());
 
     const afterText = tree.applyMutations([
-      {
-        type: "setText",
-        parentId: "nested-label",
-        childIndex: 0,
-        text: "after",
-      },
+      { type: "setText", nodeId: "nested-label-text", text: "after" },
     ]);
 
     if (!afterText) throw new Error("Expected tree after setText");
     const sectionAfterText = getElementChild(afterText, 0);
     const labelAfterText = getElementChild(sectionAfterText, 0);
-    expect(labelAfterText.children).toEqual(["after"]);
+    const nestedText = getElementChild(labelAfterText, 0);
+    expect(nestedText.text).toBe("after");
 
     const afterAppend = tree.applyMutations([
       {

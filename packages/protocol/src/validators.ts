@@ -20,6 +20,7 @@ export const UINodeSchema: z.ZodType<UINode> = z.lazy(() =>
     type: z.string(),
     props: z.record(z.string(), JSONValueSchema),
     children: z.array(z.union([UINodeSchema, z.string()])),
+    text: z.string().optional(),
   }),
 );
 

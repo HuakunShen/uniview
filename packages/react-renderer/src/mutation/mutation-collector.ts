@@ -173,16 +173,9 @@ export class MutationCollector {
 	 * Collect a setText mutation.
 	 */
 	collectSetText(textInstance: TextNode): void {
-		const parent = textInstance.parent;
-		if (!parent) return;
-
-		const childIndex = parent.children.findIndex((c) => c === textInstance);
-		if (childIndex === -1) return;
-
 		const mutation: SetTextMutation = {
 			type: "setText",
-			parentId: parent.id,
-			childIndex,
+			nodeId: textInstance.id,
 			text: textInstance.text,
 		};
 		this.pendingMutations.push(mutation);
