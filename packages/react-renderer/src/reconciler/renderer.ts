@@ -17,6 +17,16 @@ export function createRenderer(): RendererHandle {
 
 export function render(element: ReactElement, handle: RendererHandle): void {
   if (!handle._container) {
+    // Uncaught errors go to the bridge's onError (wired to the host's
+    // reportError RPC by the runtimes) so plugin crashes are visible to
+    // the host instead of dying silently in a worker console.
+    const reportUncaught = (error: unknown) => {
+      if (handle.onError) {
+        handle.onError(error);
+      } else {
+        console.error(error);
+      }
+    };
     handle._container = reconciler.createContainer(
       handle,
       ConcurrentRoot,
@@ -24,7 +34,7 @@ export function render(element: ReactElement, handle: RendererHandle): void {
       false,
       null,
       "",
-      console.error,
+      reportUncaught,
       console.error,
       console.error,
       console.error,

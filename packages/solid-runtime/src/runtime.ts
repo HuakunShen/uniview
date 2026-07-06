@@ -74,6 +74,36 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
   const stats: Stats = { bytesSent: 0, messagesSent: 0 };
   globalThis.__uniview_stats = stats;
 
+  /** Forward a plugin-side error to the host's reportError RPC. */
+  function reportErrorToHost(error: unknown): void {
+    console.error("[uniview plugin]", error);
+    if (!rpc) return;
+    const payload =
+      error instanceof Error
+        ? { message: error.message, ...(error.stack ? { stack: error.stack } : {}) }
+        : { message: String(error) };
+    try {
+      void rpc.getAPI().reportError(payload);
+    } catch {
+      // Channel already gone — nothing more to do.
+    }
+  }
+
+  interface GlobalErrorTarget {
+    addEventListener?: (type: string, listener: (event: unknown) => void) => void;
+    removeEventListener?: (type: string, listener: (event: unknown) => void) => void;
+  }
+
+  const globalTarget = globalThis as GlobalErrorTarget;
+  const onGlobalError = (event: unknown) => {
+    const e = event as { error?: unknown; message?: unknown };
+    reportErrorToHost(e.error ?? e.message ?? event);
+  };
+  const onUnhandledRejection = (event: unknown) => {
+    const e = event as { reason?: unknown };
+    reportErrorToHost(e.reason ?? event);
+  };
+
   function resetState() {
     if (disposeRoot) {
       disposeRoot();
@@ -233,8 +263,14 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
   return {
     async start() {
       rpc = createChannel(transport, pluginAPI);
+      // Uncaught exceptions and unhandled rejections anywhere in the
+      // plugin context are reported to the host.
+      globalTarget.addEventListener?.("error", onGlobalError);
+      globalTarget.addEventListener?.("unhandledrejection", onUnhandledRejection);
     },
     stop() {
+      globalTarget.removeEventListener?.("error", onGlobalError);
+      globalTarget.removeEventListener?.("unhandledrejection", onUnhandledRejection);
       // Full teardown so a stopped runtime leaves no live reactive root.
       resetState();
       rpc?.destroy();

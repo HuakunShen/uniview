@@ -30,12 +30,20 @@ export function createMainController(
   let tree: UINode | null = null;
   let mutableTree = new MutableTree();
   let connected = false;
+  let lastError: string | undefined;
   const subscribers = new Set<(tree: UINode | null) => void>();
+  const errorSubscribers = new Set<(message: string) => void>();
 
   return {
     async connect() {
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderBridge();
+      bridge.onError = (error: unknown) => {
+        lastError = error instanceof Error ? error.message : String(error);
+        console.error("[Plugin Main Error]", error);
+        const message = lastError;
+        errorSubscribers.forEach((cb) => void cb(message));
+      };
 
       if (mode === "incremental") {
         mutationCollector = new MutationCollector(handlerRegistry);
@@ -125,10 +133,18 @@ export function createMainController(
       };
     },
 
+    subscribeErrors(cb: (message: string) => void) {
+      errorSubscribers.add(cb);
+      return () => {
+        errorSubscribers.delete(cb);
+      };
+    },
+
     getStatus(): { mode: HostMode; connected: boolean; lastError?: string } {
       return {
         mode: "main",
         connected,
+        ...(lastError !== undefined ? { lastError } : {}),
       };
     },
   };

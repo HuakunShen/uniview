@@ -31,6 +31,7 @@ export function createWebSocketController(
   let connected = false;
   let lastError: string | undefined;
   const subscribers = new Set<(tree: UINode | null) => void>();
+  const errorSubscribers = new Set<(message: string) => void>();
 
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
@@ -48,6 +49,7 @@ export function createWebSocketController(
     reportError(err) {
       lastError = err.message;
       console.error("[Plugin WS Error]", err.message, err.stack);
+      errorSubscribers.forEach((cb) => void cb(err.message));
     },
   };
 
@@ -122,6 +124,13 @@ export function createWebSocketController(
       subscribers.add(cb);
       return () => {
         subscribers.delete(cb);
+      };
+    },
+
+    subscribeErrors(cb: (message: string) => void) {
+      errorSubscribers.add(cb);
+      return () => {
+        errorSubscribers.delete(cb);
       };
     },
 

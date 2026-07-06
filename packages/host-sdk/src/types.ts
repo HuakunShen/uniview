@@ -49,6 +49,12 @@ export interface PluginController {
    * Returns unsubscribe function
    */
   subscribe(cb: (tree: UINode | null) => void): () => void;
+
+  /**
+   * Subscribe to plugin runtime errors (reportError RPC).
+   * Returns unsubscribe function.
+   */
+  subscribeErrors?(cb: (message: string) => void): () => void;
 }
 
 export interface ComponentMetadata {

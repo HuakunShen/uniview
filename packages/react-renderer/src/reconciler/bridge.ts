@@ -10,6 +10,12 @@ export interface RenderBridge {
   subscribe: (callback: () => void) => () => void;
   subscribeMutations: (callback: (mutations: Mutation[]) => void) => () => void;
   update: () => void;
+  /**
+   * Receives uncaught render/commit errors from the React root. Runtimes
+   * wire this to the host's reportError RPC; unset, errors only reach the
+   * local console (invisible to the host).
+   */
+  onError?: (error: unknown) => void;
 }
 
 export function createRenderBridge(): RenderBridge {

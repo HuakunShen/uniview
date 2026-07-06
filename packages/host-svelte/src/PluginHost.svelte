@@ -15,7 +15,9 @@
 
 	let tree = $state<UINode | null>(null);
 	let error = $state<string | null>(null);
+	let runtimeError = $state<string | null>(null);
 	let unsubscribe: (() => void) | null = null;
+	let unsubscribeErrors: (() => void) | null = null;
 
 	setContext("uniview:controller", untrack(() => controller));
 	setContext("uniview:registry", untrack(() => registry));
@@ -23,7 +25,13 @@
 	onMount(async () => {
 		unsubscribe = controller.subscribe((newTree: UINode | null) => {
 			tree = newTree;
+			// A fresh tree means the plugin recovered/re-rendered
+			runtimeError = null;
 		});
+		unsubscribeErrors =
+			controller.subscribeErrors?.((message: string) => {
+				runtimeError = message;
+			}) ?? null;
 		try {
 			await controller.connect();
 		} catch (err) {
@@ -33,6 +41,7 @@
 
 	onDestroy(() => {
 		unsubscribe?.();
+		unsubscribeErrors?.();
 		controller.disconnect();
 	});
 </script>
@@ -42,10 +51,21 @@
 		<p style="font-weight: 600;">Failed to load plugin</p>
 		<p style="font-size: 0.875rem; opacity: 0.7; margin-top: 0.5rem;">{error}</p>
 	</div>
-{:else if tree}
-	<ComponentRenderer node={tree} />
-{:else if loading}
-	{@render loading()}
 {:else}
-	<div>Loading...</div>
+	{#if runtimeError}
+		<div
+			role="alert"
+			style="padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border: 1px solid #ef4444; border-radius: 0.375rem; color: #ef4444; font-size: 0.875rem;"
+		>
+			<span style="font-weight: 600;">Plugin error:</span>
+			{runtimeError}
+		</div>
+	{/if}
+	{#if tree}
+		<ComponentRenderer node={tree} />
+	{:else if loading}
+		{@render loading()}
+	{:else}
+		<div>Loading...</div>
+	{/if}
 {/if}

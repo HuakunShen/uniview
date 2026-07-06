@@ -86,6 +86,36 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     handlerRegistry = null;
   }
 
+  /** Forward a plugin-side error to the host's reportError RPC. */
+  function reportErrorToHost(error: unknown): void {
+    console.error("[uniview plugin]", error);
+    if (!rpc) return;
+    const payload =
+      error instanceof Error
+        ? { message: error.message, ...(error.stack ? { stack: error.stack } : {}) }
+        : { message: String(error) };
+    try {
+      void rpc.getAPI().reportError(payload);
+    } catch {
+      // Channel already gone — nothing more to do.
+    }
+  }
+
+  interface GlobalErrorTarget {
+    addEventListener?: (type: string, listener: (event: unknown) => void) => void;
+    removeEventListener?: (type: string, listener: (event: unknown) => void) => void;
+  }
+
+  const globalTarget = globalThis as GlobalErrorTarget;
+  const onGlobalError = (event: unknown) => {
+    const e = event as { error?: unknown; message?: unknown };
+    reportErrorToHost(e.error ?? e.message ?? event);
+  };
+  const onUnhandledRejection = (event: unknown) => {
+    const e = event as { reason?: unknown };
+    reportErrorToHost(e.reason ?? event);
+  };
+
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
       assertProtocolVersion(req.protocolVersion);
@@ -93,6 +123,10 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
 
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderer();
+      // React render/commit errors -> host reportError (previously they
+      // only hit the worker/process console; the host showed stale UI
+      // with no indication the plugin had crashed).
+      bridge.onError = reportErrorToHost;
 
       if (mode === "incremental") {
         // Set up mutation collection
@@ -172,8 +206,14 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
   return {
     async start() {
       rpc = createChannel(transport, pluginAPI);
+      // Uncaught exceptions and unhandled rejections anywhere in the
+      // plugin context are reported to the host.
+      globalTarget.addEventListener?.("error", onGlobalError);
+      globalTarget.addEventListener?.("unhandledrejection", onUnhandledRejection);
     },
     stop() {
+      globalTarget.removeEventListener?.("error", onGlobalError);
+      globalTarget.removeEventListener?.("unhandledrejection", onUnhandledRejection);
       // Full teardown: unmount the tree (effect cleanups) before dropping
       // the channel, so a stopped runtime leaves nothing running.
       resetRuntimeState();
