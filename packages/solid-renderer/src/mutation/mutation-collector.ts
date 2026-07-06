@@ -72,10 +72,26 @@ export class SolidMutationCollector {
 
 		return {
 			type: node.type,
-			props: serializeProps(node.props, this.handlerRegistry),
+			props: serializeProps(node.props, this.handlerRegistry, node.id),
 			children: serializedChildren,
 			id: node.id,
 		};
+	}
+
+	/**
+	 * Clean up handlers for a removed subtree.
+	 * Recursively releases every handler id owned by the removed nodes.
+	 */
+	private cleanupHandlers(node: AnyNode): void {
+		if (!isElementNode(node)) {
+			return;
+		}
+
+		this.handlerRegistry.releaseNode(node.id);
+
+		for (const child of node.children) {
+			this.cleanupHandlers(child);
+		}
 	}
 
 	/**
@@ -135,14 +151,15 @@ export class SolidMutationCollector {
 	 * Collect a removeChild mutation.
 	 */
 	collectRemoveChild(_parent: SolidNode, node: AnyNode): void {
-		const nodeId = isTextNode(node) ? node.id : node.id;
-
 		const mutation: RemoveChildMutation = {
 			type: "removeChild",
 			parentId: _parent.id,
-			nodeId,
+			nodeId: node.id,
 		};
 		this.pendingMutations.push(mutation);
+
+		// Clean up handlers for the removed subtree
+		this.cleanupHandlers(node);
 	}
 
 	/**
@@ -152,7 +169,7 @@ export class SolidMutationCollector {
 		const mutation: SetPropsMutation = {
 			type: "setProps",
 			nodeId: node.id,
-			props: serializeProps(node.props, this.handlerRegistry),
+			props: serializeProps(node.props, this.handlerRegistry, node.id),
 		};
 		this.pendingMutations.push(mutation);
 	}

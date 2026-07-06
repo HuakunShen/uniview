@@ -15,7 +15,24 @@ function isElementNode(node: AnyNode): node is SolidNode {
 	return node._type === "element";
 }
 
+/**
+ * Serialize a full tree from the root. Brackets the walk with a registry
+ * sweep so handlers owned by nodes that left the tree are released —
+ * without this, full update mode leaks handlers for every removed node.
+ */
 export function serializeTree(
+	node: AnyNode | null,
+	registry: HandlerRegistry,
+): UINode | string | null {
+	registry.beginSweep();
+	try {
+		return serializeNode(node, registry);
+	} finally {
+		registry.endSweep();
+	}
+}
+
+function serializeNode(
 	node: AnyNode | null,
 	registry: HandlerRegistry,
 ): UINode | string | null {
@@ -37,7 +54,7 @@ export function serializeTree(
 
 	const serializedChildren: (UINode | string)[] = [];
 	for (const child of node.children) {
-		const serializedChild = serializeTree(child, registry);
+		const serializedChild = serializeNode(child, registry);
 		if (serializedChild !== null) {
 			serializedChildren.push(serializedChild);
 		}
@@ -45,7 +62,7 @@ export function serializeTree(
 
 	return {
 		type: node.type,
-		props: serializeProps(node.props, registry),
+		props: serializeProps(node.props, registry, node.id),
 		children: serializedChildren,
 		id: node.id,
 	};

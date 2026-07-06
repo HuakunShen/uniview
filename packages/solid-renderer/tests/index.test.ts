@@ -61,15 +61,15 @@ describe("solid renderer serialization", () => {
       id: "button-1",
       type: "Button",
       props: {
-        _onClickHandlerId: "handler_0",
+        _onClickHandlerId: "button-1:onClick",
         variant: "primary",
         disabled: false,
       },
       children: ["Save"],
     });
     expect(registry.size).toBe(1);
-    expect(registry.has("handler_0")).toBe(true);
-    expect(await registry.execute("handler_0")).toBe("clicked");
+    expect(registry.has("button-1:onClick")).toBe(true);
+    expect(await registry.execute("button-1:onClick")).toBe("clicked");
   });
 
   test("collects incremental mutations using serialized node payloads", () => {

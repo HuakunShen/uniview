@@ -145,7 +145,9 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
         const currentRoot = getRootNode();
         if (!currentRoot || currentRoot.children.length === 0) return;
 
-        handlerRegistry.clear();
+        // No clear() here: it reset the id counter, so handler ids were
+        // REUSED across renders and a late event RPC could execute the
+        // wrong handler. serializeTree sweeps stale nodes itself now.
 
         const serializedTree = serializeTree(
           currentRoot.children[0],

@@ -172,7 +172,9 @@ export function createSolidWebSocketPluginClient(
 						const currentRoot = getRootNode()
 						if (!currentRoot || currentRoot.children.length === 0) return
 
-						handlerRegistry.clear()
+						// No clear() here: it reset the id counter, so handler ids
+						// were reused and late event RPCs could hit the wrong handler.
+						// serializeTree sweeps stale nodes itself now.
 
 						const serializedTree = serializeTree(
 							currentRoot.children[0],
@@ -258,7 +260,9 @@ export function createSolidWebSocketPluginClient(
 						const currentRoot = getRootNode()
 						if (!currentRoot || currentRoot.children.length === 0) return
 
-						handlerRegistry.clear()
+						// No clear() here: it reset the id counter, so handler ids
+						// were reused and late event RPCs could hit the wrong handler.
+						// serializeTree sweeps stale nodes itself now.
 
 						const serializedTree = serializeTree(
 							currentRoot.children[0],
