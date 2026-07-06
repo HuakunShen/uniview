@@ -20,7 +20,7 @@
 
 ## Overview
 
-`@uniview/solid-runtime` is the Solid counterpart to the React runtime. It uses `@uniview/solid-renderer`, kkrpc transports, protocol version checks, handler registries, and optional mutation collection to expose Solid plugins through the same `HostToPluginAPI` contract.
+`@uniview/solid-runtime` is the Solid counterpart to the React runtime. It uses `@uniview/solid-renderer`, kkrpc transports, protocol version checks, handler registries, and optional mutation collection to expose Solid plugins through the same `HostToPluginAPI` contract. Uncaught exceptions and unhandled rejections are wired through `reportError` to the host.
 
 **Section sources**
 
@@ -39,7 +39,7 @@ The package exports Worker/runtime APIs at `.` and bridge-client APIs at `./ws-c
 
 ## Runtime Lifecycle
 
-The core runtime resets Solid root state before initialization and prop updates, creates a root node, configures either full-tree callbacks or mutation callbacks, renders the Solid component inside `createRoot`, executes handler IDs through `HandlerRegistry`, supports `syncTree`, and tears down with `destroy`.
+The core runtime resets Solid root state before initialization and prop updates, creates a root node, configures either full-tree callbacks or mutation callbacks, renders the Solid component inside `createRoot`, executes handler IDs through `HandlerRegistry`, supports `syncTree`, and tears down with `destroy`. Handler IDs are stable (`${nodeId}:${propName}`) with no `clear()`-per-update reset that previously reused IDs and caused late event RPCs to execute wrong handlers. Benchmark stats (`bytesSent`, `messagesSent`) are gated behind a `debug: true` option.
 
 **Section sources**
 

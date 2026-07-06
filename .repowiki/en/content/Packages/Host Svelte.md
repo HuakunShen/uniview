@@ -36,7 +36,7 @@ The public source exports are `PluginHost` and `ComponentRenderer`. Consumers no
 
 ## PluginHost Lifecycle
 
-`PluginHost` accepts a `PluginController`, `ComponentRegistry`, and optional loading snippet. It stores controller and registry in Svelte context, subscribes to tree updates, connects on mount, captures connection errors in local state, disconnects on destroy, and renders either an error message, the current tree, a custom loading snippet, or a default loading message.
+`PluginHost` accepts a `PluginController`, `ComponentRegistry`, and optional loading snippet. It stores controller and registry in Svelte context, subscribes to tree updates and error notifications, connects on mount, captures both connection and runtime errors in local state, disconnects on destroy, and renders either an error message, the current tree (with an optional runtime error banner), a custom loading snippet, or a default loading message.
 
 **Section sources**
 
@@ -45,6 +45,8 @@ The public source exports are `PluginHost` and `ComponentRenderer`. Consumers no
 ## ComponentRenderer Behavior
 
 `ComponentRenderer` recursively renders `UINode` and text children. It transforms handler ID props into `controller.executeHandler` calls with serialized args via `serializeHandlerArgs`, maps `className`/`htmlFor`, converts style objects to CSS strings, extracts serializable values from input/change events, prevents default form submissions, handles known layout tags, recognizes void elements (`hr`, `br`, `img`, `wbr`), and passes child node metadata to registered components.
+
+Keyboard events (`onKeyDown`, `onKeyUp`) now pass the raw DOM event through `serializeHandlerArgs` which extracts `key`/`code`/modifier payloads — previously they were wrapped as `() => handler()` so plugins never saw which key was pressed. All `{#each}` blocks use keyed iteration (text children keyed by `str-${i}`, nodes by `child.id`) for correct list reconciliation.
 
 ```mermaid
 graph TD

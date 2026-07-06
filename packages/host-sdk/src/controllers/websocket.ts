@@ -12,17 +12,20 @@ import type {
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
 import { MutableTree } from "../mutable-tree";
+import { validateIncomingTree, validateIncomingMutations } from "../validate";
 
 export interface WebSocketControllerOptions {
   serverUrl: string;
   pluginId: string;
   initialProps?: JSONValue;
+  /** Dev-mode: validate plugin -> host messages against the protocol schemas. */
+  validate?: boolean;
 }
 
 export function createWebSocketController(
   opts: WebSocketControllerOptions,
 ): PluginController {
-  const { serverUrl, pluginId, initialProps } = opts;
+  const { serverUrl, pluginId, initialProps, validate = false } = opts;
 
   let transport: Transport<RPCMessage> | null = null;
   let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
@@ -33,13 +36,27 @@ export function createWebSocketController(
   const subscribers = new Set<(tree: UINode | null) => void>();
   const errorSubscribers = new Set<(message: string) => void>();
 
+  function reportValidation(message: string): void {
+    lastError = message;
+    console.error("[Plugin WS Protocol]", message);
+    errorSubscribers.forEach((cb) => void cb(message));
+  }
+
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
+      if (validate) {
+        const err = validateIncomingTree(newTree);
+        if (err) reportValidation(err);
+      }
       tree = newTree;
       mutableTree.init(newTree);
       subscribers.forEach((cb) => void cb(tree));
     },
     applyMutations(mutations: Mutation[]) {
+      if (validate) {
+        const err = validateIncomingMutations(mutations);
+        if (err) reportValidation(err);
+      }
       tree = mutableTree.applyMutations(mutations);
       subscribers.forEach((cb) => void cb(tree));
     },

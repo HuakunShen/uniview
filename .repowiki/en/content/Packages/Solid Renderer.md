@@ -59,7 +59,7 @@ graph TD
 
 ## Serialization
 
-Solid serialization converts element and text nodes to `UINode` and string children, skips slot nodes, and serializes event props using the protocol event helper set. Unlike React's regex-based handler detection, Solid serialization follows protocol `EVENT_PROPS`.
+Solid serialization converts element and text nodes to `UINode` and text nodes, skips slot nodes, and serializes event props using deterministic handler IDs (`${nodeId}:${propName}`). Since protocol v3, text nodes are emitted as explicit `{type: "#text", text}` nodes with stable ids. Both renderers now share the same `on[A-Z]*` detection pattern (not just the DOM event whitelist — custom app-level handlers like `onSearchTextChange` are included). The serializer warns once per prop name when nested functions are found inside object/array props, since those will silently cross the RPC boundary without becoming handler IDs.
 
 **Section sources**
 

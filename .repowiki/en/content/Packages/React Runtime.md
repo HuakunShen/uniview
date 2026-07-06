@@ -50,7 +50,7 @@ The package exports the root runtime APIs from `.` and the server-side bridge cl
 
 ## Core Runtime Lifecycle
 
-During `initialize`, the runtime checks protocol version, creates `HandlerRegistry` and renderer bridge, subscribes to either full-tree or mutation updates, renders the React app with initial props, and sends updates to the host. Later host calls update props, execute registered handlers, request full-tree sync, or destroy runtime state.
+During `initialize`, the runtime checks protocol version, resets previous runtime state (unmounts the previous React root so effects don't leak), creates `HandlerRegistry` and renderer bridge, subscribes to either full-tree or mutation updates, wires bridge `onError` to the host's `reportError` RPC, renders the React app with initial props, and sends updates to the host. Later host calls update props, execute registered handlers, request full-tree sync, or destroy runtime state. On `destroy`, the runtime unmounts the React tree (effect cleanups) before dropping the channel.
 
 **Section sources**
 
@@ -77,7 +77,7 @@ During `initialize`, the runtime checks protocol version, creates `HandlerRegist
 
 ## Update Modes and Benchmark Stats
 
-Full mode serializes and sends the current tree through `updateTree`. Incremental mode attaches a `MutationCollector` and sends mutation batches through `applyMutations`, while also tracking `bytesSent` and `messagesSent` on `globalThis.__uniview_stats` for benchmark demos. The deprecated `@uniview/react-runtime/ws-server` export path has been removed in favor of bridge-client mode only.
+Full mode serializes and sends the current tree through `updateTree`. Incremental mode attaches a `MutationCollector` and sends mutation batches through `applyMutations`. Benchmark stats (`bytesSent`, `messagesSent`) on `globalThis.__uniview_stats` are gated behind a `debug: true` option — they cost an extra `JSON.stringify` per payload and should be kept off in production. The deprecated `@uniview/react-runtime/ws-server` export path has been removed in favor of bridge-client mode only.
 
 **Section sources**
 

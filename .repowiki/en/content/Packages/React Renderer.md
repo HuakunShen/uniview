@@ -24,7 +24,7 @@
 
 ## Overview
 
-`@uniview/react-renderer` is a custom React reconciler that creates in-memory nodes instead of DOM elements. It lets React components run in Workers and server-side runtimes, then serializes the resulting tree into protocol `UINode` objects.
+`@uniview/react-renderer` is a custom React reconciler that creates in-memory nodes instead of DOM elements. It lets React components run in Workers and server-side runtimes, then serializes the resulting tree into protocol `UINode` objects. Suspense is supported via hidden nodes that replace suspended subtrees until the promise resolves.
 
 **Section sources**
 
@@ -33,7 +33,7 @@
 
 ## Public API
 
-The package exports renderer creation and rendering functions, `RenderBridge`, internal node types, serialization helpers, `HandlerRegistry`, and `MutationCollector`.
+The package exports renderer creation and rendering functions, `RenderBridge`, internal node types, serialization helpers, `HandlerRegistry`, `MutationCollector`, and an `unmount()` function that runs effect cleanups and releases the React container (without it, destroy only dropped references while timers/effects/subscriptions kept running).
 
 **Section sources**
 
@@ -43,6 +43,8 @@ The package exports renderer creation and rendering functions, `RenderBridge`, i
 
 `RenderBridge` stores the current root instance and exposes two subscription channels: full-tree updates through `subscribe(callback: () => void)` and mutation batches through `subscribeMutations(callback)`. Subscribers read `bridge.rootInstance` when notified; the callback does not receive the root as an argument.
 
+An `onError` callback is wired to the host's `reportError` RPC by the runtimes, so uncaught React render/commit errors reach the host UI instead of dying silently in a worker console.
+
 **Section sources**
 
 - [packages/react-renderer/src/reconciler/bridge.ts](file://packages/react-renderer/src/reconciler/bridge.ts#L5-L42)
@@ -50,7 +52,7 @@ The package exports renderer creation and rendering functions, `RenderBridge`, i
 
 ## Serialization
 
-`serializeTree()` recursively converts internal element and text nodes to `UINode` or strings. `serializeProps()` skips React-internal props, converts function props named like `on[A-Z]` into handler ID props, and includes JSON-serializable values.
+`serializeTree()` recursively converts internal element and text nodes to `UINode` or strings. Since protocol v3, text nodes are emitted as explicit `{type: "#text", text}` nodes with stable ids instead of bare strings. `serializeProps()` skips React-internal props, converts function props named like `on[A-Z]` into deterministic handler ID props (`${nodeId}:${propName}`), warns once per prop name when it finds nested functions (Raycast-style `actions={[{...}]}` arrays are the classic trap), and includes JSON-serializable values.
 
 **Section sources**
 
@@ -59,7 +61,7 @@ The package exports renderer creation and rendering functions, `RenderBridge`, i
 
 ## Handler Registry
 
-`HandlerRegistry` maps functions to `handler_<counter>` string IDs, executes handlers asynchronously when needed, supports removal and clearing, and resets its counter on clear.
+`HandlerRegistry` maps functions to stable string IDs and supports `syncNode(nodeId, handlers)` for deterministic handler IDs (`${nodeId}:${propName}`) — repeated serialization of the same node never grows the registry. The old `clear()`-per-update pattern that reset the counter and reused handler IDs (causing late event RPCs to execute wrong handlers) has been removed.
 
 **Section sources**
 

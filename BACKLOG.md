@@ -24,7 +24,11 @@ localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
 - solid incremental mode still sends full tree per flush as correctness
   backstop — needs a proper root-seeding design (no setRoot mutation in the
   solid reconciler; top-level element swaps reference the internal container id)
-- #14 Zod validators still dead code (wire into RPC in dev mode or delete)
+- ~~#14 Zod validators dead code~~ **DONE** — drift fixed (removed the object
+  `ExecuteHandlerRequestSchema` that never matched the positional RPC; added
+  `MutationSchema`/`validateMutations` and `validateExecuteHandlerArgs`), wired
+  opt-in dev validation into worker/websocket controllers (`validate: true`),
+  tests added
 - #15 remaining misc cleanups (null props dropped, registered-component
   title hack ordering)
 - #16 kunkun sdk plugin-entry is still a third runtime bootstrap copy
@@ -174,11 +178,16 @@ making detach O(depth).
 Positional DOM reuse on reorder → input values/focus jump rows. Use
 `{#each ... as child, i (typeof child === "string" ? i : child.id)}`.
 
-### 14. Zod validators are dead code — and drifted
-Nothing in any package calls `validateUINode`/`UINodeSchema`/etc., and
+### 14. Zod validators are dead code — and drifted — DONE
+~~Nothing in any package calls `validateUINode`/`UINodeSchema`/etc., and
 `ExecuteHandlerRequestSchema` (object shape) no longer matches the actual RPC signature
-(two positional params). Either wire validation into RPC entry points in dev mode
-(genuinely useful for protocol debugging) or delete.
+(two positional params).~~ Fixed: added `MutationSchema` (mirrors the v3 mutation
+union), `validateMutations`/`isValidMutations`, and `validateExecuteHandlerArgs`
+(positional); removed the misleading object schema. Wired opt-in dev validation
+(`validate: true`) into the worker + websocket controllers via
+`host-sdk/src/validate.ts` — plugin→host trees/mutations are checked against the
+protocol schemas and reported through the error channel without blocking. Main
+mode is exempt (serializes locally, tree well-formed by construction).
 
 ### 15. Misc cleanups
 - `appendInitialChild`'s `collectAppendChild` call: runs during render phase where

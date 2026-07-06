@@ -11,16 +11,19 @@ import type {
 import { PROTOCOL_VERSION } from "@uniview/protocol";
 import type { PluginController, HostMode } from "../types";
 import { MutableTree } from "../mutable-tree";
+import { validateIncomingTree, validateIncomingMutations } from "../validate";
 
 export interface WorkerControllerOptions {
   pluginUrl: string;
   initialProps?: JSONValue;
+  /** Dev-mode: validate plugin -> host messages against the protocol schemas. */
+  validate?: boolean;
 }
 
 export function createWorkerController(
   opts: WorkerControllerOptions,
 ): PluginController {
-  const { pluginUrl, initialProps } = opts;
+  const { pluginUrl, initialProps, validate = false } = opts;
 
   let worker: Worker | null = null;
   let rpc: RPCChannel<PluginToHostAPI, HostToPluginAPI> | null = null;
@@ -31,13 +34,27 @@ export function createWorkerController(
   const subscribers = new Set<(tree: UINode | null) => void>();
   const errorSubscribers = new Set<(message: string) => void>();
 
+  function reportValidation(message: string): void {
+    lastError = message;
+    console.error("[Plugin Protocol]", message);
+    errorSubscribers.forEach((cb) => void cb(message));
+  }
+
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
+      if (validate) {
+        const err = validateIncomingTree(newTree);
+        if (err) reportValidation(err);
+      }
       tree = newTree;
       mutableTree.init(newTree);
       subscribers.forEach((cb) => void cb(tree));
     },
     applyMutations(mutations: Mutation[]) {
+      if (validate) {
+        const err = validateIncomingMutations(mutations);
+        if (err) reportValidation(err);
+      }
       tree = mutableTree.applyMutations(mutations);
       subscribers.forEach((cb) => void cb(tree));
     },

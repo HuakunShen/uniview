@@ -83,7 +83,7 @@ The host-facing plugin API consists of initialization, prop updates, handler exe
 
 ## PluginToHostAPI
 
-The plugin-facing host API supports full-tree updates, mutation updates, console forwarding, and error reporting. Host controllers update local tree state and notify subscribers when these calls arrive.
+The plugin-facing host API supports full-tree updates, mutation updates, console forwarding, and error reporting. Host controllers update local tree state and notify subscribers when these calls arrive. Plugin runtimes wire uncaught errors and unhandled rejections through `reportError`, which propagates to host UI via `subscribeErrors`.
 
 **Section sources**
 
@@ -92,7 +92,7 @@ The plugin-facing host API supports full-tree updates, mutation updates, console
 
 ## UINode Payloads
 
-`UINode` payloads are JSON-safe trees. The stable `id` supports reconciliation and mutation targeting, while `type` may be a layout tag or product-defined component primitive resolved by a host registry.
+`UINode` payloads are JSON-safe trees. The stable `id` supports reconciliation and mutation targeting, while `type` may be a layout tag, product-defined component primitive, or `#text` for explicit text nodes (protocol v3). Since v3, serializers emit text children as explicit `{type: "#text", text}` nodes with stable ids instead of bare strings, enabling `setText` and `insertBefore` to address text children by id.
 
 **Section sources**
 
@@ -124,7 +124,7 @@ graph LR
 
 ## Incremental Mutations
 
-Incremental mode sends mutation batches instead of full trees. The protocol defines append, insert, remove, text, props, and root replacement mutations; host controllers apply them with `MutableTree`.
+Incremental mode sends mutation batches instead of full trees. The protocol defines append, insert, remove, text, props, and root replacement mutations; host controllers apply them with `MutableTree`. In protocol v3, `setText` is addressed by the text node's stable `nodeId` (previously by `parentId` + `childIndex`, which corrupted the wrong child when host and plugin trees diverged).
 
 **Section sources**
 

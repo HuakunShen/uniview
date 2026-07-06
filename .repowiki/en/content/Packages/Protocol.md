@@ -35,7 +35,7 @@
 
 ## Protocol Version
 
-The current `PROTOCOL_VERSION` is `2`. Hosts send this value during `initialize()`, and plugin runtimes reject mismatches so incompatible hosts and plugins fail with an explicit error before rendering.
+The current `PROTOCOL_VERSION` is `3` (v3: text children are explicit `{type: "#text", text}` nodes with stable ids; `setText` is addressed by `nodeId` instead of `parentId` + `childIndex`). Hosts send this value during `initialize()`, and plugin runtimes reject mismatches so incompatible hosts and plugins fail with an explicit error before rendering.
 
 **Section sources**
 
@@ -45,7 +45,7 @@ The current `PROTOCOL_VERSION` is `2`. Hosts send this value during `initialize(
 
 ## Tree Types
 
-`JSONValue` restricts props and RPC arguments to serializable values. `UINode` carries a stable `id`, string `type`, JSON-safe `props`, and mixed text/node children. `UILayoutTag` and `LAYOUT_TAGS` define HTML-like primitives that host adapters can render natively.
+`JSONValue` restricts props and RPC arguments to serializable values. `UINode` carries a stable `id`, string `type`, JSON-safe `props`, and mixed text/node children. Since protocol v3, text nodes can be explicit `{type: "#text", text}` nodes (`TEXT_NODE_TYPE`) with stable ids for mutation addressing. Helper functions `isTextUINode()` and `textContent()` bridge the v2 (bare-string) and v3 (explicit node) representations. `UILayoutTag` and `LAYOUT_TAGS` define HTML-like primitives that host adapters can render natively.
 
 **Section sources**
 
@@ -80,7 +80,7 @@ Function props cannot cross RPC boundaries. Event props become handler ID props 
 
 ## Mutations and Update Modes
 
-`UpdateMode` is either `full` or `incremental`. Full mode sends the entire current tree via `updateTree`. Incremental mode sends mutation batches via `applyMutations`; supported mutations include `appendChild`, `insertBefore`, `removeChild`, `setText`, `setProps`, and `setRoot`.
+`UpdateMode` is either `full` or `incremental`. Full mode sends the entire current tree via `updateTree`. Incremental mode sends mutation batches via `applyMutations`; supported mutations include `appendChild`, `insertBefore`, `removeChild`, `setText`, `setProps`, and `setRoot`. In protocol v3, `setText` is addressed by the text node's stable `nodeId` (previously by `parentId` + `childIndex`, which corrupted the wrong child when host and plugin trees diverged). All `appendChild`/`insertBefore` mutations include the full serialized subtree with explicit `#text` children since v3.
 
 **Section sources**
 

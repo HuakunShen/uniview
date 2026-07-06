@@ -32,7 +32,7 @@
 
 ## PluginController Interface
 
-Every controller exposes the same lifecycle, prop update, event execution, sync, status, tree access, and subscription methods. Current event execution is named `executeHandler`; the interface does not expose reload or generic execute methods.
+Every controller exposes the same lifecycle, prop update, event execution, sync, status, tree access, and subscription methods. Current event execution is named `executeHandler`; the interface does not expose reload or generic execute methods. An optional `subscribeErrors` method propagates plugin-side errors to host UI.
 
 ```typescript
 interface PluginController {
@@ -45,6 +45,7 @@ interface PluginController {
   getStatus(): { mode: HostMode; connected: boolean; lastError?: string };
   getTree(): UINode | null;
   subscribe(cb: (tree: UINode | null) => void): () => void;
+  subscribeErrors?(cb: (message: string) => void): () => void;
 }
 ```
 
@@ -73,7 +74,7 @@ The registry is a small map-backed abstraction. It lets host adapters register f
 
 ## MutableTree
 
-`MutableTree` maintains a local `UINode` tree and node index. It applies protocol mutations, updates indexes, and returns shallow-cloned root references so reactive hosts can observe changes without replacing the entire tree in plugin code. A nested mutation fix ensures that updated child subtrees reattach through every ancestor so the root tree reflects list/text changes.
+`MutableTree` maintains a local `UINode` tree, a `nodeIndex` (id → node), and a `parentIndex` (id → parentId) for O(depth) mutation application instead of O(N²) for keyed reorders. Each mutation produces new object references along the root path to trigger Svelte `$state` reactivity. `appendChild` and `insertBefore` act as moves (detaching then re-inserting) for keyed list reorders. If an `insertBefore` anchor is missing, the node is appended as recovery with a console error. `setText` (protocol v3) is addressed by the text node's stable id rather than `parentId` + `childIndex`.
 
 **Section sources**
 

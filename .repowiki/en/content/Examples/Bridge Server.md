@@ -2,6 +2,7 @@
 
 <cite>
 **Referenced Files in This Document**
+- [examples/bridge-server/src/bridge.ts](file://examples/bridge-server/src/bridge.ts#L1-L269)
 - [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L1-L124)
 - [examples/bridge-server/src/bridge.test.ts](file://examples/bridge-server/src/bridge.test.ts#L122-L260)
 - [packages/host-sdk/src/controllers/websocket.ts](file://packages/host-sdk/src/controllers/websocket.ts#L52-L133)
@@ -20,7 +21,8 @@
 
 ## Overview
 
-The bridge server is an Elysia WebSocket multiplexer for server-side plugin mode. It is intentionally a transparent forwarding layer: it pairs one plugin socket and one host socket by `pluginId`, normalizes outbound messages to newline-terminated strings, and forwards without parsing kkrpc payloads.
+The bridge server is an Elysia WebSocket multiplexer for server-side plugin mode. It pairs one plugin socket and one host socket by `pluginId`, normalizes outbound messages to newline-terminated strings, and forwards without parsing kkrpc payloads.
+Built directly on Bun.serve for protocol-level ping/pong access, it includes a heartbeat mechanism that terminates unresponsive sockets and a bounded wait for late-arriving plugins.
 
 **Section sources**
 
@@ -58,7 +60,7 @@ sequenceDiagram
     Bridge->>Host: normalized message
 ```
 
-If a host connects before a plugin socket exists, the bridge closes the host socket with "Plugin not ready". If a second host connects for the same plugin, it replaces the existing host connection.
+If a host connects before a plugin socket exists, the bridge waits up to a configurable `hostWaitMs` (default 15s) instead of rejecting instantly. Host messages are buffered (up to `maxBufferedHostMessages`, default 200) and flushed when the plugin connects. If a second host connects for the same plugin, it replaces the existing host connection.
 
 **Diagram sources**
 
@@ -78,6 +80,10 @@ Worker mode in browser hosts can fetch plugin bundles from the same bridge proce
 
 - [examples/bridge-server/src/index.ts](file://examples/bridge-server/src/index.ts#L21-L58)
 - [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L63-L72)
+
+## Heartbeat Keepalive
+
+The bridge runs a periodic heartbeat that pings every connected socket. Sockets that miss `pong` responses within `heartbeatTimeoutMs` (default 75s) are terminated, preventing half-open TCP connections from lingering indefinitely. The heartbeat interval and timeout are configurable via `heartbeatIntervalMs` and `heartbeatTimeoutMs`.
 
 ## Operational Constraints
 
