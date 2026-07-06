@@ -80,6 +80,8 @@ Uniview supports Worker mode for browser sandboxing, WebSocket bridge mode for N
 | Package | Role |
 | --- | --- |
 | `@uniview/protocol` | Serializable trees, RPC interfaces, events, mutations, validators |
+| `@uniview/host-appkit-demo` | Native macOS AppKit host with Raycast-style views |
+| `@uniview/host-macos-demo` | Native macOS SwiftUI host demo |
 | `@uniview/react-renderer` | React reconciler to internal tree and `UINode` serialization |
 | `@uniview/solid-renderer` | Solid universal renderer to `UINode` serialization |
 | `@uniview/react-runtime` | React Worker and bridge-client plugin bootstrap |

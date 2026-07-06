@@ -63,10 +63,26 @@ The Vue demo uses Composition API state, computed controller configuration, and 
 - [examples/host-vue-demo/src/App.vue](file://examples/host-vue-demo/src/App.vue#L19-L70)
 - [examples/host-vue-demo/src/App.vue](file://examples/host-vue-demo/src/App.vue#L88-L110)
 
-## Native and Terminal Demos
+## Native macOS AppKit Host
 
-The README also documents native macOS SwiftUI/AppKit demos that consume bridge traffic and a terminal UI demo that renders React to a terminal target. These are examples of host portability beyond browser frameworks.
+`examples/host-appkit-demo` is a native macOS AppKit host that communicates with the bridge server via WebSocket JSON messages. It features diff-based tree reconciliation via `TreeReconciler`, Raycast-style views (list, grid, form, detail, action panels), command palette search, and image resolution from plugin asset bundles. The host supports incremental mutation application through `MutableUINodeTree` and renders UINode trees using native AppKit views.
 
 **Section sources**
 
-- [README.md](file://README.md#L92-L134)
+- [examples/host-appkit-demo/HostAppKitDemo/App/MainViewController.swift](file://examples/host-appkit-demo/HostAppKitDemo/App/MainViewController.swift#L1-L1010)
+- [examples/host-appkit-demo/HostAppKitDemo/Models/Mutation.swift](file://examples/host-appkit-demo/HostAppKitDemo/Models/Mutation.swift#L1-L75)
+- [examples/host-appkit-demo/HostAppKitDemo/ViewModels/TreeReconciler.swift](file://examples/host-appkit-demo/HostAppKitDemo/ViewModels/TreeReconciler.swift)
+- [examples/host-appkit-demo/HostAppKitDemo/ViewModels/MutableUINodeTree.swift](file://examples/host-appkit-demo/HostAppKitDemo/ViewModels/MutableUINodeTree.swift#L1-L228)
+
+## Native macOS SwiftUI Host
+
+`examples/host-macos-demo` is a simpler SwiftUI-based macOS host that demonstrates the same bridge-consumer pattern. It renders `UINode` trees through `UINodeRenderer`, uses a matching `MessageParser`/`RPCMessage`/`UINode` model set, and connects to the bridge server at a configurable URL.
+
+**Section sources**
+
+- [examples/host-macos-demo/HostMacOSDemo/ContentView.swift](file://examples/host-macos-demo/HostMacOSDemo/ContentView.swift)
+- [examples/host-macos-demo/HostMacOSDemo/Views/UINodeRenderer.swift](file://examples/host-macos-demo/HostMacOSDemo/Views/UINodeRenderer.swift)
+
+## Terminal Demo
+
+The terminal UI demo renders React to a terminal target. This demonstrates host portability beyond browser and native frameworks.

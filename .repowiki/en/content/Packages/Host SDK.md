@@ -54,7 +54,7 @@ interface PluginController {
 
 ## Controller Implementations
 
-Worker controllers fetch a plugin bundle, construct a module Worker from a Blob URL, expose the host API, and initialize the plugin with `PROTOCOL_VERSION`. WebSocket controllers connect to `/host/:pluginId` on the bridge server and share the same full-tree/mutation subscriber model. Main-thread controllers use `@uniview/react-renderer` directly for development and can run in full or incremental mode.
+Worker controllers fetch a plugin bundle, construct a module Worker from a Blob URL, create a `workerTransport()` from `kkrpc/worker`, expose the host API, and initialize the plugin with `PROTOCOL_VERSION`. WebSocket controllers connect to `/host/:pluginId` on the bridge server using `webSocketClientTransport()` from `kkrpc/ws` and share the same full-tree/mutation subscriber model. Main-thread controllers use `@uniview/react-renderer` directly for development and can run in full or incremental mode. All controllers now use `RPCChannel` directly from `kkrpc` (not `kkrpc/browser`) with simplified generics.
 
 **Section sources**
 
@@ -73,7 +73,7 @@ The registry is a small map-backed abstraction. It lets host adapters register f
 
 ## MutableTree
 
-`MutableTree` maintains a local `UINode` tree and node index. It applies protocol mutations, updates indexes, and returns shallow-cloned root references so reactive hosts can observe changes without replacing the entire tree in plugin code.
+`MutableTree` maintains a local `UINode` tree and node index. It applies protocol mutations, updates indexes, and returns shallow-cloned root references so reactive hosts can observe changes without replacing the entire tree in plugin code. A nested mutation fix ensures that updated child subtrees reattach through every ancestor so the root tree reflects list/text changes.
 
 **Section sources**
 

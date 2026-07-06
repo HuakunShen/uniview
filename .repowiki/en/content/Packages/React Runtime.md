@@ -22,7 +22,7 @@
 
 ## Overview
 
-`@uniview/react-runtime` bootstraps React plugins for Worker and WebSocket bridge execution. It creates the renderer, handler registry, mutation collector when needed, and kkrpc channel, then exposes the `HostToPluginAPI` required by the protocol.
+`@uniview/react-runtime` bootstraps React plugins for Worker and WebSocket bridge execution. It creates the renderer, handler registry, mutation collector when needed, and kkrpc channel using kkrpc 1.0 `Transport<RPCMessage>` API, then exposes the `HostToPluginAPI` required by the protocol.
 
 **Section sources**
 
@@ -59,7 +59,7 @@ During `initialize`, the runtime checks protocol version, creates `HandlerRegist
 
 ## Worker Mode
 
-`startWorkerPlugin()` creates a `WorkerChildIO`, constructs an RPC channel, passes the runtime's exposed API into the channel, and starts the runtime. Worker options are `App` and optional update `mode`.
+`startWorkerPlugin()` creates a `workerSelfTransport()` from `kkrpc/worker`, constructs an `RPCChannel` (simplified generics with no transport type parameter), passes the runtime's exposed API into the channel, and starts the runtime. Worker options are `App` and optional update `mode`.
 
 **Section sources**
 
@@ -67,7 +67,7 @@ During `initialize`, the runtime checks protocol version, creates `HandlerRegist
 
 ## WebSocket Bridge Client Mode
 
-`connectToHostServer()` dynamically imports `ws-client` and creates a bridge client. The WebSocket client connects to `${serverUrl}/plugins/${pluginId}`, supports reconnection, resets runtime state on reconnect, and exposes the same host-facing API as Worker mode.
+`connectToHostServer()` dynamically imports `ws-client` and creates a bridge client. The WebSocket client connects to `${serverUrl}/plugins/${pluginId}` using `webSocketTransport()` from `kkrpc/ws` over a raw `WebSocket`, supports reconnection, resets runtime state on reconnect, and exposes the same host-facing API as Worker mode. kkrpc channel lifecycle management uses `rpc.destroy()` instead of `io.destroy()`.
 
 **Section sources**
 
@@ -77,7 +77,7 @@ During `initialize`, the runtime checks protocol version, creates `HandlerRegist
 
 ## Update Modes and Benchmark Stats
 
-Full mode serializes and sends the current tree through `updateTree`. Incremental mode attaches a `MutationCollector` and sends mutation batches through `applyMutations`, while also tracking `bytesSent` and `messagesSent` on `globalThis.__uniview_stats` for benchmark demos.
+Full mode serializes and sends the current tree through `updateTree`. Incremental mode attaches a `MutationCollector` and sends mutation batches through `applyMutations`, while also tracking `bytesSent` and `messagesSent` on `globalThis.__uniview_stats` for benchmark demos. The deprecated `@uniview/react-runtime/ws-server` export path has been removed in favor of bridge-client mode only.
 
 **Section sources**
 

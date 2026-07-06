@@ -5,7 +5,8 @@
 - [packages/host-svelte/package.json](file://packages/host-svelte/package.json#L1-L54)
 - [packages/host-svelte/src/index.ts](file://packages/host-svelte/src/index.ts#L1-L2)
 - [packages/host-svelte/src/PluginHost.svelte](file://packages/host-svelte/src/PluginHost.svelte#L1-L51)
-- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L1-L246)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L1-L249)
+- [packages/host-svelte/src/event-handlers.ts](file://packages/host-svelte/src/event-handlers.ts#L1-L97)
 - [examples/host-svelte-demo/src/routes/+page.svelte](file://examples/host-svelte-demo/src/routes/+page.svelte#L87-L138)
 </cite>
 
@@ -43,7 +44,7 @@ The public source exports are `PluginHost` and `ComponentRenderer`. Consumers no
 
 ## ComponentRenderer Behavior
 
-`ComponentRenderer` recursively renders `UINode` and text children. It transforms handler ID props into `controller.executeHandler` calls, maps `className`/`htmlFor`, converts style objects to CSS strings, extracts serializable values from input/change events, prevents default form submissions, handles known layout tags, and passes child node metadata to registered components.
+`ComponentRenderer` recursively renders `UINode` and text children. It transforms handler ID props into `controller.executeHandler` calls with serialized args via `serializeHandlerArgs`, maps `className`/`htmlFor`, converts style objects to CSS strings, extracts serializable values from input/change events, prevents default form submissions, handles known layout tags, recognizes void elements (`hr`, `br`, `img`, `wbr`), and passes child node metadata to registered components.
 
 ```mermaid
 graph TD
@@ -63,9 +64,10 @@ graph TD
 
 **Section sources**
 
-- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L15-L101)
-- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L103-L166)
-- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L169-L246)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L15-L103)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L105-L171)
+- [packages/host-svelte/src/ComponentRenderer.svelte](file://packages/host-svelte/src/ComponentRenderer.svelte#L174-L249)
+- [packages/host-svelte/src/event-handlers.ts](file://packages/host-svelte/src/event-handlers.ts#L1-L97)
 
 ## Svelte Demo Integration
 
