@@ -1,3 +1,4 @@
+import { TEXT_NODE_TYPE } from "@uniview/protocol";
 import { describe, expect, test } from "vitest";
 import { HandlerRegistry, SolidMutationCollector, serializeTree } from "../src";
 import type { SolidNode, SolidTextNode } from "../src";
@@ -65,7 +66,15 @@ describe("solid renderer serialization", () => {
         variant: "primary",
         disabled: false,
       },
-      children: ["Save"],
+      children: [
+        {
+          id: "text-1",
+          type: TEXT_NODE_TYPE,
+          props: {},
+          children: [],
+          text: "Save",
+        },
+      ],
     });
     expect(registry.size).toBe(1);
     expect(registry.has("button-1:onClick")).toBe(true);
@@ -92,7 +101,15 @@ describe("solid renderer serialization", () => {
           id: "text-node-1",
           type: "Text",
           props: { color: "green" },
-          children: ["Ready"],
+          children: [
+            {
+              id: "text-1",
+              type: TEXT_NODE_TYPE,
+              props: {},
+              children: [],
+              text: "Ready",
+            },
+          ],
         },
       },
       {

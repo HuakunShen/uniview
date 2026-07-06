@@ -1,3 +1,4 @@
+import { TEXT_NODE_TYPE } from "@uniview/protocol";
 import type {
 	AppendChildMutation,
 	InsertBeforeMutation,
@@ -49,9 +50,16 @@ export class SolidMutationCollector {
 	/**
 	 * Serialize a node and its entire subtree for mutations.
 	 */
-	private serializeSubtree(node: AnyNode): UINode | string | null {
+	private serializeSubtree(node: AnyNode): UINode | null {
 		if (isTextNode(node)) {
-			return node.value;
+			// Protocol v3: text children are explicit nodes with stable ids.
+			return {
+				id: node.id,
+				type: TEXT_NODE_TYPE,
+				props: {},
+				children: [],
+				text: node.value,
+			};
 		}
 
 		if (isSlotNode(node)) {
@@ -104,15 +112,7 @@ export class SolidMutationCollector {
 		const mutation: AppendChildMutation = {
 			type: "appendChild",
 			parentId: parent.id,
-			node:
-				typeof serializedNode === "string"
-					? ({
-							id: isTextNode(node) ? node.id : "",
-							type: "text",
-							props: {},
-							children: [serializedNode],
-						} as UINode)
-					: serializedNode,
+			node: serializedNode,
 		};
 		this.pendingMutations.push(mutation);
 	}
@@ -128,21 +128,11 @@ export class SolidMutationCollector {
 		const serializedNode = this.serializeSubtree(node);
 		if (serializedNode === null) return;
 
-		const beforeId = isTextNode(anchor) ? anchor.id : anchor.id;
-
 		const mutation: InsertBeforeMutation = {
 			type: "insertBefore",
 			parentId: parent.id,
-			node:
-				typeof serializedNode === "string"
-					? ({
-							id: isTextNode(node) ? node.id : "",
-							type: "text",
-							props: {},
-							children: [serializedNode],
-						} as UINode)
-					: serializedNode,
-			beforeId,
+			node: serializedNode,
+			beforeId: anchor.id,
 		};
 		this.pendingMutations.push(mutation);
 	}
@@ -199,19 +189,9 @@ export class SolidMutationCollector {
 			return;
 		}
 
-		const serialized = this.serializeSubtree(rootNode);
-		if (serialized === null || typeof serialized === "string") {
-			const mutation: SetRootMutation = {
-				type: "setRoot",
-				node: null,
-			};
-			this.pendingMutations.push(mutation);
-			return;
-		}
-
 		const mutation: SetRootMutation = {
 			type: "setRoot",
-			node: serialized,
+			node: this.serializeSubtree(rootNode),
 		};
 		this.pendingMutations.push(mutation);
 	}

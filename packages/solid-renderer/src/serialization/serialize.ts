@@ -1,4 +1,4 @@
-import type { UINode } from "@uniview/protocol";
+import { TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
 import type { AnyNode, SolidNode, SolidTextNode, SolidSlotNode } from "../renderer/types";
 import type { HandlerRegistry } from "./handler-registry";
 import { serializeProps } from "./serialize-props";
@@ -41,7 +41,14 @@ function serializeNode(
 	}
 
 	if (isTextNode(node)) {
-		return node.value;
+		// Protocol v3: text children are explicit nodes with stable ids.
+		return {
+			id: node.id,
+			type: TEXT_NODE_TYPE,
+			props: {},
+			children: [],
+			text: node.value,
+		};
 	}
 
 	if (isSlotNode(node)) {
