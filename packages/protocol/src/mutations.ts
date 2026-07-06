@@ -34,8 +34,9 @@ export interface InsertBeforeMutation {
 }
 
 /**
- * Remove a child node from a parent
- * `nodeId` is the element id or textNodeId
+ * Remove a child node from a parent.
+ * `nodeId` is the child's stable id — an element id or a text node's id
+ * (text nodes carry ordinary ids since protocol v3).
  */
 export interface RemoveChildMutation {
 	type: "removeChild";

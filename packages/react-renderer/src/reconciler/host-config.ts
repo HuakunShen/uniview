@@ -123,14 +123,15 @@ export const hostConfig: HostConfig<
   },
 
   appendInitialChild(parent: Instance, child: Instance | TextInstance): void {
-    if ("_isTextNode" in child) {
-      child.parent = parent;
-      parent.children.push(child);
-    } else {
-      child.parent = parent;
-      parent.children.push(child);
-    }
-    activeContainer?.mutationCollector?.collectAppendChild(parent, child);
+    // Building a fresh subtree during the render phase, before it is attached
+    // to the container. No mutation is collected here: the subtree is captured
+    // whole by collectSetRoot (appendChildToContainer) or collectAppendChild
+    // (appendChild) when the root of this subtree is finally attached. Emitting
+    // appendChild here produced mutations whose parent isn't in the host tree
+    // yet — harmless no-ops on the host, but wasted serialization and a
+    // cross-container hazard.
+    child.parent = parent;
+    parent.children.push(child);
   },
 
   appendChild(parent: Instance, child: Instance | TextInstance): void {

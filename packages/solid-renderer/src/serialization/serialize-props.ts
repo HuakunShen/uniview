@@ -43,8 +43,15 @@ export function serializeProps(
 			}
 			continue;
 		}
+		// undefined is not a JSON value — drop it. null IS a valid JSONValue
+		// (e.g. `value={null}` to clear a controlled input) and must survive.
+		else if (value === undefined) {
+			continue;
+		} else if (value === null) {
+			serializedProps[key] = null;
+		}
 		// Include JSON-serializable values
-		else if (value !== undefined && value !== null) {
+		else {
 			try {
 				let hasNestedFunction = false;
 				JSON.stringify(value, (_k, v: unknown) => {

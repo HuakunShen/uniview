@@ -65,6 +65,9 @@ describe("solid renderer serialization", () => {
         _onClickHandlerId: "button-1:onClick",
         variant: "primary",
         disabled: false,
+        // null is a valid JSONValue and is now preserved; undefinedValue and
+        // the non-on[A-Z] debugCallback function are still dropped.
+        nullable: null,
       },
       children: [
         {

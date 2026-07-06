@@ -29,8 +29,11 @@ localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
   `MutationSchema`/`validateMutations` and `validateExecuteHandlerArgs`), wired
   opt-in dev validation into worker/websocket controllers (`validate: true`),
   tests added
-- #15 remaining misc cleanups (null props dropped, registered-component
-  title hack ordering)
+- ~~#15 remaining misc cleanups~~ **DONE** — null props now preserved
+  (react + solid serializeProps), dead `collectAppendChild` removed from
+  react `appendInitialChild` + duplicate branch collapsed, registered-component
+  slot now renders children in original order (no more text-first reorder),
+  stale `textNodeId` doc comment fixed
 - #16 kunkun sdk plugin-entry is still a third runtime bootstrap copy
 - #17 CI, #18 e2e coverage gaps (reorder/text/keydown/crash/reconnect specs)
 
@@ -189,16 +192,19 @@ union), `validateMutations`/`isValidMutations`, and `validateExecuteHandlerArgs`
 protocol schemas and reported through the error channel without blocking. Main
 mode is exempt (serializes locally, tree well-formed by construction).
 
-### 15. Misc cleanups
-- `appendInitialChild`'s `collectAppendChild` call: runs during render phase where
-  `activeContainer` is always null — dead code (and a cross-container hazard if it ever fired).
-- `serializeProps` silently drops `null`-valued props (JSONValue allows null).
-- `protocol/src/mutations.ts` doc comments reference `textNodeId`/`text` fields that
-  don't exist.
-- Registered-component text-children hack (join all strings → force into `title`,
-  render text before elements) reorders interleaved text/element children.
-- host-config had duplicated identical if/else branches on `_isTextNode` (partly cleaned
-  by the P0-1 fix; same pattern remains in `removeChild`/`appendInitialChild`).
+### 15. Misc cleanups — DONE
+- ~~`appendInitialChild`'s `collectAppendChild` call~~ removed: it emitted
+  appendChild mutations for a subtree whose parent isn't in the host tree yet
+  (no-ops), while `collectSetRoot`/`collectAppendChild` capture the subtree whole
+  when its root attaches. Duplicate `_isTextNode` if/else branch also collapsed.
+- ~~`serializeProps` silently drops `null`-valued props~~ fixed in react + solid:
+  `null` (a valid JSONValue, e.g. clearing a controlled input) is preserved;
+  only `undefined` and non-`on[A-Z]` functions are dropped.
+- ~~`mutations.ts` `textNodeId` doc reference~~ fixed.
+- ~~Registered-component text-children hack~~ fixed: the host-svelte registered
+  branch renders `node.children` in original order via `<Self>` (text nodes go
+  through the TEXT_NODE_TYPE branch); `title` fallback is still derived from text
+  children. No more all-text-before-all-elements reorder.
 
 ### 16. Three copies of the runtime bootstrap
 `react-runtime/src/runtime.ts`, `react-runtime/src/ws-client.ts`, and kunkun's

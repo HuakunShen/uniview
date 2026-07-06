@@ -224,7 +224,6 @@
 	{@const RegisteredComponent = registry.get(node.type)}
 	{@const p = transformProps(node.props)}
 	{@const textChildren = node.children.map((child) => textContent(child) ?? '').join('')}
-	{@const nonTextChildren = node.children.filter((child) => textContent(child) === null)}
 	{@const componentProps = {
 		...p.attrs,
 		// Pass UINode children so registered components can manage their own child rendering
@@ -242,10 +241,12 @@
 		onkeydown: p.onkeydown,
 		onkeyup: p.onkeyup,
 	}}
-	{#if nonTextChildren.length > 0 || textChildren}
+	{#if node.children.length > 0}
 		<RegisteredComponent {...componentProps}>
-			{#if textChildren}{textChildren}{/if}
-			{#each nonTextChildren as child, i (typeof child === "string" ? `str-${i}` : child.id)}
+			<!-- Render children in their original order — text nodes go through
+			     <Self> too (TEXT_NODE_TYPE branch). The old split rendered all
+			     text before all elements, scrambling interleaved children. -->
+			{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 				<Self node={child} />
 			{/each}
 		</RegisteredComponent>
