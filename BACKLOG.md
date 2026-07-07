@@ -42,7 +42,15 @@ localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
   react `appendInitialChild` + duplicate branch collapsed, registered-component
   slot now renders children in original order (no more text-first reorder),
   stale `textNodeId` doc comment fixed
-- #16 kunkun sdk plugin-entry is still a third runtime bootstrap copy
+- #16 kunkun sdk plugin-entry — **DEFERRED (assessed 2026-07-07, by design)**:
+  not a mechanical copy. kunkun's `startPlugin` uses a different RPC contract
+  (`KunkunPluginAPI` adds `onEvent`→dispatchHostEvent), reaches the host via a
+  global `getHostAPI()` proxy instead of owning the channel like
+  `createPluginRuntime`, and has kunkun-only hooks (`onBeforeFirstRender`). The
+  low-level primitives (createRenderer/render/HandlerRegistry/serializeTree) are
+  already shared. Consolidating would mean invasively generalizing the shared
+  runtime API or rewriting kunkun's host layer — high risk for a published SDK,
+  low payoff. Revisit only if a second consumer needs the same generalization.
 - ~~#17 CI~~ **DONE** — `.github/workflows/ci.yml`: build+types+unit on
   ubuntu, Playwright e2e (Bun + chromium), AppKit host tests on macOS
 - #18 coverage gaps — **MOSTLY DONE**: unit gaps closed (HandlerRegistry,
@@ -223,10 +231,16 @@ mode is exempt (serializes locally, tree well-formed by construction).
   through the TEXT_NODE_TYPE branch); `title` fallback is still derived from text
   children. No more all-text-before-all-elements reorder.
 
-### 16. Three copies of the runtime bootstrap
-`react-runtime/src/runtime.ts`, `react-runtime/src/ws-client.ts`, and kunkun's
-`packages/sdk/src/runtime/plugin-entry.ts` are the same logic, each drifted differently
-(see #9). Consolidate on `createPluginRuntime`.
+### 16. Three copies of the runtime bootstrap — PARTIALLY DONE
+`react-runtime/src/ws-client.ts` was rebuilt on `createPluginRuntime` (fix round),
+so uniview now has one source of truth. kunkun's
+`packages/sdk/src/runtime/plugin-entry.ts` is a **deliberate** third variant, not a
+drifted copy: different RPC contract (`KunkunPluginAPI.onEvent`), external channel
+ownership via `getHostAPI()`, and an `onBeforeFirstRender` hook. Its rendering
+primitives already come from `@uniview/react-renderer`. Consolidating the remaining
+~40 lines of orchestration would require generalizing the shared runtime API or
+rewriting kunkun's host layer — deferred as high-risk/low-payoff (see status
+snapshot).
 
 ---
 
