@@ -45,7 +45,14 @@ localhost URLs pinned to 127.0.0.1 (IPv6 collision with other dev servers).
 - #16 kunkun sdk plugin-entry is still a third runtime bootstrap copy
 - ~~#17 CI~~ **DONE** — `.github/workflows/ci.yml`: build+types+unit on
   ubuntu, Playwright e2e (Bun + chromium), AppKit host tests on macOS
-- #18 e2e coverage gaps (reorder/text/keydown/crash/reconnect specs)
+- #18 coverage gaps — **MOSTLY DONE**: unit gaps closed (HandlerRegistry,
+  MutationCollector, serializeProps now have direct tests; plus the
+  keyed-reorder/text-node/suspense/root-seeding regression suites added earlier).
+  Remaining: dedicated *e2e* specs driving reorder/keydown/crash/reconnect
+  through the browser would need fixture plugins (renderer+MutableTree unit
+  tests already cover these paths). Demo-host "drift" reassessed as non-bugs:
+  React genuinely wants `style` objects; reading `.value` off a `<select>` is
+  correct.
 
 ## Original status snapshot (as of 2026-07-07, pre-fix)
 
@@ -232,13 +239,21 @@ with Bun for the bridge server + chromium (uploads the `.reports/` html on
 failure), (3) AppKit host `tests/run.sh` on macOS. Checkout uses
 `submodules: recursive` for the workspace-linked vendor packages.
 
-### 18. Test coverage gaps (aligned with the bugs above)
-E2E (Playwright/Cypress) covers 3 hosts × 3 runtimes happy paths + benchmark, but NOT:
-keyed reorders (benchmark only appends/removes), dynamically appended text nodes,
-onKeyDown key payloads, plugin crash surfacing, ws disconnect/reconnect, memory growth.
-Unit gaps: MutationCollector, serializeProps, HandlerRegistry have zero tests.
-Known demo-host drift: react demo host doesn't convert style objects (svelte/vue do);
-vue demo host reuses `withInputValue` for `<select>`.
+### 18. Test coverage gaps (aligned with the bugs above) — MOSTLY DONE
+Unit gaps closed: `HandlerRegistry` (sync/release/sweep/execute) and
+`MutationCollector` (v3 setRoot text nodes, removeChild handler release,
+setProps shape) now have direct tests; `serializeProps` null-handling too.
+The keyed-reorder / text-node / suspense / root-seeding regression suites added
+during the fix rounds cover those paths at the renderer + MutableTree level.
+
+Reassessed as non-bugs (no fix): React genuinely consumes `style` as an object
+(converting to a string would break it); reading `.value` off an
+`HTMLSelectElement` in the vue host's `withInputValue` is correct.
+
+Still open: browser-level *e2e* specs for keyed reorder, onKeyDown payloads,
+plugin-crash surfacing, and ws disconnect/reconnect. These need dedicated
+fixture plugins (the benchmark only appends/removes); the behaviour is already
+covered by unit tests, so this is regression-hardening, not a correctness gap.
 
 ---
 
