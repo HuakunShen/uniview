@@ -6,6 +6,7 @@
   "license": "MIT",
   "exports": {
     ".": "./dist/index.mjs",
+    "./compat": "./dist/compat.mjs",
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
