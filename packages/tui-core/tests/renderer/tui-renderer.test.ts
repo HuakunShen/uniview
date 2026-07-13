@@ -166,3 +166,21 @@ describe("TuiRenderer", () => {
     expect(destroy).toHaveBeenCalledOnce();
   });
 });
+
+describe("TuiRenderer.currentFrame", () => {
+  it("exposes the last rendered buffer for hit-testing", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const clock = manualScheduler();
+    const renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: { width: 6, height: 1 },
+      schedule: clock.schedule,
+    });
+    expect(renderer.currentFrame).toBeNull();
+    renderer.setRoot({ type: "text", text: "hi" });
+    clock.drain();
+    expect(renderer.currentFrame?.width).toBe(6);
+  });
+});

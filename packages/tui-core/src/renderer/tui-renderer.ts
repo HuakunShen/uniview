@@ -46,6 +46,11 @@ export class TuiRenderer {
   /** Owner table for the most recently rendered frame (hit-testing source). */
   owners = new OwnerTable();
 
+  /** The most recently rendered frame buffer, or null before the first frame. */
+  get currentFrame(): CellBuffer | null {
+    return this.previous;
+  }
+
   constructor(options: TuiRendererOptions) {
     this.surface = options.surface;
     this.styles = options.styles ?? new StyleTable();
