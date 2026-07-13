@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import {
   HandlerRegistry,
+  MutationCollector,
   createRenderer,
   render as reactRender,
   serializeTree,
@@ -18,6 +19,11 @@ export interface TuiReactRootOptions {
   surface: CellSurface;
   size: Size;
   styles?: StyleTable;
+  /**
+   * "full" (default) re-serializes the tree each commit; "incremental" feeds
+   * React's mutation batches to the host (the protocol's incremental path).
+   */
+  mode?: "full" | "incremental";
 }
 
 export interface TuiReactRoot {
@@ -52,7 +58,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
   });
   const router = new InputRouter(host);
 
-  const sync = (): void => {
+  const syncFull = (): void => {
     const tree = handle.rootInstance
       ? serializeTree(handle.rootInstance, registry)
       : null;
@@ -61,7 +67,16 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     router.onRender();
   };
 
-  const unsubscribe = handle.subscribe(sync);
+  let unsubscribe: () => void;
+  if (options.mode === "incremental") {
+    handle.mutationCollector = new MutationCollector(registry);
+    unsubscribe = handle.subscribeMutations((mutations) => {
+      host.applyBatch(mutations);
+      router.onRender();
+    });
+  } else {
+    unsubscribe = handle.subscribe(syncFull);
+  }
 
   return {
     host,

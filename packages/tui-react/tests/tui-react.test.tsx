@@ -97,3 +97,24 @@ describe("createTuiReactRoot — text input", () => {
     root.destroy();
   });
 });
+
+describe("createTuiReactRoot — incremental mode", () => {
+  it("renders and updates a counter via mutation batches", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiReactRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+      mode: "incremental",
+    });
+    root.render(h(Counter));
+    await tick();
+    expect(surface.lines({ trimRight: true })[0]).toBe("Count: 0");
+
+    root.dispatchInput(mouseUp(0, 1));
+    await tick();
+    expect(surface.lines({ trimRight: true })[0]).toBe("Count: 1");
+    root.destroy();
+  });
+});
