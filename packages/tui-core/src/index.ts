@@ -81,6 +81,11 @@ export type {
 export { TuiRenderer } from "./renderer/tui-renderer";
 export type { TuiRendererOptions } from "./renderer/tui-renderer";
 
+// Input
+export { InputParser } from "./input/parser";
+export { keyEvent, NO_MODIFIERS } from "./input/events";
+export type { TuiInputEvent, KeyModifiers } from "./input/events";
+
 // Paint pipeline
 export { renderToBuffer } from "./paint/paint";
 export type { RenderNode, RenderOutput } from "./paint/paint";
