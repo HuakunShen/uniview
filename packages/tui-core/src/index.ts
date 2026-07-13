@@ -86,6 +86,11 @@ export { InputParser } from "./input/parser";
 export { keyEvent, NO_MODIFIERS } from "./input/events";
 export type { TuiInputEvent, KeyModifiers } from "./input/events";
 
+// Focus & hit-testing
+export { FocusManager } from "./focus/focus-manager";
+export type { Focusable, FocusReason } from "./focus/focus-manager";
+export { hitTest } from "./focus/hit-test";
+
 // Paint pipeline
 export { renderToBuffer } from "./paint/paint";
 export type { RenderNode, RenderOutput } from "./paint/paint";
