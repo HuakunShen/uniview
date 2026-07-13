@@ -41,6 +41,11 @@ export { MemoryCellSurface } from "./surface/memory-surface";
 export type { MemoryCellSurfaceOptions } from "./surface/memory-surface";
 export { AnsiCellSurface } from "./surface/ansi-surface";
 export type { AnsiCellSurfaceOptions } from "./surface/ansi-surface";
+export { SvgCellSurface, renderSvg } from "./surface/svg-surface";
+export type { SvgRenderOptions } from "./surface/svg-surface";
+
+// Color palette
+export { resolveColorCss, NAMED_HEX } from "./style/palette";
 
 // ANSI encoding
 export {
