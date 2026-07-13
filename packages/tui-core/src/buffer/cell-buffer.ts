@@ -124,9 +124,11 @@ export class CellBuffer {
     styleId: number,
     ownerId: number,
     widths: WidthCalculator = defaultWidthCalculator,
+    clipRight: number = this.width,
   ): number {
     if (y < 0 || y >= this.height) return x;
 
+    const right = Math.min(this.width, clipRight);
     let cursor = x;
 
     for (const grapheme of graphemesOf(text)) {
@@ -141,8 +143,8 @@ export class CellBuffer {
         continue;
       }
 
-      if (cursor >= this.width) break;
-      if (width === 2 && cursor === this.width - 1) break;
+      if (cursor >= right) break;
+      if (width === 2 && cursor === right - 1) break;
 
       this.repairBefore(cursor, y);
       const lead = this.index(cursor, y);

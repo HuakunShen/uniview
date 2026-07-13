@@ -40,6 +40,38 @@ export { buildFrameUpdate, HIDDEN_CURSOR } from "./surface/frame-update";
 export { MemoryCellSurface } from "./surface/memory-surface";
 export type { MemoryCellSurfaceOptions } from "./surface/memory-surface";
 
+// Style contract & layout
+export {
+  resolveInsets,
+  borderInsets,
+  resolveDimension,
+} from "./style/tui-style";
+export type {
+  TuiStyle,
+  Dimension,
+  InsetsValue,
+  Insets,
+  FlexDirection,
+  JustifyContent,
+  AlignItems,
+  AlignSelf,
+  BorderValue,
+} from "./style/tui-style";
+export { computeLayout } from "./layout/layout";
+export type {
+  LayoutInput,
+  LayoutResult,
+  LayoutBox,
+  MeasureConstraints,
+} from "./layout/layout";
+
+// Paint pipeline
+export { renderToBuffer } from "./paint/paint";
+export type { RenderNode, RenderOutput } from "./paint/paint";
+export { OwnerTable } from "./paint/owner-table";
+export { borderGlyphs, BORDER_PRESETS } from "./paint/border";
+export type { BorderGlyphs } from "./paint/border";
+
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";
 export type {
