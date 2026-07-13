@@ -45,6 +45,7 @@ export class TuiHost {
   private readonly tree = new MutableTree();
   private readonly onInvokeHandler: TuiHostOptions["onInvokeHandler"];
   private handlers = new Map<string, Partial<Record<EventPropName, HandlerId>>>();
+  private readonly invocations: { id: HandlerId; payload?: JSONValue }[] = [];
 
   constructor(options: TuiHostOptions) {
     this.onInvokeHandler = options.onInvokeHandler;
@@ -96,8 +97,19 @@ export class TuiHost {
   fireEvent(nodeId: string, event: EventPropName, payload?: JSONValue): boolean {
     const handlerId = this.handlers.get(nodeId)?.[event];
     if (handlerId === undefined) return false;
+    this.invocations.push({ id: handlerId, payload });
     this.onInvokeHandler?.(handlerId, payload);
     return true;
+  }
+
+  /** The handler ids invoked so far (a command trace for automation). */
+  commands(): readonly { id: HandlerId; payload?: JSONValue }[] {
+    return this.invocations;
+  }
+
+  /** Clear the recorded command trace. */
+  resetCommands(): void {
+    this.invocations.length = 0;
   }
 
   /**
