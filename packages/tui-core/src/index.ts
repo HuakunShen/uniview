@@ -77,6 +77,10 @@ export type {
   MeasureConstraints,
 } from "./layout/layout";
 
+// Render loop
+export { TuiRenderer } from "./renderer/tui-renderer";
+export type { TuiRendererOptions } from "./renderer/tui-renderer";
+
 // Paint pipeline
 export { renderToBuffer } from "./paint/paint";
 export type { RenderNode, RenderOutput } from "./paint/paint";
