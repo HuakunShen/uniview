@@ -91,6 +91,18 @@ export { FocusManager } from "./focus/focus-manager";
 export type { Focusable, FocusReason } from "./focus/focus-manager";
 export { hitTest } from "./focus/hit-test";
 
+// Headless component state machines
+export { TextInputMachine } from "./components/text-input-machine";
+export type {
+  TextInputEffect,
+  TextInputInit,
+} from "./components/text-input-machine";
+export { PressableMachine } from "./components/pressable-machine";
+export type {
+  PressableEffect,
+  PressableInit,
+} from "./components/pressable-machine";
+
 // Paint pipeline
 export { renderToBuffer } from "./paint/paint";
 export type { RenderNode, RenderOutput } from "./paint/paint";
