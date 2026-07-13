@@ -5,7 +5,7 @@ import {
 } from "../text/graphemes";
 
 /** Per-cell bit flags stored in the buffer's `flags` array. */
-export const enum CellFlags {
+export enum CellFlags {
   None = 0,
   /** This cell is the trailing half of a wide (width-2) grapheme. */
   Continuation = 1 << 0,

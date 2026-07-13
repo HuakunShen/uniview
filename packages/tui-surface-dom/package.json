@@ -1,0 +1,36 @@
+{
+  "name": "@uniview/tui-surface-dom",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Browser DOM cell surface — renders a tui-core CellBuffer to DOM rows/spans",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@uniview/tui-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "happy-dom": "^15.0.0",
+    "tsdown": "0.22.2",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
