@@ -113,6 +113,17 @@ export { InputParser } from "./input/parser";
 export { keyEvent, NO_MODIFIERS } from "./input/events";
 export type { TuiInputEvent, KeyModifiers } from "./input/events";
 
+// Virtualization
+export {
+  computeVirtualWindow,
+  VirtualListMachine,
+} from "./virtual/virtual-window";
+export type {
+  VirtualWindow,
+  VirtualWindowOptions,
+  VirtualListInit,
+} from "./virtual/virtual-window";
+
 // Focus & hit-testing
 export { FocusManager } from "./focus/focus-manager";
 export type { Focusable, FocusReason } from "./focus/focus-manager";
