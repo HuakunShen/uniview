@@ -129,6 +129,10 @@ export type {
   PressableEffect,
   PressableInit,
 } from "./components/pressable-machine";
+export { CheckboxMachine } from "./components/checkbox-machine";
+export type { CheckboxEffect, CheckboxInit } from "./components/checkbox-machine";
+export { TabsMachine } from "./components/tabs-machine";
+export type { TabsEffect, TabsInit } from "./components/tabs-machine";
 
 // Paint pipeline
 export { renderToBuffer } from "./paint/paint";
