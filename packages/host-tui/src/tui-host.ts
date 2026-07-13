@@ -14,6 +14,14 @@ import {
 } from "@uniview/tui-core";
 import { extractHandlers, uinodeToRenderNode } from "./convert";
 import { MutableTree } from "./mutable-tree";
+import {
+  buildSemanticTree,
+  queryById,
+  queryByRole,
+  queryByText,
+  type RoleQuery,
+  type SemanticNode,
+} from "./semantics";
 
 export interface TuiHostOptions {
   surface: CellSurface;
@@ -107,6 +115,25 @@ export class TuiHost {
       id = this.tree.parentId(id);
     }
     return false;
+  }
+
+  // --- Semantic queries (automation / contract testing) --------------------
+
+  /** The accessibility tree derived from the current UINode tree. */
+  semanticTree(): SemanticNode | null {
+    return buildSemanticTree(this.tree.getRoot());
+  }
+
+  queryByRole(role: string, query?: RoleQuery): SemanticNode | null {
+    return queryByRole(this.semanticTree(), role, query);
+  }
+
+  queryByText(matcher: string | RegExp): SemanticNode | null {
+    return queryByText(this.semanticTree(), matcher);
+  }
+
+  queryById(id: string): SemanticNode | null {
+    return queryById(this.semanticTree(), id);
   }
 
   destroy(): void {
