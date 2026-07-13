@@ -81,6 +81,28 @@ export type {
 export { TuiRenderer } from "./renderer/tui-renderer";
 export type { TuiRendererOptions } from "./renderer/tui-renderer";
 
+// Runnable app (direct mode)
+export { createTuiApp } from "./app/create-tui-app";
+export type { TuiApp, CreateTuiAppOptions } from "./app/create-tui-app";
+
+// Terminal lifecycle
+export { TerminalDriver } from "./terminal/terminal-driver";
+export type {
+  TerminalDriverOptions,
+  TtyInput,
+  TtyOutput,
+} from "./terminal/terminal-driver";
+export {
+  buildEnterSequence,
+  buildLeaveSequence,
+  DEFAULT_MODE_OPTIONS,
+} from "./terminal/sequences";
+export type {
+  ScreenMode,
+  MouseMode,
+  TerminalModeOptions,
+} from "./terminal/sequences";
+
 // Input
 export { InputParser } from "./input/parser";
 export { keyEvent, NO_MODIFIERS } from "./input/events";
