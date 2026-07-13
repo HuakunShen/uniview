@@ -47,3 +47,10 @@ yarn-error.log*
 .DS_Store
 *.pem
 .opencode/
+
+# Xcode / Swift
+xcuserdata/
+*.xcuserstate
+.build/
+DerivedData/
+*.swiftpm/

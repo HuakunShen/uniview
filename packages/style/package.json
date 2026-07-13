@@ -1,0 +1,27 @@
+{
+  "name": "@uniview/style",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Normalized style schema + Tailwind-subset resolver for Uniview native hosts",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": ["dist"],
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsdown": "0.22.2",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
