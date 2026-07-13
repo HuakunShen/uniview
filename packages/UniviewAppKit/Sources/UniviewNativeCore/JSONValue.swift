@@ -81,4 +81,11 @@ extension JSONValue {
         if case .null = self { return true }
         return false
     }
+
+    /// Decode this JSON value into a `Decodable` type by re-serializing.
+    /// Used to lift structured props (e.g. `props["style"]`) into typed models.
+    public func decode<T: Decodable>(_ type: T.Type) throws -> T {
+        let data = try JSONEncoder().encode(self)
+        return try JSONDecoder().decode(type, from: data)
+    }
 }
