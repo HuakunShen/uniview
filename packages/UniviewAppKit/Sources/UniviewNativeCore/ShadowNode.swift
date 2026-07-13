@@ -79,4 +79,31 @@ public final class ShadowNode {
         }
         return style
     }
+
+    // MARK: - Structural mutation (driven by ShadowTree)
+
+    func appendChild(_ child: ShadowNode) {
+        child.parent = self
+        children.append(child)
+    }
+
+    /// Insert `child` before the child with `beforeId`; appends if the anchor
+    /// is absent (matches the host's insertBefore fallback).
+    func insertChild(_ child: ShadowNode, before beforeId: String) {
+        child.parent = self
+        if let index = children.firstIndex(where: { $0.id == beforeId }) {
+            children.insert(child, at: index)
+        } else {
+            children.append(child)
+        }
+    }
+
+    func removeChild(_ child: ShadowNode) {
+        children.removeAll { $0 === child }
+        if child.parent === self { child.parent = nil }
+    }
+
+    func detachFromParent() {
+        parent?.removeChild(self)
+    }
 }
