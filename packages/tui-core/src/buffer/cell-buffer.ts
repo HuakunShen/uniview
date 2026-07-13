@@ -51,6 +51,19 @@ export class CellBuffer {
     return y * this.width + x;
   }
 
+  /** An independent deep copy of this buffer. */
+  clone(): CellBuffer {
+    const copy = new CellBuffer(this.width, this.height);
+    for (let i = 0; i < this.graphemes.length; i += 1) {
+      copy.graphemes[i] = this.graphemes[i]!;
+    }
+    copy.widths.set(this.widths);
+    copy.styleIds.set(this.styleIds);
+    copy.ownerIds.set(this.ownerIds);
+    copy.flags.set(this.flags);
+    return copy;
+  }
+
   cellAt(x: number, y: number): CellView {
     const i = this.index(x, y);
     return {

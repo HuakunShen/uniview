@@ -103,6 +103,24 @@ describe("CellBuffer wide-cell overwrite invariants", () => {
   });
 });
 
+describe("CellBuffer.clone", () => {
+  it("produces an independent deep copy", () => {
+    const b = new CellBuffer(4, 1);
+    b.writeText(0, 0, "中x", 2, 3);
+    const copy = b.clone();
+
+    expect(copy.width).toBe(4);
+    expect(copy.height).toBe(1);
+    expect(copy.cellAt(0, 0)).toEqual(b.cellAt(0, 0));
+    expect(copy.cellAt(1, 0)).toEqual(b.cellAt(1, 0));
+
+    // Mutating the original must not touch the clone.
+    b.writeText(0, 0, "ab", 0, 0);
+    expect(copy.cellAt(0, 0).grapheme).toBe("中");
+    expect(copy.cellAt(2, 0).grapheme).toBe("x");
+  });
+});
+
 describe("CellBuffer.clear", () => {
   it("resets every cell to a blank with the given style", () => {
     const buffer = new CellBuffer(2, 1);
