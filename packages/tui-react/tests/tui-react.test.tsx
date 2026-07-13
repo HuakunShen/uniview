@@ -68,3 +68,32 @@ describe("createTuiReactRoot", () => {
     root.destroy();
   });
 });
+
+function Form() {
+  const [value, setValue] = useState("");
+  return h(
+    "box",
+    { flexDirection: "column" },
+    h("input", { value, onChange: (v: string) => setValue(v) }),
+    h("text", null, `Value: ${value}`),
+  );
+}
+
+describe("createTuiReactRoot — text input", () => {
+  it("edits a controlled React text field via typed keys", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 3 } });
+    root.render(h(Form));
+    await tick();
+
+    root.dispatchInput({ type: "key", key: "Tab", ctrl: false, alt: false, shift: false, meta: false });
+    root.dispatchInput({ type: "text", text: "h" });
+    await tick();
+    root.dispatchInput({ type: "text", text: "i" });
+    await tick();
+
+    expect(surface.text({ trimRight: true })).toContain("Value: hi");
+    root.destroy();
+  });
+});

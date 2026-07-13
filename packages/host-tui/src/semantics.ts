@@ -6,6 +6,8 @@ export interface SemanticNode {
   role: string;
   name?: string;
   text?: string;
+  /** Current value of a textbox. */
+  value?: string;
   disabled?: boolean;
   checked?: boolean;
   selected?: boolean;
@@ -84,6 +86,9 @@ export function buildSemanticTree(node: UINode | null): SemanticNode | null {
     if (name !== undefined) semantic.name = name;
   }
 
+  if (role === "textbox" && typeof node.props.value === "string") {
+    semantic.value = node.props.value;
+  }
   if (node.props.disabled === true) semantic.disabled = true;
   if (node.props.checked === true) semantic.checked = true;
   if (node.props.selected === true) semantic.selected = true;

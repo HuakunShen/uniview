@@ -86,6 +86,19 @@ export class TuiHost {
     return ids;
   }
 
+  /**
+   * Focusable nodes in tree order — those that can be clicked or that edit
+   * text. `textbox` is true when the node accepts text input (has onChange).
+   */
+  focusableTargets(): { id: string; textbox: boolean }[] {
+    const targets: { id: string; textbox: boolean }[] = [];
+    for (const [id, map] of this.handlers) {
+      const textbox = map.onChange !== undefined;
+      if (map.onClick !== undefined || textbox) targets.push({ id, textbox });
+    }
+    return targets;
+  }
+
   /** The plugin node id owning the cell at `(x, y)`, or null. */
   nodeAt(x: number, y: number): string | null {
     const frame = this.renderer.currentFrame;

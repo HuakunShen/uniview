@@ -6,13 +6,12 @@ import {
   serializeTree,
   unmount,
 } from "@uniview/react-renderer";
-import { TuiHost } from "@uniview/host-tui";
-import {
-  FocusManager,
-  type CellSurface,
-  type Size,
-  type StyleTable,
-  type TuiInputEvent,
+import { InputRouter, TuiHost } from "@uniview/host-tui";
+import type {
+  CellSurface,
+  Size,
+  StyleTable,
+  TuiInputEvent,
 } from "@uniview/tui-core";
 
 export interface TuiReactRootOptions {
@@ -34,15 +33,14 @@ export interface TuiReactRoot {
 
 /**
  * Render a React plugin to a terminal {@link CellSurface}. React commits are
- * serialized to UINode and fed to a {@link TuiHost}; input is routed back — a
- * click hit-tests to the owning node and fires its `onClick`, and keyboard
- * focus (Tab / Enter / Space) activates focusable nodes. React state updates
- * flow through as incremental frames. This is the plan's React "direct mode".
+ * serialized to UINode and fed to a {@link TuiHost}; an {@link InputRouter}
+ * routes input back — click/Enter/Space activate buttons and typing edits the
+ * focused text field (firing onChange/onSubmit). React state updates flow
+ * through as incremental frames. This is the plan's React "direct mode".
  */
 export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
   const handle = createRenderer();
   const registry = new HandlerRegistry();
-  const focus = new FocusManager();
 
   const host = new TuiHost({
     surface: options.surface,
@@ -52,6 +50,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
       void registry.execute(handlerId, payload);
     },
   });
+  const router = new InputRouter(host);
 
   const sync = (): void => {
     const tree = handle.rootInstance
@@ -59,14 +58,10 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
       : null;
     // A root is always an element (never a bare string) in practice.
     host.setRoot(typeof tree === "string" ? null : tree);
-    focus.setFocusables(host.eventTargets("onClick").map((id) => ({ id })));
+    router.onRender();
   };
 
   const unsubscribe = handle.subscribe(sync);
-
-  function activateFocused(): void {
-    if (focus.focused) host.fireEvent(focus.focused, "onClick");
-  }
 
   return {
     host,
@@ -78,25 +73,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     },
 
     dispatchInput(event: TuiInputEvent): void {
-      if (event.type === "mouse" && event.action === "up" && event.button === "left") {
-        const id = host.nodeAt(event.x, event.y);
-        if (id) {
-          focus.focus(id, "pointer");
-          host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
-        }
-        return;
-      }
-      if (event.type === "key" && event.key === "Tab") {
-        focus.move(event.shift ? "previous" : "next");
-        return;
-      }
-      if (event.type === "key" && event.key === "Enter") {
-        activateFocused();
-        return;
-      }
-      if (event.type === "text" && event.text === " ") {
-        activateFocused();
-      }
+      router.dispatch(event);
     },
 
     destroy(): void {

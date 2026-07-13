@@ -9,13 +9,12 @@ import {
   setUpdateCallback,
   type SolidNode,
 } from "@uniview/solid-renderer";
-import { TuiHost } from "@uniview/host-tui";
-import {
-  FocusManager,
-  type CellSurface,
-  type Size,
-  type StyleTable,
-  type TuiInputEvent,
+import { InputRouter, TuiHost } from "@uniview/host-tui";
+import type {
+  CellSurface,
+  Size,
+  StyleTable,
+  TuiInputEvent,
 } from "@uniview/tui-core";
 
 export interface TuiSolidRootOptions {
@@ -46,7 +45,6 @@ export interface TuiSolidRoot {
  */
 export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
   const registry = new HandlerRegistry();
-  const focus = new FocusManager();
 
   const host = new TuiHost({
     surface: options.surface,
@@ -56,22 +54,19 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       void registry.execute(handlerId, payload);
     },
   });
+  const router = new InputRouter(host);
 
   const sync = (): void => {
     const container = getRootNode();
     const appRoot = container?.children[0] ?? null;
     const tree = appRoot ? serializeTree(appRoot, registry) : null;
     host.setRoot(tree && typeof tree !== "string" ? tree : null);
-    focus.setFocusables(host.eventTargets("onClick").map((id) => ({ id })));
+    router.onRender();
   };
 
   setUpdateCallback(sync);
 
   let dispose: (() => void) | null = null;
-
-  function activateFocused(): void {
-    if (focus.focused) host.fireEvent(focus.focused, "onClick");
-  }
 
   return {
     host,
@@ -95,25 +90,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     },
 
     dispatchInput(event: TuiInputEvent): void {
-      if (event.type === "mouse" && event.action === "up" && event.button === "left") {
-        const id = host.nodeAt(event.x, event.y);
-        if (id) {
-          focus.focus(id, "pointer");
-          host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
-        }
-        return;
-      }
-      if (event.type === "key" && event.key === "Tab") {
-        focus.move(event.shift ? "previous" : "next");
-        return;
-      }
-      if (event.type === "key" && event.key === "Enter") {
-        activateFocused();
-        return;
-      }
-      if (event.type === "text" && event.text === " ") {
-        activateFocused();
-      }
+      router.dispatch(event);
     },
 
     destroy(): void {
