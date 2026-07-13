@@ -90,7 +90,8 @@ export function renderSvg(
     let runText = "";
     let runStyle: CellStyle = {};
     const flush = () => {
-      if (runStartX < 0 || runText.length === 0) {
+      // Drop whitespace-only runs (padding); interior spaces stay in a run.
+      if (runStartX < 0 || runText.trim().length === 0) {
         runStartX = -1;
         runText = "";
         return;
@@ -114,12 +115,9 @@ export function renderSvg(
       const i = buffer.index(x, y);
       if (buffer.flags[i]! & CellFlags.Continuation) continue;
       const grapheme = buffer.graphemes[i]!;
+      if (grapheme === "") continue; // continuation half already skipped
       const style = styles.get(buffer.styleIds[i]!);
       const key = textKey(style);
-      if (grapheme === " " || grapheme === "") {
-        flush();
-        continue;
-      }
       if (runStartX < 0 || key !== runKey) {
         flush();
         runStartX = x;
