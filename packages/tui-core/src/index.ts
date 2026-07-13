@@ -47,6 +47,11 @@ export type { SvgRenderOptions } from "./surface/svg-surface";
 // Color palette
 export { resolveColorCss, NAMED_HEX } from "./style/palette";
 
+// Theme & color depth
+export { defaultTheme, themeSpacing } from "./theme/theme";
+export type { TuiTheme, ThemeColors } from "./theme/theme";
+export { nearestNamedColor, rgbToAnsi256 } from "./theme/color-depth";
+
 // ANSI encoding
 export {
   sgrFor,
