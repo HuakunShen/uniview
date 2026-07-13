@@ -39,6 +39,18 @@ export type {
 export { buildFrameUpdate, HIDDEN_CURSOR } from "./surface/frame-update";
 export { MemoryCellSurface } from "./surface/memory-surface";
 export type { MemoryCellSurfaceOptions } from "./surface/memory-surface";
+export { AnsiCellSurface } from "./surface/ansi-surface";
+export type { AnsiCellSurfaceOptions } from "./surface/ansi-surface";
+
+// ANSI encoding
+export {
+  sgrFor,
+  sgrParams,
+  cursorTo,
+  SGR_RESET,
+  CURSOR_SHOW,
+  CURSOR_HIDE,
+} from "./ansi/encode";
 
 // Style contract & layout
 export {
