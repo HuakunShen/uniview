@@ -136,6 +136,22 @@ export class TuiHost {
     return queryById(this.semanticTree(), id);
   }
 
+  /**
+   * Resolve a semantic target (by role+name or id) and activate it — the
+   * automation `act` primitive that drives by semantics, not coordinates.
+   * Returns whether a matching control's handler ran.
+   */
+  activate(
+    target: { role: string; name?: string | RegExp } | { id: string },
+  ): boolean {
+    const node =
+      "id" in target
+        ? this.queryById(target.id)
+        : this.queryByRole(target.role, { name: target.name });
+    if (!node) return false;
+    return this.fireEvent(node.id, "onClick");
+  }
+
   destroy(): void {
     this.renderer.destroy();
   }
