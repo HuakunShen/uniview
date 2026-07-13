@@ -783,6 +783,37 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(lightningcss@1.32.0)
 
+  packages/tui-react:
+    dependencies:
+      '@uniview/host-tui':
+        specifier: workspace:*
+        version: link:../host-tui
+      '@uniview/react-renderer':
+        specifier: workspace:*
+        version: link:../react-renderer
+      '@uniview/tui-core':
+        specifier: workspace:*
+        version: link:../tui-core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      react:
+        specifier: 'catalog:'
+        version: 19.2.4
+      tsdown:
+        specifier: 0.22.2
+        version: 0.22.2(tsx@4.21.0)(typescript@5.9.3)(unrun@0.2.27(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0))(vue-tsc@3.2.4(typescript@5.9.3))
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.32.0)
+
   packages/tui-renderer:
     dependencies:
       ansi-escapes:

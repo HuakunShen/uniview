@@ -23,6 +23,11 @@ export class MutableTree {
     return this.nodes.get(id);
   }
 
+  /** The id of a node's parent, or undefined for the root/unknown nodes. */
+  parentId(id: string): string | undefined {
+    return this.parentOf.get(id);
+  }
+
   applyBatch(mutations: readonly Mutation[]): void {
     for (const mutation of mutations) this.apply(mutation);
   }

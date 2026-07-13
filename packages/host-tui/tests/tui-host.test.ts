@@ -97,3 +97,44 @@ describe("TuiHost — hit-testing and events", () => {
     expect(onInvokeHandler).toHaveBeenCalledWith("click-1", { x: 0, y: 0 });
   });
 });
+
+describe("TuiHost — eventTargets", () => {
+  it("lists nodes with a given handler in tree order", () => {
+    const { h } = host();
+    h.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        { id: "b1", type: "box", props: { [handlerIdProp("onClick")]: "h1" }, children: [] },
+        { id: "f1", type: "box", props: { [handlerIdProp("onChange")]: "h2" }, children: [] },
+        { id: "b2", type: "box", props: { [handlerIdProp("onClick")]: "h3" }, children: [] },
+      ],
+    });
+    expect(h.eventTargets("onClick")).toEqual(["b1", "b2"]);
+    expect(h.eventTargets("onChange")).toEqual(["f1"]);
+  });
+});
+
+describe("TuiHost — fireEventBubbling", () => {
+  it("bubbles to the nearest ancestor with a handler", () => {
+    const { h, onInvokeHandler } = host();
+    h.setRoot({
+      id: "btn",
+      type: "box",
+      props: { [handlerIdProp("onClick")]: "h1", backgroundColor: "blue", width: 5, height: 1 },
+      children: [{ id: "label", type: "text", props: {}, children: [textNode("t", "Go")] }],
+    });
+    // The inner label owns the cell, but only the parent button has onClick.
+    const inner = h.nodeAt(0, 0);
+    expect(inner).toBe("label");
+    expect(h.fireEventBubbling(inner, "onClick")).toBe(true);
+    expect(onInvokeHandler).toHaveBeenCalledWith("h1", undefined);
+  });
+
+  it("returns false when no ancestor handles the event", () => {
+    const { h } = host();
+    h.setRoot({ id: "root", type: "box", props: {}, children: [] });
+    expect(h.fireEventBubbling("root", "onClick")).toBe(false);
+  });
+});

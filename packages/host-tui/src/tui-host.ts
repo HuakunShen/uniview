@@ -68,6 +68,15 @@ export class TuiHost {
     this.renderer.flush();
   }
 
+  /** Node ids (in tree order) that have a handler for `event`. */
+  eventTargets(event: EventPropName): string[] {
+    const ids: string[] = [];
+    for (const [id, map] of this.handlers) {
+      if (map[event] !== undefined) ids.push(id);
+    }
+    return ids;
+  }
+
   /** The plugin node id owning the cell at `(x, y)`, or null. */
   nodeAt(x: number, y: number): string | null {
     const frame = this.renderer.currentFrame;
@@ -81,6 +90,23 @@ export class TuiHost {
     if (handlerId === undefined) return false;
     this.onInvokeHandler?.(handlerId, payload);
     return true;
+  }
+
+  /**
+   * Fire an event starting at `startId` and bubbling up ancestors until a
+   * handler runs (like DOM bubbling). Returns whether any handler was invoked.
+   */
+  fireEventBubbling(
+    startId: string | null,
+    event: EventPropName,
+    payload?: JSONValue,
+  ): boolean {
+    let id: string | undefined | null = startId;
+    while (id) {
+      if (this.fireEvent(id, event, payload)) return true;
+      id = this.tree.parentId(id);
+    }
+    return false;
   }
 
   destroy(): void {
