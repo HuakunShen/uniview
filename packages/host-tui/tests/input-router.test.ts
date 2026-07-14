@@ -92,3 +92,35 @@ describe("InputRouter — buttons", () => {
     expect(model.submitted).toBe("clicked");
   });
 });
+
+describe("InputRouter — onKeyDown", () => {
+  function setupKeys() {
+    const events: { key: string }[] = [];
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 20, height: 3 },
+      onInvokeHandler: (id, payload) => {
+        if (id === "keys") events.push(payload as { key: string });
+      },
+    });
+    host.setRoot({
+      id: "list",
+      type: "box",
+      props: { [handlerIdProp("onKeyDown")]: "keys" },
+      children: [],
+    });
+    const router = new InputRouter(host);
+    router.onRender();
+    return { router, events };
+  }
+
+  it("routes key events to a focused node's onKeyDown handler", () => {
+    const { router, events } = setupKeys();
+    router.dispatch(key("Tab")); // focus the list
+    router.dispatch(key("ArrowDown"));
+    router.dispatch(key("ArrowUp"));
+    expect(events.map((e) => e.key)).toEqual(["ArrowDown", "ArrowUp"]);
+  });
+});

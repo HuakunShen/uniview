@@ -94,7 +94,9 @@ export class TuiHost {
     const targets: { id: string; textbox: boolean }[] = [];
     for (const [id, map] of this.handlers) {
       const textbox = map.onChange !== undefined;
-      if (map.onClick !== undefined || textbox) targets.push({ id, textbox });
+      if (map.onClick !== undefined || map.onKeyDown !== undefined || textbox) {
+        targets.push({ id, textbox });
+      }
     }
     return targets;
   }

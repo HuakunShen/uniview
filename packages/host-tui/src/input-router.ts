@@ -42,6 +42,10 @@ export class InputRouter {
     return this.host.focusableTargets().some((t) => t.id === id && t.textbox);
   }
 
+  private hasKeyHandler(id: string): boolean {
+    return this.host.eventTargets("onKeyDown").includes(id);
+  }
+
   private fieldFor(id: string): FieldState {
     const committed = this.host.queryById(id)?.value ?? "";
     let field = this.fields.get(id);
@@ -91,6 +95,18 @@ export class InputRouter {
           this.host.fireEvent(focused, "onSubmit", effect.value);
         }
       }
+      return;
+    }
+
+    // A focused node can opt into raw keyboard handling (scroll, keymaps).
+    if (event.type === "key" && focused && this.hasKeyHandler(focused)) {
+      this.host.fireEvent(focused, "onKeyDown", {
+        key: event.key,
+        ctrl: event.ctrl,
+        alt: event.alt,
+        shift: event.shift,
+        meta: event.meta,
+      });
       return;
     }
 
