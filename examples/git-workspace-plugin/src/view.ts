@@ -13,8 +13,17 @@ export function GitWorkspaceTui({ model }: { model: GitWorkspaceModel }): ReactE
 
   const state = model.getState();
 
+  // A button hugs its label and shows blue behind the text:
+  //  - alignSelf: "start" stops a column's default align-items: stretch from
+  //    bleeding the fill across the whole row.
+  //  - the label carries backgroundColor too, because text cells overwrite the
+  //    box fill with their own style (no background inheritance in the renderer).
   const button = (name: string, onClick: () => void): ReactElement =>
-    h("box", { name, onClick, backgroundColor: "blue" }, h("text", { color: "white" }, `[ ${name} ]`));
+    h(
+      "box",
+      { name, onClick, backgroundColor: "blue", alignSelf: "start" },
+      h("text", { color: "white", backgroundColor: "blue" }, `[ ${name} ]`),
+    );
 
   return h(
     "box",

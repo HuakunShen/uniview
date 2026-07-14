@@ -52,4 +52,24 @@ describe("Git Workspace — semantic contract", () => {
     expect(text).toContain("README.md");
     expect(text).toContain("[ Refresh ]");
   });
+
+  it("hugs the Refresh button background to its label, not the whole row", async () => {
+    const { session, surface } = mount();
+    await tick();
+    session.act.activate({ role: "button", name: "Refresh" });
+    await tick();
+
+    const frame = surface.cells()!;
+    const rowY = frame.cells.findIndex((row) =>
+      row.map((c) => c.grapheme).join("").includes("[ Refresh ]"),
+    );
+    expect(rowY).toBeGreaterThanOrEqual(0);
+
+    const bgOf = (styleId: number) => frame.styles[styleId]?.bg;
+    const blueCells = frame.cells[rowY]!.filter((c) => bgOf(c.styleId) === "blue");
+
+    // The blue fill must cover exactly the label "[ Refresh ]" (11 cells),
+    // not bleed to the end of the 40-wide row.
+    expect(blueCells.length).toBe("[ Refresh ]".length);
+  });
 });
