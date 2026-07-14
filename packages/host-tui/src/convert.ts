@@ -83,6 +83,11 @@ function asColor(value: JSONValue | undefined): Color | undefined {
   return undefined;
 }
 
+type EdgeAlign = "left" | "center" | "right";
+function asAlign(value: JSONValue | undefined): EdgeAlign | undefined {
+  return value === "left" || value === "center" || value === "right" ? value : undefined;
+}
+
 function propsToTextStyle(props: Record<string, JSONValue>): CellStyle {
   const style: Record<string, unknown> = {};
   const fg = asColor(props.color);
@@ -166,6 +171,14 @@ export function uinodeToRenderNode(node: UINode | string): RenderNode | null {
   };
   const bg = asColor(node.props.backgroundColor);
   if (bg !== undefined) rendered.background = bg;
+  if (typeof node.props.title === "string") rendered.title = node.props.title;
+  const titleAlign = asAlign(node.props.titleAlign);
+  if (titleAlign) rendered.titleAlign = titleAlign;
+  if (typeof node.props.footer === "string") rendered.footer = node.props.footer;
+  const footerAlign = asAlign(node.props.footerAlign);
+  if (footerAlign) rendered.footerAlign = footerAlign;
+  const borderColor = asColor(node.props.borderColor);
+  if (borderColor !== undefined) rendered.borderStyle = { fg: borderColor };
   return rendered;
 }
 

@@ -167,3 +167,25 @@ describe("uinodeToRenderNode — richtext", () => {
     expect(uinodeToRenderNode(node)).toMatchObject({ type: "richtext", spans: [] });
   });
 });
+
+const box = (props: Record<string, unknown>): UINode => ({
+  id: "p", type: "box", props: props as UINode["props"], children: [],
+});
+
+describe("convert — panel chrome props", () => {
+  it("maps title/footer/align and borderColor onto the render node", () => {
+    const node = uinodeToRenderNode(
+      box({ border: "rounded", title: "Status", footer: "1 of 8", footerAlign: "right", borderColor: "green" }),
+    );
+    expect(node).not.toBeNull();
+    expect(node!.title).toBe("Status");
+    expect(node!.footer).toBe("1 of 8");
+    expect(node!.footerAlign).toBe("right");
+    expect(node!.borderStyle).toEqual({ fg: "green" });
+  });
+
+  it("accepts an { r, g, b } borderColor", () => {
+    const node = uinodeToRenderNode(box({ border: "single", borderColor: { r: 0, g: 255, b: 0 } }));
+    expect(node!.borderStyle).toEqual({ fg: { r: 0, g: 255, b: 0 } });
+  });
+});
