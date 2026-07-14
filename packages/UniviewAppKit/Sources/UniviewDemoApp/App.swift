@@ -14,19 +14,23 @@ enum DemoApp {
         let split = MainSplitViewController(sections: demoSections())
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 980, height: 640),
+            contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false)
         window.title = "Uniview Desktop"
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.toolbarStyle = .unified
+        // No toolbar is attached, so the `.unified` toolbar style just drew an
+        // empty light titlebar band above the sidebar. Dropping it (plus hiding
+        // the separator) lets the split view's glass sidebar run to the very top
+        // with the traffic lights inline — the Music/Finder look.
+        window.titlebarSeparatorStyle = .none
         // Clear/non-opaque so the behind-window frost blurs the desktop through
         // the UI (Music/Finder-style ambience).
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.minSize = NSSize(width: 840, height: 540)
+        window.minSize = NSSize(width: 880, height: 600)
         window.contentViewController = split
         window.setFrameAutosaveName("UniviewDesktopMain")
         window.center()

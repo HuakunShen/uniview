@@ -231,6 +231,51 @@ Studio milestone. The demo app is intentionally minimal.
 - **Scope creep toward Raycast components** → this increment ships only View/Text/Button/
   TextInput; rich components are a separate spec.
 
+## 9a. Revision — user steering (2026-07-14)
+
+Direct steering from the user supersedes/sharpens the draft above. Binding changes:
+
+1. **"Style IR", not CSS.** Uniview does not implement CSS. It implements a typed,
+   Tailwind-inspired, cross-platform style language compiled to a **platform-neutral Style
+   IR**. `@uniview/style`'s `ResolvedStyle` **is** that Style IR (renamed conceptually; kept
+   resolved plugin-side so native hosts never parse Tailwind).
+2. **Engine/host/app separation (Fabric/Flutter-style), as three Swift modules:**
+   - **`UniviewNativeCore`** — portable, Foundation-only: protocol models (`UINode`,
+     `Mutation`, `CommitBatch`), `ShadowNode`, `TreeReconciler` interfaces, **Style IR**,
+     component specification, transport abstractions. No AppKit.
+   - **`UniviewAppKit`** — AppKit-specific host: NSView mounting, `ComponentRegistry`, native
+     component factories, event dispatch, AppKit lifecycle. Depends on `UniviewNativeCore`.
+   - **`UniviewDemoApp`** — thin demo that *imports* `UniviewAppKit`; contains **no** framework
+     logic. Reusable framework logic must never live under `examples/`.
+3. **Packaging: Swift Package (SPM), not an Xcode framework project.** The user's
+   `packages/UniviewAppKit` Xcode skeleton is migrated into an SPM package (`Package.swift`
+   with `UniviewNativeCore` + `UniviewAppKit` library targets and matching test targets) so the
+   AI dev loop is `edit → swift test → fix` — fast, windowless, no Xcode/clicking required. The
+   demo app is a separate thin target that imports the library.
+4. **Programmatic AppKit only.** No Storyboard; no SwiftUI as the root rendering architecture
+   (`NSWindow`/`NSViewController`/`NSView`/`NSStackView`/`NSTableView`/`NSCollectionView`/
+   `NSSplitView`). SwiftUI may appear later only as optional leaf components via `NSHostingView`.
+5. **Fabric-style surgical reconciliation** — diff old vs new ShadowTree → minimal NSView
+   updates (e.g. `button.title = new`), never teardown/recreate. Migrate the proven
+   `NodeViewModel` (id/type/props/children/dirtyFields/weak associatedView), `TreeReconciler`,
+   and `ComponentRegistry` concepts from `examples/host-appkit-demo` instead of rewriting blind.
+6. **Layout: Yoga-compatible Style IR → Yoga → native frames.** AutoLayout is **not** the
+   cross-platform layout model. Portable primitives (`View/Flex/Stack/Grid`) lay out via Yoga;
+   native-behavior containers (`SplitView/Toolbar/Menu/Window/Dialog`) own their own layout.
+7. **TDD is first-class**, layered: (1) core model tests, (2) reconciler tests, (3) native-view
+   fixture tests (fake/headless NSViews, in-memory host, native-tree snapshots, mutation
+   assertions), (4) UI tests only for final integration. Prefer fast windowless tests; do not
+   require launching the full app per test.
+8. **No premature native/C++/Rust optimization.** Get the architecture correct first; the
+   important boundaries are protocol / shadow tree / mutation model / component registry / style
+   resolver / testing infrastructure.
+9. **First milestone = a real desktop shell**, not a counter: sidebar + main content + toolbar
+   + list/detail + form controls + plugin mounting — proving Uniview can power real desktop apps.
+
+Guiding references: React Native Fabric (reconciliation), Lynx (style system), Raycast/AppKit
+(native shell), Flutter (engine separation). Avoid ordinary AppKit app architecture,
+storyboard-driven UI, SwiftUI-only rendering, and demo-coupled framework code.
+
 ## 9. Success criteria
 
 - `@uniview/style` resolves the supported Tailwind subset + style objects, fully unit-tested.

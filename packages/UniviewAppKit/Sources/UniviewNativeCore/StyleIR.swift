@@ -138,10 +138,17 @@ public struct StyleIR: Equatable, Sendable, Codable {
     public var left: Double?
     // Visual
     public var backgroundColor: String?
+    /// A diagonal (top-leading → bottom-trailing) gradient fill, expressed as an
+    /// ordered list of color tokens. When set, it paints behind the content and
+    /// takes precedence over `backgroundColor`.
+    public var backgroundGradient: [String]?
     public var borderColor: String?
     public var borderWidth: Double?
     public var borderRadius: Double?
     public var opacity: Double?
+    /// A soft drop shadow token (`"brand"`, `"soft"`, or a color) — rendered as an
+    /// ambient shadow so cards/controls lift off the background.
+    public var shadow: String?
     // Typography
     public var color: String?
     public var fontSize: Double?

@@ -36,6 +36,7 @@ public final class ComponentRegistry {
         let registry = ComponentRegistry()
         registry.register(["View", "div", "section", "main", "nav", "header", "footer"], ViewComponent())
         registry.register(["Text", "p", "span", "label", "strong", "em"], TextComponent())
+        registry.register(["Icon", "Image", "img", "symbol"], IconComponent())
         registry.register(["Button", "button"], ButtonComponent())
         registry.register(["TextInput", "input"], TextInputComponent())
         return registry

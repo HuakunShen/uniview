@@ -13,12 +13,15 @@ struct DemoSection {
 
 // MARK: - Sidebar
 
-/// A Music/Finder-style sidebar row: SF Symbol + label on a soft pill, brand-
-/// tinted when selected, a fainter pill on hover. Never an accent-filled bar.
+/// A Music/Finder-style sidebar row: SF Symbol + label on a soft neutral pill.
+/// When selected the label and (filled) symbol tint brand over a quiet
+/// `labelColor.opacity(0.08)` pill; hovering shows a fainter pill. Selection is
+/// never an accent-filled bar. Mirrors the reference app's `SidebarItemRow`.
 @MainActor
 final class SidebarRow: NSView {
     private let icon = NSImageView()
     private let label = NSTextField(labelWithString: "")
+    private let symbolName: String
     private let index: Int
     private let onClick: (Int) -> Void
     private var tracking: NSTrackingArea?
@@ -27,29 +30,27 @@ final class SidebarRow: NSView {
     private var isHovering = false { didSet { restyle() } }
 
     init(section: DemoSection, index: Int, onClick: @escaping (Int) -> Void) {
+        self.symbolName = section.symbol
         self.index = index
         self.onClick = onClick
         super.init(frame: .zero)
         wantsLayer = true
-        layer?.cornerRadius = 7
+        layer?.cornerRadius = 8
 
-        icon.image = NSImage(
-            systemSymbolName: section.symbol, accessibilityDescription: section.title)
-        icon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
         icon.translatesAutoresizingMaskIntoConstraints = false
+        icon.imageScaling = .scaleProportionallyDown
 
         label.stringValue = section.title
-        label.font = .systemFont(ofSize: 13, weight: .medium)
         label.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(icon)
         addSubview(label)
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: 28),
-            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 10),
+            heightAnchor.constraint(equalToConstant: 30),
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             icon.centerYAnchor.constraint(equalTo: centerYAnchor),
-            icon.widthAnchor.constraint(equalToConstant: 20),
-            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 7),
+            icon.widthAnchor.constraint(equalToConstant: 22),
+            label.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 8),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
         restyle()
@@ -72,22 +73,86 @@ final class SidebarRow: NSView {
     override func mouseDown(with event: NSEvent) { onClick(index) }
 
     private func restyle() {
+        // Filled glyph when selected, outline otherwise (Music/Finder detail).
+        let name = isSelected ? "\(symbolName).fill" : symbolName
+        icon.image =
+            NSImage(systemSymbolName: name, accessibilityDescription: label.stringValue)
+            ?? NSImage(systemSymbolName: symbolName, accessibilityDescription: label.stringValue)
+        icon.symbolConfiguration = NSImage.SymbolConfiguration(
+            pointSize: 13, weight: isSelected ? .semibold : .medium)
+
         let pill: NSColor
         if isSelected {
-            pill = NSColor.quaternaryLabelColor.withAlphaComponent(0.6)
+            pill = NSColor.labelColor.withAlphaComponent(0.09)
             icon.contentTintColor = univiewBrandColor
             label.textColor = univiewBrandColor
+            label.font = .systemFont(ofSize: 13, weight: .semibold)
         } else if isHovering {
-            pill = NSColor.quaternaryLabelColor.withAlphaComponent(0.28)
+            pill = NSColor.labelColor.withAlphaComponent(0.05)
             icon.contentTintColor = .secondaryLabelColor
             label.textColor = .labelColor
+            label.font = .systemFont(ofSize: 13, weight: .regular)
         } else {
             pill = .clear
             icon.contentTintColor = .secondaryLabelColor
             label.textColor = .labelColor
+            label.font = .systemFont(ofSize: 13, weight: .regular)
         }
         layer?.backgroundColor = pill.cgColor
     }
+}
+
+/// The pinned sync-status footer at the bottom of the sidebar: a status dot and
+/// a two-line label on a soft glass pill (mirrors the reference's footer).
+@MainActor
+final class SidebarStatusFooter: NSView {
+    override var isFlipped: Bool { true }
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.05).cgColor
+        layer?.borderWidth = 1
+        layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.6).cgColor
+
+        let dot = NSView()
+        dot.wantsLayer = true
+        dot.layer?.cornerRadius = 4.5
+        dot.layer?.backgroundColor = NSColor.secondaryLabelColor.cgColor
+        dot.translatesAutoresizingMaskIntoConstraints = false
+
+        let primary = NSTextField(labelWithString: "Not syncing")
+        primary.font = .systemFont(ofSize: 11, weight: .medium)
+        primary.textColor = .labelColor
+        primary.translatesAutoresizingMaskIntoConstraints = false
+
+        let secondary = NSTextField(labelWithString: "This device")
+        secondary.font = .systemFont(ofSize: 10, weight: .regular)
+        secondary.textColor = .secondaryLabelColor
+        secondary.translatesAutoresizingMaskIntoConstraints = false
+
+        let text = NSStackView(views: [primary, secondary])
+        text.orientation = .vertical
+        text.alignment = .leading
+        text.spacing = 1
+        text.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(dot)
+        addSubview(text)
+        NSLayoutConstraint.activate([
+            heightAnchor.constraint(equalToConstant: 44),
+            dot.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 11),
+            dot.centerYAnchor.constraint(equalTo: centerYAnchor),
+            dot.widthAnchor.constraint(equalToConstant: 9),
+            dot.heightAnchor.constraint(equalToConstant: 9),
+            text.leadingAnchor.constraint(equalTo: dot.trailingAnchor, constant: 9),
+            text.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8),
+            text.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 @MainActor
@@ -107,16 +172,6 @@ final class SidebarViewController: NSViewController {
     override func loadView() {
         let root = NSView()
 
-        let brand = NSTextField(labelWithString: "Uniview")
-        brand.font = .systemFont(ofSize: 15, weight: .bold)
-        brand.textColor = .labelColor
-        brand.translatesAutoresizingMaskIntoConstraints = false
-
-        let subtitle = NSTextField(labelWithString: "Desktop Studio")
-        subtitle.font = .systemFont(ofSize: 11, weight: .regular)
-        subtitle.textColor = .secondaryLabelColor
-        subtitle.translatesAutoresizingMaskIntoConstraints = false
-
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.alignment = .leading
@@ -130,17 +185,21 @@ final class SidebarViewController: NSViewController {
             row.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
 
-        root.addSubview(brand)
-        root.addSubview(subtitle)
+        let footer = SidebarStatusFooter()
+        footer.translatesAutoresizingMaskIntoConstraints = false
+
         root.addSubview(stack)
+        root.addSubview(footer)
+        // Anchor to the safe area so the nav list clears the inline traffic
+        // lights (the split view runs the glass sidebar to the window top).
+        let safe = root.safeAreaLayoutGuide
         NSLayoutConstraint.activate([
-            brand.topAnchor.constraint(equalTo: root.topAnchor, constant: 14),
-            brand.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 18),
-            subtitle.topAnchor.constraint(equalTo: brand.bottomAnchor, constant: 1),
-            subtitle.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 18),
-            stack.topAnchor.constraint(equalTo: subtitle.bottomAnchor, constant: 16),
-            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 8),
-            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
+            stack.topAnchor.constraint(equalTo: safe.topAnchor, constant: 8),
+            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
+            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
+            footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
+            footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
+            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -12),
         ])
         view = root
         select(0)
@@ -213,9 +272,9 @@ final class ContentViewController: NSViewController {
 final class BloomView: NSView {
     override var isFlipped: Bool { true }
     private let blooms: [(color: NSColor, opacity: CGFloat, size: CGFloat, dx: CGFloat, dy: CGFloat)] = [
-        (univiewBrandColor, 0.34, 0.95, -0.28, -0.32),
-        (univiewBrandViolet, 0.26, 0.78, 0.46, 0.42),
-        (univiewBrandCyan, 0.20, 0.62, 0.10, 0.60),
+        (univiewBrandColor, 0.24, 1.05, -0.28, -0.32),
+        (univiewBrandViolet, 0.18, 0.88, 0.46, 0.42),
+        (univiewBrandCyan, 0.14, 0.70, 0.15, 0.58),
     ]
     private var bloomLayers: [CAGradientLayer] = []
 

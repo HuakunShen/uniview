@@ -1,3 +1,4 @@
+import Foundation
 import UniviewNativeCore
 import yoga
 
@@ -6,9 +7,17 @@ import yoga
 /// frames back into each `ShadowNode.layout`. All Yoga C calls are confined to
 /// this file so the rest of the framework stays engine-agnostic.
 public final class YogaLayoutEngine: LayoutEngine {
+    /// Yoga's node allocation and default-config state are process-global and not
+    /// thread-safe. Real hosts drive layout from the main actor, but tests (and
+    /// any future background layout) can invoke engines concurrently, which
+    /// corrupts Yoga's heap. Serialize every Yoga interaction through one lock.
+    private static let lock = NSLock()
+
     public init() {}
 
     public func calculate(root: ShadowNode, available: Size) {
+        Self.lock.lock()
+        defer { Self.lock.unlock() }
         let ygRoot = build(root)
         YGNodeCalculateLayout(ygRoot, Float(available.width), Float(available.height), .LTR)
         readBack(root, from: ygRoot)

@@ -100,7 +100,9 @@ import Testing
             UINode(
                 id: "i", type: "TextInput",
                 props: ["value": .string("initial"), "_onChangeHandlerId": .string("h")]))
-        let field = try #require(mount(TextInputComponent(), node, context: context) as? HandlerTextField)
+        let container = try #require(
+            mount(TextInputComponent(), node, context: context) as? StyledFieldView)
+        let field = container.field
         #expect(field.stringValue == "initial")
         #expect(changes.isEmpty)
 
@@ -110,11 +112,48 @@ import Testing
         #expect(changes == ["typed"])
     }
 
+    @Test func primaryVariantButtonIsGradientButton() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "b", type: "Button",
+                props: ["title": .string("Save"), "variant": .string("primary")]))
+        let button = try #require(mount(ButtonComponent(), node) as? GradientButton)
+        // Still a real NSButton with a working title (fires through the same path).
+        #expect(button.title == "Save")
+    }
+
+    @Test func viewWithGradientBecomesGradientView() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "v", type: "View",
+                props: [
+                    "style": .object([
+                        "backgroundGradient": .array([.string("brand"), .string("brand-violet")])
+                    ])
+                ]))
+        let view = mount(ViewComponent(), node)
+        #expect(view is GradientView)
+    }
+
+    @Test func iconRendersSymbolImage() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "i", type: "Icon",
+                props: [
+                    "symbol": .string("house.fill"),
+                    "style": .object(["color": .string("brand")]),
+                ]))
+        let imageView = try #require(mount(IconComponent(), node) as? NSImageView)
+        #expect(imageView.image != nil)
+        #expect(imageView.contentTintColor == univiewBrandColor)
+    }
+
     @Test func registryResolvesBuiltinsAndFallback() {
         let registry = ComponentRegistry.standard()
         #expect(registry.isRegistered("Button"))
         #expect(registry.isRegistered("Text"))
         #expect(registry.isRegistered("TextInput"))
+        #expect(registry.isRegistered("Icon"))
         #expect(registry.isRegistered("View"))
         #expect(!registry.isRegistered("Nonexistent"))
         #expect(registry.component(for: "Nonexistent") is UnknownComponent)

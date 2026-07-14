@@ -1,8 +1,9 @@
 import AppKit
+import UniviewNativeCore
 
 /// A top-down `NSView` (origin at top-left) matching Yoga's coordinate space,
 /// so computed frames map straight onto subview frames.
-public final class FlippedView: NSView {
+public class FlippedView: NSView {
     public override var isFlipped: Bool { true }
 }
 
@@ -10,6 +11,34 @@ public final class FlippedView: NSView {
 /// container (top-down coords like `FlippedView`).
 public final class MaterialView: NSVisualEffectView {
     public override var isFlipped: Bool { true }
+}
+
+/// A flipped container that paints a diagonal (top-leading → bottom-trailing)
+/// gradient behind its content — the backing for the Style IR's
+/// `backgroundGradient` (hero chips, brand surfaces). The gradient sublayer
+/// tracks the view's bounds and corner radius.
+public final class GradientView: FlippedView {
+    private let gradient = CAGradientLayer()
+
+    public override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        gradient.startPoint = CGPoint(x: 0, y: 0)
+        gradient.endPoint = CGPoint(x: 1, y: 1)
+        layer?.insertSublayer(gradient, at: 0)
+    }
+
+    public required init?(coder: NSCoder) { fatalError() }
+
+    public func setGradientColors(_ colors: [CGColor]) {
+        gradient.colors = colors.isEmpty ? nil : colors
+    }
+
+    public override func layout() {
+        super.layout()
+        gradient.frame = bounds
+        gradient.cornerRadius = layer?.cornerRadius ?? 0
+    }
 }
 
 /// Maps Style-IR material tokens (carried on the `material` prop) to AppKit
@@ -47,6 +76,22 @@ public let univiewBrandColor = NSColor(srgbRed: 0.18, green: 0.57, blue: 0.78, a
 public let univiewBrandViolet = NSColor(srgbRed: 0.31, green: 0.42, blue: 0.95, alpha: 1)
 public let univiewBrandCyan = NSColor(srgbRed: 0.18, green: 0.70, blue: 0.92, alpha: 1)
 
+/// The signature diagonal brand gradient (top-leading → bottom-trailing) used on
+/// hero chips and the primary button — mirrors the reference app's `brandGradient`.
+public var univiewBrandGradient: [CGColor] {
+    [univiewBrandColor.cgColor, univiewBrandViolet.cgColor]
+}
+
+/// Maps the Style IR font weight to an AppKit `NSFont.Weight`.
+func nsFontWeight(_ weight: FontWeight?) -> NSFont.Weight {
+    switch weight {
+    case .bold: return .bold
+    case .semibold: return .semibold
+    case .medium: return .medium
+    case .normal, .none: return .regular
+    }
+}
+
 /// Parses the color strings the Style IR carries into `NSColor`. Accepts hex
 /// (`#rgb`/`#rrggbb`/`#rrggbbaa`), `transparent`, and **native semantic tokens**
 /// that adapt to light/dark and vibrancy — so plugins can request truly native
@@ -57,6 +102,15 @@ public enum CSSColor {
 
         switch value {
         case "clear", "transparent": return .clear
+        case "white": return .white
+        case "black": return .black
+        case "red", "danger", "destructive": return .systemRed
+        case "green", "success": return .systemGreen
+        case "orange", "warning": return .systemOrange
+        case "yellow": return .systemYellow
+        case "purple": return .systemPurple
+        case "pink": return .systemPink
+        case "gray", "grey": return .systemGray
         case "label", "foreground", "text": return .labelColor
         case "secondarylabel", "secondary", "muted-foreground", "muted": return .secondaryLabelColor
         case "tertiarylabel", "tertiary": return .tertiaryLabelColor
