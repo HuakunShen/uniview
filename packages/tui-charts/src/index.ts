@@ -6,3 +6,6 @@ export { renderSparkline } from "./sparkline";
 export type { SparklineOptions } from "./sparkline";
 export { renderGauge } from "./gauge";
 export type { GaugeOptions } from "./gauge";
+export { renderLineChart } from "./line";
+export type { LineSeries, PlotOptions } from "./line";
+export { dataToPixel } from "./axis";
