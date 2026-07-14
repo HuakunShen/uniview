@@ -1207,6 +1207,9 @@ importers:
       '@uniview/tui-charts':
         specifier: workspace:*
         version: link:../tui-charts
+      '@uniview/tui-content':
+        specifier: workspace:*
+        version: link:../tui-content
       '@uniview/tui-core':
         specifier: workspace:*
         version: link:../tui-core

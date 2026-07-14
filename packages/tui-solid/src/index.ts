@@ -26,7 +26,13 @@ export type {
   ScatterProps,
   SparklineProps,
 } from "./charts";
-export { renderNodeToElement } from "./content";
+export { Code, Diff, Markdown, renderNodeToElement, StreamingMarkdown } from "./content";
+export type {
+  CodeProps,
+  DiffProps,
+  MarkdownProps,
+  StreamingMarkdownProps,
+} from "./content";
 export { createFocusList, nextFocus } from "./focus";
 export type { FocusList } from "./focus";
 export { List, listCounter } from "./list";

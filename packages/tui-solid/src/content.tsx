@@ -1,4 +1,14 @@
-import { For, type JSX } from "solid-js";
+import { createMemo, For, Show, splitProps, type JSX } from "solid-js";
+import {
+  detectLanguage,
+  renderCode,
+  renderDiff,
+  renderMarkdown,
+  splitStableMarkdown,
+  type RenderCodeOptions,
+  type RenderDiffOptions,
+  type RenderMarkdownOptions,
+} from "@uniview/tui-content";
 import type { CellStyle, RenderNode } from "@uniview/tui-core";
 import { Box, RichText, Text } from "./primitives";
 
@@ -60,4 +70,90 @@ function NodeView(props: NodeViewProps): JSX.Element {
 /** Render a content/chart {@link RenderNode} as a Solid element. */
 export function renderNodeToElement(node: RenderNode): JSX.Element {
   return <NodeView node={node} />;
+}
+
+export interface MarkdownProps extends RenderMarkdownOptions {
+  content: string;
+}
+
+/**
+ * Render Markdown to the terminal: headings, lists, quotes, tables, inline
+ * emphasis/code/links and syntax-highlighted fenced code. The parse runs in a
+ * `createMemo`, so unchanged content is not re-parsed — this is what makes the
+ * streaming reuse below possible (React gets the same property from `memo`).
+ */
+export function Markdown(props: MarkdownProps): JSX.Element {
+  const [local, options] = splitProps(props, ["content"]);
+  const node = createMemo(() => renderMarkdown(local.content, { ...options }));
+  return <>{renderNodeToElement(node())}</>;
+}
+
+export interface StreamingMarkdownProps extends RenderMarkdownOptions {
+  content: string;
+}
+
+/**
+ * Streaming Markdown for AI output. Splits the growing text into the
+ * already-complete blocks and the in-progress tail, so an incoming token only
+ * re-parses the small tail.
+ *
+ * `stable` and `tail` are their own memos on purpose. `splitStableMarkdown`
+ * returns a fresh object every call, so subscribing straight to it would push a
+ * new value on every token and re-parse the whole completed document. Narrowing
+ * to the two strings lets `createMemo`'s `===` check stop the unchanged prefix
+ * from propagating — the Solid equivalent of React's memoized stable subtree.
+ */
+export function StreamingMarkdown(props: StreamingMarkdownProps): JSX.Element {
+  const [local, options] = splitProps(props, ["content"]);
+  const split = createMemo(() => splitStableMarkdown(local.content));
+  const stable = createMemo(() => split().stable);
+  const tail = createMemo(() => split().tail);
+  return (
+    <Box flexDirection="column">
+      <Show when={stable().length > 0}>
+        <Markdown content={stable()} {...options} />
+      </Show>
+      <Show when={tail().length > 0}>
+        <Markdown content={tail()} {...options} />
+      </Show>
+    </Box>
+  );
+}
+
+export interface CodeProps extends RenderCodeOptions {
+  content: string;
+  /** Language id; if omitted, inferred from `filename`. */
+  language?: string;
+  /** File name used to infer the language when `language` is not given. */
+  filename?: string;
+}
+
+/**
+ * Render syntax-highlighted code. `language` wins; otherwise the language is
+ * detected from `filename`.
+ */
+export function Code(props: CodeProps): JSX.Element {
+  const [local, options] = splitProps(props, ["content", "language", "filename"]);
+  const node = createMemo(() => {
+    const rest = { ...options };
+    const lang = local.language ?? (local.filename ? detectLanguage(local.filename) : rest.lang);
+    return renderCode(local.content, { ...rest, lang });
+  });
+  return <>{renderNodeToElement(node())}</>;
+}
+
+export interface DiffProps extends RenderDiffOptions {
+  patch: string;
+  /** Language id for the diff content. */
+  language?: string;
+}
+
+/** Render a unified diff with gutters, sign column, highlight and bands. */
+export function Diff(props: DiffProps): JSX.Element {
+  const [local, options] = splitProps(props, ["patch", "language"]);
+  const node = createMemo(() => {
+    const rest = { ...options };
+    return renderDiff(local.patch, { ...rest, lang: local.language ?? rest.lang });
+  });
+  return <>{renderNodeToElement(node())}</>;
 }
