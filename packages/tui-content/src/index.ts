@@ -10,6 +10,17 @@ export type { RenderCodeOptions } from "./code";
 export { renderMarkdown } from "./markdown";
 export type { RenderMarkdownOptions } from "./markdown";
 
+// Unified diff → paintable render node
+export { parseUnifiedDiff, renderDiff } from "./diff";
+export type {
+  DiffColors,
+  DiffFile,
+  DiffHunk,
+  DiffLine,
+  DiffLineKind,
+  RenderDiffOptions,
+} from "./diff";
+
 // Styled-span word wrapping
 export { wrapStyledSpans } from "./wrap";
 export type { WrapOptions } from "./wrap";
