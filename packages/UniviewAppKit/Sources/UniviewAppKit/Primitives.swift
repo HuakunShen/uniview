@@ -82,6 +82,13 @@ public struct ViewComponent: Component {
             }
         }
 
+        // The keys this node asked for — and *only* those — are taken from the
+        // responder chain. See `Keyboard.swift`.
+        if let responder = view as? any KeyResponder {
+            responder.keyInterest = KeyInterest(node: node, executor: context.executeHandler)
+            responder.autoFocuses = node.props["autoFocus"]?.boolValue ?? false
+        }
+
         // Both the style-for-this-state and every `.cgColor` in it are resolved
         // inside this closure, because both depend on state the view owns and we
         // do not: the appearance it ended up in, and where the pointer is. It is
@@ -571,6 +578,8 @@ public struct TextInputComponent: Component {
         field.setValueFromHost(value.isEmpty ? defaultValue : value)
         field.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
         field.bind(handlerId: node.handlerId(for: "onChange"), executor: context.executeHandler)
+        field.keyInterest = KeyInterest(node: node, executor: context.executeHandler)
+        if node.props["autoFocus"]?.boolValue == true { container.focusFieldOnce() }
     }
 
     /// A field has a fixed height and no natural width — in a stretch-aligned
@@ -633,6 +642,27 @@ public final class StyledFieldView: NSView {
 
     public required init?(coder: NSCoder) { fatalError() }
 
+    /// `autoFocus` — put the caret in the field on mount, and only on mount: a
+    /// re-render must not drag the caret back to the start of what the user is
+    /// typing, and this component re-renders on every keystroke.
+    private var hasAutoFocused = false
+    func focusFieldOnce() {
+        guard !hasAutoFocused else { return }
+        hasAutoFocused = true
+        // The view is not in a window yet on the first commit; `viewDidMoveToWindow`
+        // is where it becomes possible to hold focus at all.
+        if window != nil { window?.makeFirstResponder(field) } else { wantsFocusOnMount = true }
+    }
+    private var wantsFocusOnMount = false
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if wantsFocusOnMount, window != nil {
+            wantsFocusOnMount = false
+            window?.makeFirstResponder(field)
+        }
+    }
+
     private func setFocused(_ value: Bool) {
         focused = value
         updateColors()
@@ -660,6 +690,25 @@ final class HandlerTextField: NSTextField, NSTextFieldDelegate {
     private var executor: HandlerExecutor?
     private var isUpdatingFromHost = false
     var onFocusChange: ((Bool) -> Void)?
+
+    /// The keys this field declared with `keyDownEvents`.
+    ///
+    /// A focused field does not receive `keyDown` at all: the *field editor* (a
+    /// shared `NSTextView`) is the first responder, and it has already turned the
+    /// press into an editing command — `moveDown:`, `cancelOperation:` — by the
+    /// time anything else could see it. That is why a search field cannot drive a
+    /// list below it with the arrow keys unless it says so here: the keys were
+    /// never lost, they were *consumed*, correctly, by the thing that had focus.
+    ///
+    /// So the interception happens where the command is dispatched, and it is
+    /// still opt-in: a field that declared `ArrowDown` moves the selection instead
+    /// of the caret, and a field that declared nothing behaves exactly like every
+    /// other `NSTextField` on the machine.
+    var keyInterest = KeyInterest()
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy command: Selector) -> Bool {
+        keyInterest.handle(command: command)
+    }
 
     /// A borderless, transparent field for embedding inside `StyledFieldView`
     /// (which draws the rounded inset chrome around it).

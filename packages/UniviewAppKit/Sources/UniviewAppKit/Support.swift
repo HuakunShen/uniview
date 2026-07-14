@@ -57,9 +57,53 @@ extension StyleStateView {
 
 /// A top-down `NSView` (origin at top-left) matching Yoga's coordinate space,
 /// so computed frames map straight onto subview frames.
-public class FlippedView: NSView, StyleStateView {
+public class FlippedView: NSView, StyleStateView, KeyResponder {
     public var repaint: ((CALayer, Set<String>) -> Void)?
     public override var isFlipped: Bool { true }
+
+    // MARK: Keyboard — see `Keyboard.swift`
+
+    public var keyInterest = KeyInterest()
+    /// Take first responder on mount (`autoFocus`).
+    public var autoFocuses = false { didSet { focusIfNeeded(&hasAutoFocused) } }
+    private var hasAutoFocused = false
+
+    public override var acceptsFirstResponder: Bool { wantsKeys }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if autoFocuses { focusIfNeeded(&hasAutoFocused) }
+    }
+
+    public override func keyDown(with event: NSEvent) {
+        // Anything undeclared is *not* ours. Swallowing it would break the
+        // responder chain for every key the plugin never asked for.
+        if claim(event) { return }
+        super.keyDown(with: event)
+    }
+
+    /// A modified chord (`cmd+k`) is a key equivalent: it fires wherever focus
+    /// happens to be, including inside a text field. The main menu still gets
+    /// first refusal, which is the native answer — a plugin cannot shadow ⌘Q.
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if claim(event, keyEquivalentsOnly: true) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    /// `focus:` variants read the window's first responder, and the window has not
+    /// changed it yet while these are running — so repaint on the next turn, once
+    /// the answer is true.
+    public override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became { Task { @MainActor [weak self] in self?.repaintNow() } }
+        return became
+    }
+
+    public override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { Task { @MainActor [weak self] in self?.repaintNow() } }
+        return resigned
+    }
 
     public var isHovered = false {
         didSet { if isHovered != oldValue { repaintNow() } }
@@ -98,6 +142,9 @@ public class FlippedView: NSView, StyleStateView {
         isPressed = false
     }
     public override func mouseDown(with event: NSEvent) {
+        // Clicking a thing that listens for keys focuses it, as it does for every
+        // other control on the machine.
+        if wantsKeys { window?.makeFirstResponder(self) }
         if tracksPointer { isPressed = true } else { super.mouseDown(with: event) }
     }
     public override func mouseUp(with event: NSEvent) {
@@ -112,7 +159,7 @@ public class FlippedView: NSView, StyleStateView {
 
 /// A flipped `NSVisualEffectView` for native vibrancy/materials on a Uniview
 /// container (top-down coords like `FlippedView`).
-public final class MaterialView: NSVisualEffectView, StyleStateView {
+public final class MaterialView: NSVisualEffectView, StyleStateView, KeyResponder {
     public var repaint: ((CALayer, Set<String>) -> Void)?
     public var isHovered = false {
         didSet { if isHovered != oldValue { repaintNow() } }
@@ -121,6 +168,27 @@ public final class MaterialView: NSVisualEffectView, StyleStateView {
         didSet { if isPressed != oldValue { repaintNow() } }
     }
     public override var isFlipped: Bool { true }
+
+    public var keyInterest = KeyInterest()
+    public var autoFocuses = false { didSet { focusIfNeeded(&hasAutoFocused) } }
+    private var hasAutoFocused = false
+
+    public override var acceptsFirstResponder: Bool { wantsKeys }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if autoFocuses { focusIfNeeded(&hasAutoFocused) }
+    }
+
+    public override func keyDown(with event: NSEvent) {
+        if claim(event) { return }
+        super.keyDown(with: event)
+    }
+
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if claim(event, keyEquivalentsOnly: true) { return true }
+        return super.performKeyEquivalent(with: event)
+    }
 
     public override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -384,13 +452,38 @@ func nsTextAlignment(_ align: TextAlign?) -> NSTextAlignment {
 /// mounter is told to put them there (`Component.contentView(of:)`), and the
 /// document is resized once layout knows how big the content actually got
 /// (`Component.didApplyLayout`) — nothing earlier in the pipeline knows that.
-public final class ScrollView: NSScrollView, StyleStateView {
+public final class ScrollView: NSScrollView, StyleStateView, KeyResponder {
     public var repaint: ((CALayer, Set<String>) -> Void)?
     public var isHovered = false {
         didSet { if isHovered != oldValue { repaintNow() } }
     }
     public var isPressed = false {
         didSet { if isPressed != oldValue { repaintNow() } }
+    }
+
+    public var keyInterest = KeyInterest()
+    public var autoFocuses = false { didSet { focusIfNeeded(&hasAutoFocused) } }
+    private var hasAutoFocused = false
+
+    /// `NSScrollView` accepts first responder in order to scroll itself with the
+    /// arrow keys. That is a *conflict*, not a bonus: a list that declared
+    /// `ArrowDown` would move its selection AND scroll the box. Declared keys are
+    /// claimed in `keyDown` below; the rest still scroll, as they should.
+    public override var acceptsFirstResponder: Bool { wantsKeys || super.acceptsFirstResponder }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if autoFocuses { focusIfNeeded(&hasAutoFocused) }
+    }
+
+    public override func keyDown(with event: NSEvent) {
+        if claim(event) { return }
+        super.keyDown(with: event)
+    }
+
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if claim(event, keyEquivalentsOnly: true) { return true }
+        return super.performKeyEquivalent(with: event)
     }
 
     /// Top-left origin, like every other box in the tree — otherwise the content

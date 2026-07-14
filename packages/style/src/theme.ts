@@ -49,6 +49,12 @@ const SEMANTIC_COLORS: Record<string, string> = {
   foreground: "#111111",
   primary: "#0a84ff",
   "primary-foreground": "#ffffff",
+  // The color the *user* chose in System Settings — the host resolves the name to
+  // `controlAccentColor`, and this hex is only the fallback for a host that can't.
+  // Missing until now, which meant `bg-accent` resolved to nothing at all and the
+  // class was silently dropped.
+  accent: "#0a84ff",
+  "accent-foreground": "#ffffff",
   secondary: "#5856d6",
   muted: "#f2f2f7",
   "muted-foreground": "#6b7280",

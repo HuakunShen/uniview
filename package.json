@@ -29,6 +29,9 @@
     "node": ">=18"
   },
   "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.14"
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "@tailwindcss/oxide",

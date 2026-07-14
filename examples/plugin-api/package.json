@@ -21,6 +21,9 @@
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@uniview/protocol": "workspace:*"
+  },
   "peerDependencies": {
     "react": "^19.0.0"
   },

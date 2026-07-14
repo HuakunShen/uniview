@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useColorScheme } from "@uniview/react-runtime";
 import {
   Button,
+  Input,
   Menu,
   MenuItem,
   MenuSeparator,
@@ -48,16 +49,41 @@ export default function MenuDemo() {
   const [count, setCount] = useState(0);
   const [title, setTitle] = useState("Uniview Desktop");
   const [vibrancy, setVibrancy] = useState<Vibrancy>("under-window");
-  const [titleBarStyle, setTitleBarStyle] = useState<"default" | "hidden" | "hiddenInset">("hidden");
+  const [titleBarStyle, setTitleBarStyle] = useState<
+    "default" | "hidden" | "hiddenInset"
+  >("hidden");
   const [insetLights, setInsetLights] = useState(true);
-  const [appearance, setAppearance] = useState<"system" | "light" | "dark">("system");
+  const [appearance, setAppearance] = useState<"system" | "light" | "dark">(
+    "system",
+  );
   const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
 
   const note = (line: string) => setLog((l) => [line, ...l].slice(0, 5));
 
+  const COMMANDS = [
+    "Open Window",
+    "Toggle Vibrancy",
+    "Copy Selection",
+    "Rename Window",
+    "Quit Uniview",
+  ];
+  const matches = COMMANDS.filter((c) =>
+    c.toLowerCase().includes(query.toLowerCase()),
+  );
+
   return (
-    <div className="p-6 space-y-5">
+    // A MODIFIED chord is a key equivalent: ⌘K fires wherever focus happens to
+    // be — including from inside the search field below, which is exactly what a
+    // palette shortcut has to do. The main menu still gets first refusal, so a
+    // plugin cannot shadow ⌘Q.
+    <div
+      className="p-6 space-y-5"
+      keyDownEvents={["cmd+k"]}
+      onKeyDown={(event) => note(`⌘K — caught by the tree (key: ${event.key})`)}
+    >
       {/* The real NSWindow. Nothing here creates a window — it configures the
           one the app already has, the way RN's <StatusBar> does. */}
       <Window
@@ -112,7 +138,10 @@ export default function MenuDemo() {
             title="Rename Window…"
             shortcut="cmd+shift+n"
             onSelect={() => {
-              const next = title === "Uniview Desktop" ? "Renamed by React" : "Uniview Desktop";
+              const next =
+                title === "Uniview Desktop"
+                  ? "Renamed by React"
+                  : "Uniview Desktop";
               setTitle(next);
               note(`title → "${next}"`);
             }}
@@ -170,7 +199,9 @@ export default function MenuDemo() {
           the instant you flip the Appearance menu, with no re-render at all. The
           old version hardcoded `text-zinc-100`, which was invisible on white. */}
       <div className="space-y-1">
-        <h2 className="text-2xl font-semibold text-foreground">The shell, in React</h2>
+        <h2 className="text-2xl font-semibold text-foreground">
+          The shell, in React
+        </h2>
         <p className="text-sm text-muted-foreground">
           The menu bar and the window chrome are both this component's tree.
         </p>
@@ -203,7 +234,10 @@ export default function MenuDemo() {
           variant="primary"
           className="flex-1"
           onClick={() => {
-            const next = VIBRANCIES[(VIBRANCIES.indexOf(vibrancy) + 1) % VIBRANCIES.length];
+            const next =
+              VIBRANCIES[
+                (VIBRANCIES.indexOf(vibrancy) + 1) % VIBRANCIES.length
+              ];
             setVibrancy(next);
             note(`vibrancy → ${next}`);
           }}
@@ -224,7 +258,9 @@ export default function MenuDemo() {
           and the native view picks. Hover it; flip Appearance in the Window menu. */}
       <div className="flex gap-2">
         <div className="flex-1 p-3 rounded-lg border border-border bg-card hover:bg-emerald-500 dark:hover:bg-violet-500">
-          <p className="text-sm text-foreground text-center">hover me — no RPC</p>
+          <p className="text-sm text-foreground text-center">
+            hover me — no RPC
+          </p>
         </div>
         <div className="flex-1 p-3 rounded-lg border border-border bg-amber-100 dark:bg-zinc-800">
           <p className="text-sm text-foreground text-center">dark: vs light</p>
@@ -234,10 +270,10 @@ export default function MenuDemo() {
       <div className="relative p-4 rounded-lg bg-card border border-border shadow-lg">
         <div className="absolute -top-2 -right-2 w-[22px] aspect-square rounded-full bg-emerald-500" />
         <p className="text-sm text-foreground leading-relaxed line-clamp-2">
-          A badge pinned to the corner with -top-2 -right-2, a 22px square from an
-          arbitrary value, shadow-lg from the theme's elevation scale, and this
-          paragraph clamped to two lines no matter how long it runs — every one of
-          which was impossible to say an hour ago.
+          A badge pinned to the corner with -top-2 -right-2, a 22px square from
+          an arbitrary value, shadow-lg from the theme's elevation scale, and
+          this paragraph clamped to two lines no matter how long it runs — every
+          one of which was impossible to say an hour ago.
         </p>
       </div>
 
@@ -250,9 +286,65 @@ export default function MenuDemo() {
               key={i}
               className="flex items-center px-3 h-8 rounded-md hover:bg-emerald-500 dark:hover:bg-violet-500"
             >
-              <p className="text-sm text-foreground">Row {i + 1} — scroll me, hover me</p>
+              <p className="text-sm text-foreground">
+                Row {i + 1} — scroll me, hover me
+              </p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Keyboard, on the declare-interest model. The field says which keys it
+          wants INSTEAD of their editing behaviour — so ArrowDown moves the
+          selection rather than the caret, while every other key still types,
+          deletes and moves through the text natively. Nothing else is streamed to
+          the plugin: press a letter and no RPC fires at all. */}
+      <div className="p-4 rounded-lg bg-card border border-border space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Type to filter · ↑ ↓ to select · ⏎ to run · Esc to clear
+        </p>
+        <Input
+          placeholder="Search commands…"
+          value={query}
+          onChange={(next) => {
+            setQuery(next);
+            setSelected(0);
+          }}
+          keyDownEvents={["ArrowDown", "ArrowUp", "Enter", "Escape"]}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown")
+              setSelected((i) => Math.min(i + 1, matches.length - 1));
+            if (event.key === "ArrowUp") setSelected((i) => Math.max(i - 1, 0));
+            if (event.key === "Enter")
+              note(`ran "${matches[selected] ?? "—"}"`);
+            if (event.key === "Escape") {
+              setQuery("");
+              setSelected(0);
+            }
+          }}
+        />
+        <div className="flex-col gap-1">
+          {matches.map((command, i) => (
+            <div
+              key={command}
+              className={`flex items-center px-3 h-8 rounded-md ${
+                i === selected ? "bg-accent" : "hover:bg-muted"
+              }`}
+            >
+              <p
+                className={`text-sm ${
+                  i === selected ? "text-primary-foreground" : "text-foreground"
+                }`}
+              >
+                {command}
+              </p>
+            </div>
+          ))}
+          {matches.length === 0 && (
+            <p className="text-sm text-muted-foreground px-3">
+              No command matches "{query}"
+            </p>
+          )}
         </div>
       </div>
 

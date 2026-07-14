@@ -82,6 +82,23 @@ import Testing
         #expect(issues == [StyleDecodeIssue(field: "backdropSaturation", reason: .unknownField)])
     }
 
+    /// `variants` is a field like any other, and the field-by-field path has to
+    /// know it. It didn't: every styled node reported it as an unknown field, and
+    /// when some *other* field was unusable — the only time that path runs — the
+    /// node's `dark:` and `hover:` styles were dropped along with it.
+    @Test func aBadFieldDoesNotTakeTheVariantsDownWithIt() {
+        let (style, issues) = StyleIR.decoding(
+            .object([
+                "backgroundColor": .string("#ffffff"),
+                "width": .string("not a width"),
+                "variants": .object(["dark": .object(["backgroundColor": .string("#18181b")])]),
+            ]))
+
+        #expect(style.backgroundColor == "#ffffff")
+        #expect(style.resolved(for: ["dark"]).backgroundColor == "#18181b")
+        #expect(issues.map(\.field) == ["width"])
+    }
+
     @Test func wrongTypedFieldIsSkippedAndTheRestSurvives() {
         // The regression: `shadow` used to be a color string, and is now a
         // BoxShadow. The stale string must not take the whole style down with it.

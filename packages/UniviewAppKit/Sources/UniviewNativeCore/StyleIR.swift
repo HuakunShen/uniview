@@ -408,6 +408,11 @@ extension StyleIR {
         case opacity, shadow, shadowColor
         case color, fontSize, fontWeight, fontFamily, fontStyle, textAlign, textDecoration
         case lineHeight, lineHeightMultiple, maxLines
+        // The conditional overlays (`dark:`, `hover:`). Missing here, they were
+        // named as an unknown field on every styled node — and, in the field-by-
+        // field path, dropped outright: a bad `width` somewhere in the object took
+        // the whole `dark:` style down with it.
+        case variants
     }
 
     private static func apply(_ field: Field, _ raw: JSONValue, to style: inout StyleIR) throws {
@@ -462,6 +467,7 @@ extension StyleIR {
         case .lineHeight: style.lineHeight = try decodeField(raw)
         case .lineHeightMultiple: style.lineHeightMultiple = try decodeField(raw)
         case .maxLines: style.maxLines = try decodeField(raw)
+        case .variants: style.variants = try decodeField(raw)
         }
     }
 
