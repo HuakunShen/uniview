@@ -11,7 +11,7 @@ enum DemoApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
 
-        let split = MainSplitViewController(sections: demoSections())
+        let root = RootViewController(sections: demoSections())
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),
@@ -31,7 +31,7 @@ enum DemoApp {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.minSize = NSSize(width: 880, height: 600)
-        window.contentViewController = split
+        window.contentViewController = root
         window.setFrameAutosaveName("UniviewDesktopMain")
         window.center()
         window.makeKeyAndOrderFront(nil)

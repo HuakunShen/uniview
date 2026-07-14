@@ -161,6 +161,8 @@ public struct ButtonComponent: Component {
         let iconName = node.props["icon"]?.stringValue
 
         if let gradient = button as? GradientButton {
+            // Icon pinned to the leading edge, title centered in the full button
+            // width (independent of the icon) — the reference button layout.
             gradient.title = title
             gradient.attributedTitle = NSAttributedString(
                 string: title,
@@ -168,27 +170,27 @@ public struct ButtonComponent: Component {
                     .foregroundColor: NSColor.white,
                     .font: NSFont.systemFont(ofSize: 13.5, weight: .semibold),
                 ])
-            gradient.contentTintColor = .white
-            applyIcon(iconName, to: gradient, template: true)
+            gradient.setLeadingIcon(symbolImage(iconName, template: true))
             gradient.alphaValue = button.isEnabled ? 1 : 0.45
         } else {
             button.title = title
             button.keyEquivalent = ""
-            applyIcon(iconName, to: button, template: false)
+            if let image = symbolImage(iconName, template: false) {
+                button.image = image
+                button.imagePosition = .imageLeading
+                button.imageScaling = .scaleProportionallyDown
+            } else {
+                button.image = nil
+            }
         }
         button.bind(handlerId: node.handlerId(for: "onClick"), executor: context.executeHandler)
     }
 
-    private func applyIcon(_ name: String?, to button: NSButton, template: Bool) {
+    private func symbolImage(_ name: String?, template: Bool) -> NSImage? {
         guard let name, let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
-        else {
-            button.image = nil
-            return
-        }
+        else { return nil }
         image.isTemplate = template
-        button.image = image
-        button.imagePosition = .imageLeading
-        button.imageScaling = .scaleProportionallyDown
+        return image
     }
 }
 
@@ -216,12 +218,14 @@ class HandlerButton: NSButton {
 @MainActor
 final class GradientButton: HandlerButton {
     private let gradient = CAGradientLayer()
+    private let leadingIcon = NSImageView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
         isBordered = false
         bezelStyle = .regularSquare
+        alignment = .center  // title centered in the full button width
         setButtonType(.momentaryChange)
 
         gradient.colors = univiewBrandGradient
@@ -236,9 +240,28 @@ final class GradientButton: HandlerButton {
         layer?.shadowOpacity = 0.32
         layer?.shadowRadius = 8
         layer?.shadowOffset = CGSize(width: 0, height: -3)
+
+        // A separate leading glyph, pinned to the left edge so the title stays
+        // centered in the full width regardless of the icon.
+        leadingIcon.translatesAutoresizingMaskIntoConstraints = false
+        leadingIcon.imageScaling = .scaleProportionallyDown
+        leadingIcon.contentTintColor = .white
+        leadingIcon.isHidden = true
+        addSubview(leadingIcon)
+        NSLayoutConstraint.activate([
+            leadingIcon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            leadingIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            leadingIcon.widthAnchor.constraint(equalToConstant: 17),
+            leadingIcon.heightAnchor.constraint(equalToConstant: 17),
+        ])
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    func setLeadingIcon(_ image: NSImage?) {
+        leadingIcon.image = image
+        leadingIcon.isHidden = image == nil
+    }
 
     override func layout() {
         super.layout()

@@ -170,7 +170,19 @@ final class SidebarViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let root = NSView()
+        // The sidebar's OWN surface: a rounded glass panel (distinct material +
+        // hairline) that floats on the shared ambience. `withinWindow` blending
+        // lets a hint of the frost + bloom behind it show through, so it reads as
+        // a translucent panel rather than an opaque slab.
+        let root = MaterialView()
+        root.material = .hudWindow
+        root.blendingMode = .withinWindow
+        root.state = .active
+        root.wantsLayer = true
+        root.layer?.cornerRadius = 14
+        root.layer?.masksToBounds = true
+        root.layer?.borderWidth = 1
+        root.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -190,11 +202,9 @@ final class SidebarViewController: NSViewController {
 
         root.addSubview(stack)
         root.addSubview(footer)
-        // Anchor to the safe area so the nav list clears the inline traffic
-        // lights (the split view runs the glass sidebar to the window top).
-        let safe = root.safeAreaLayoutGuide
+        // The panel floats below the traffic lights, so anchor rows to its own top.
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: safe.topAnchor, constant: 8),
+            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 14),
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
@@ -211,15 +221,16 @@ final class SidebarViewController: NSViewController {
     }
 }
 
-// MARK: - Content pane (frost + brand blooms + Uniview)
+// MARK: - Content pane (transparent — shares the window ambience)
 
-/// The detail pane: a behind-window frost with soft brand "bloom" glows, and
-/// the Uniview host rendering plugin content on top (its root is transparent so
-/// the ambience shows through — the Music-style look).
+/// The detail pane hosting Uniview content. It is fully transparent: the shared
+/// window ambience (frost + brand blooms, drawn once behind the whole scene by
+/// `AmbienceView`) shows through, so the background is continuous under the
+/// sidebar and content alike — the Music-style look. The Uniview root is inset
+/// to the safe area so it clears the transparent title bar.
 @MainActor
 final class ContentViewController: NSViewController {
     private let host: UniviewHost
-    private let bloom = BloomView()
 
     init() {
         host = UniviewHost(
@@ -234,15 +245,7 @@ final class ContentViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        let frost = MaterialView()
-        frost.material = .underWindowBackground
-        frost.blendingMode = .behindWindow
-        frost.state = .active
-
-        bloom.autoresizingMask = [.width, .height]
-        bloom.frame = frost.bounds
-        frost.addSubview(bloom)
-        view = frost
+        view = FlippedView()  // clear; the shared ambience shows through
     }
 
     func render(_ tree: UINode) {
@@ -258,13 +261,19 @@ final class ContentViewController: NSViewController {
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        host.setContainerSize(Size(width: Double(view.bounds.width), height: Double(view.bounds.height)))
+        let safe = view.safeAreaInsets
+        let width = Double(view.bounds.width - safe.left - safe.right)
+        let height = Double(view.bounds.height - safe.top - safe.bottom)
+        host.setContainerSize(Size(width: max(0, width), height: max(0, height)))
         placeRoot()
     }
 
     private func placeRoot() {
         guard let root = host.rootView else { return }
         if root.superview !== view { view.addSubview(root) }
+        // Offset below the transparent title bar (view is flipped: +y is down).
+        let safe = view.safeAreaInsets
+        root.frame.origin = CGPoint(x: safe.left, y: safe.top)
     }
 }
 
@@ -272,7 +281,8 @@ final class ContentViewController: NSViewController {
 final class BloomView: NSView {
     override var isFlipped: Bool { true }
     private let blooms: [(color: NSColor, opacity: CGFloat, size: CGFloat, dx: CGFloat, dy: CGFloat)] = [
-        (univiewBrandColor, 0.24, 1.05, -0.28, -0.32),
+        // Top-left brand bloom pulled over the sidebar so its glow bleeds in.
+        (univiewBrandColor, 0.30, 1.20, -0.34, -0.30),
         (univiewBrandViolet, 0.18, 0.88, 0.46, 0.42),
         (univiewBrandCyan, 0.14, 0.70, 0.15, 0.58),
     ]
@@ -312,12 +322,52 @@ final class BloomView: NSView {
     }
 }
 
-// MARK: - Split shell
+// MARK: - Shared ambience
 
+/// The single, window-spanning background: a behind-window frost (blurring the
+/// desktop) with soft brand blooms glowing on top. Drawn ONCE behind the whole
+/// scene so the sidebar and content share it — the brand glow in the top-left
+/// bleeds continuously into the sidebar (Music-style), instead of each pane
+/// carrying its own disjoint background. Being the backmost content view, the
+/// window masks it to its rounded corners, so there are no sharp corners or
+/// stray material edges.
 @MainActor
-final class MainSplitViewController: NSSplitViewController {
-    private let content = ContentViewController()
+final class AmbienceView: NSView {
+    private let frost = MaterialView()
+    private let bloom = BloomView()
+
+    init() {
+        super.init(frame: .zero)
+        frost.material = .underWindowBackground
+        frost.blendingMode = .behindWindow
+        frost.state = .active
+        frost.autoresizingMask = [.width, .height]
+        bloom.autoresizingMask = [.width, .height]
+        addSubview(frost)
+        addSubview(bloom)  // blooms glow on top of the frost
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        frost.frame = bounds
+        bloom.frame = bounds
+    }
+}
+
+// MARK: - Root (shared ambience + floating sidebar + content)
+
+/// The window's content controller. It composes three layers to show that the
+/// host can express a "virtual floating sidebar": one shared `AmbienceView`
+/// spanning the whole window, a floating sidebar panel with its OWN glass
+/// surface inset over that ambience, and a transparent content pane. Swapping
+/// the sidebar's insets/material here (edge-to-edge vs. floating) is purely a
+/// style choice — the composition supports both.
+@MainActor
+final class RootViewController: NSViewController {
     private let sections: [DemoSection]
+    private let content = ContentViewController()
 
     init(sections: [DemoSection]) {
         self.sections = sections
@@ -326,22 +376,48 @@ final class MainSplitViewController: NSSplitViewController {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
+    override func loadView() {
+        let root = FlippedView()
 
-        let sidebarVC = SidebarViewController(sections: sections) { [weak self] index in
+        let ambience = AmbienceView()
+        ambience.translatesAutoresizingMaskIntoConstraints = false
+
+        let sidebar = SidebarViewController(sections: sections) { [weak self] index in
             guard let self else { return }
             self.content.render(self.sections[index].tree())
         }
-        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarVC)
-        sidebarItem.minimumThickness = 210
-        sidebarItem.maximumThickness = 280
-        sidebarItem.canCollapse = false
+        addChild(sidebar)
+        addChild(content)
 
-        let contentItem = NSSplitViewItem(viewController: content)
-        contentItem.minimumThickness = 480
+        let sidebarView = sidebar.view
+        sidebarView.translatesAutoresizingMaskIntoConstraints = false
+        let contentView = content.view
+        contentView.translatesAutoresizingMaskIntoConstraints = false
 
-        addSplitViewItem(sidebarItem)
-        addSplitViewItem(contentItem)
+        root.addSubview(ambience)
+        root.addSubview(contentView)
+        root.addSubview(sidebarView)
+
+        let safe = root.safeAreaLayoutGuide
+        NSLayoutConstraint.activate([
+            ambience.topAnchor.constraint(equalTo: root.topAnchor),
+            ambience.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            ambience.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            ambience.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+
+            // Floating sidebar: its own glass surface, inset from the window edges
+            // (below the traffic lights) so the shared ambience shows around it.
+            sidebarView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
+            sidebarView.topAnchor.constraint(equalTo: safe.topAnchor, constant: 6),
+            sidebarView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -12),
+            sidebarView.widthAnchor.constraint(equalToConstant: 214),
+
+            // Content fills the remaining area; it insets its own tree to the safe area.
+            contentView.topAnchor.constraint(equalTo: root.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: sidebarView.trailingAnchor, constant: 10),
+            contentView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+        ])
+        view = root
     }
 }
