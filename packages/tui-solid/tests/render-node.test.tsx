@@ -71,4 +71,22 @@ describe("renderNodeToElement", () => {
 
     root.destroy();
   });
+
+  // Pins the text-leaf guard: the leaf branch requires text AND no children. A
+  // node carrying both takes the box branch, so its children render and its own
+  // `text` is ignored. Without the `children.length === 0` clause this node would
+  // render as a text leaf and silently drop the subtree.
+  it("renders a node with both text and children as a box (children win)", async () => {
+    const node: RenderNode = {
+      type: "box",
+      text: "ignored",
+      children: [{ type: "text", text: "child" }],
+    };
+    const { root, surface } = mount(() => renderNodeToElement(node), 8, 1);
+    await tick();
+
+    expect(surface.text({ trimRight: true })).toBe("child");
+
+    root.destroy();
+  });
 });
