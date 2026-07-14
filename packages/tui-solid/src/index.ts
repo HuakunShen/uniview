@@ -18,6 +18,8 @@ import type {
 } from "@uniview/tui-core";
 
 export { renderNodeToElement } from "./content";
+export { Panel } from "./panel";
+export type { PanelProps } from "./panel";
 export { Box, RichText, Text } from "./primitives";
 export type {
   BoxProps,
@@ -25,6 +27,8 @@ export type {
   TextProps,
   TuiCommonProps,
 } from "./primitives";
+export { StatusBar } from "./status-bar";
+export type { StatusBarProps, StatusItem } from "./status-bar";
 
 export interface TuiSolidRootOptions {
   surface: CellSurface;
