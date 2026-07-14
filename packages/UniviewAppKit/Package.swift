@@ -19,15 +19,28 @@ let package = Package(
         .library(name: "UniviewNativeCore", targets: ["UniviewNativeCore"]),
         .library(name: "UniviewAppKit", targets: ["UniviewAppKit"]),
         .library(name: "UniviewYoga", targets: ["UniviewYoga"]),
+        .library(name: "UniviewBridge", targets: ["UniviewBridge"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/facebook/yoga.git", from: "3.0.0")
+        .package(url: "https://github.com/facebook/yoga.git", from: "3.0.0"),
+        // kkrpc's Swift interop client (submodule) — the transport that lets a
+        // real TS/React plugin drive this native host over the bridge server.
+        .package(path: "../../vendors/kkrpc/interop/swift"),
     ],
     targets: [
         .target(name: "UniviewNativeCore"),
         .target(
             name: "UniviewAppKit",
             dependencies: ["UniviewNativeCore"]
+        ),
+        // kkrpc transport: connects to the bridge server, receives UINode trees /
+        // mutations from a plugin, and calls handlers back on it.
+        .target(
+            name: "UniviewBridge",
+            dependencies: [
+                "UniviewNativeCore",
+                .product(name: "kkrpc", package: "swift"),
+            ]
         ),
         // Yoga-backed LayoutEngine — isolates the C++ Yoga dependency so
         // UniviewAppKit consumers only pull it in when they want real flexbox.
@@ -50,10 +63,14 @@ let package = Package(
             name: "UniviewYogaTests",
             dependencies: ["UniviewYoga"]
         ),
-        // Thin demo — imports UniviewAppKit + UniviewYoga, no framework logic.
+        .testTarget(
+            name: "UniviewBridgeTests",
+            dependencies: ["UniviewBridge"]
+        ),
+        // Thin demo — imports UniviewAppKit + UniviewYoga + UniviewBridge.
         .executableTarget(
             name: "UniviewDemoApp",
-            dependencies: ["UniviewAppKit", "UniviewYoga"]
+            dependencies: ["UniviewAppKit", "UniviewYoga", "UniviewBridge"]
         ),
     ]
 )
