@@ -58,8 +58,10 @@ src/
   keys.ts     input mapping (kept separate so it is testable without a terminal)
 ```
 
-`src/vendor/` is deliberately **unmodified** (only an import path changed) so
-upstream fixes can be re-synced. Don't refactor it.
+`src/vendor/` currently sits close to upstream (only an import path changed), which
+makes it cheap to re-sync a fix from the training repo. That is a convenience, not
+a rule — change it freely if the game needs it. The golden tests below are what
+actually keeps it honest.
 
 ## Why it is trustworthy
 
@@ -70,8 +72,9 @@ The port is verified against the reference implementation, not eyeballed:
 - **Value function** — reproduces the reference `V(board)` on every golden board
   across all six grid shapes (4×4, 5×5, 4×5, 5×4, 3×4, 6×6), max diff < 1e-3.
   One model really does serve every shape.
-- **The agent plays** — a full self-play game reaches 512+ at depth 1 in the
-  suite; depth 2 reaches 4096.
+- **It reaches 2048.** Not a claim — a test: at the depth the app ships with, a
+  seeded game is played out through the real game controller and must end with
+  `game.won() === true`. Depth 2 goes on to 4096.
 
 The value-parity golden lives in `model/`, not in this repo, because it
 describes the exact weights sitting beside it.

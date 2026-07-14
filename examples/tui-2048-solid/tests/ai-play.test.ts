@@ -63,11 +63,7 @@ withModel("AI controller — with the trained model", () => {
     });
   });
 
-  /**
-   * The headline claim of this example: the AI is the real trained agent, not a
-   * heuristic. Depth 1 keeps the suite quick; upstream reaches 2048 at depth 2.
-   */
-  it("auto-plays a whole game and reaches at least 512", () => {
+  it("auto-plays a whole game and reaches at least 512 (depth 1, quick)", () => {
     createRoot((dispose) => {
       const game = createGame({ rng: seeded(11) });
       const ai = createAi(game, { depth: 1 });
@@ -85,4 +81,31 @@ withModel("AI controller — with the trained model", () => {
       dispose();
     });
   }, 120_000);
+
+  /**
+   * THE requirement for this example: at the depth the app actually ships with,
+   * the AI must reach the 2048 tile — through the real game controller, not the
+   * raw engine. `game.won()` is the game's own verdict (goalExp 11), so this
+   * fails if either the agent or the win detection regresses.
+   *
+   * Seeded, so it is a fixed game rather than a coin flip that can go red on CI.
+   */
+  it("reaches the 2048 tile at the app's default depth", () => {
+    createRoot((dispose) => {
+      const game = createGame({ rng: seeded(2048) });
+      const ai = createAi(game); // no depth override → the app default
+
+      expect(ai.depth()).toBe(2);
+
+      let guard = 0;
+      while (!game.over() && ai.step() && guard++ < 20000) {
+        /* play it out */
+      }
+
+      const best = expToTile(game.engine.maxExp(game.board()));
+      expect(best).toBeGreaterThanOrEqual(2048);
+      expect(game.won()).toBe(true);
+      dispose();
+    });
+  }, 300_000);
 });
