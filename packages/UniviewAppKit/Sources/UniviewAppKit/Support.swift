@@ -45,21 +45,36 @@ public final class GradientView: FlippedView {
 /// `NSVisualEffectView.Material`s, so a `View` can request native vibrancy —
 /// e.g. `sidebar` (Liquid Glass on macOS 26), `hud`, `popover`.
 public enum UniviewMaterial {
+    /// The full non-deprecated `NSVisualEffectView.Material` set, under the names
+    /// Electron's `vibrancy` and Tauri's `Effect` already use — so a plugin
+    /// author who knows either one already knows these.
     public static func material(_ token: String) -> NSVisualEffectView.Material {
         switch token.lowercased() {
-        case "sidebar": return .sidebar
-        case "hud": return .hudWindow
-        case "popover": return .popover
-        case "menu": return .menu
         case "titlebar": return .titlebar
         case "selection": return .selection
-        case "header": return .headerView
-        case "content", "regular": return .contentBackground
-        case "under-window", "underwindow": return .underWindowBackground
-        case "under-page", "underpage": return .underPageBackground
+        case "menu": return .menu
+        case "popover": return .popover
+        case "sidebar": return .sidebar
+        case "header", "header-view": return .headerView
         case "sheet": return .sheet
-        case "window", "thick": return .windowBackground
+        case "window", "window-background", "thick": return .windowBackground
+        case "hud", "hud-window": return .hudWindow
+        case "fullscreen-ui", "full-screen-ui": return .fullScreenUI
+        case "tooltip": return .toolTip
+        case "content", "content-background", "regular": return .contentBackground
+        case "under-window", "under-window-background": return .underWindowBackground
+        case "under-page", "under-page-background": return .underPageBackground
         default: return .contentBackground
+        }
+    }
+
+    /// Whether the material keeps its blur when the window loses focus. Tauri
+    /// calls this `EffectState`; Electron calls it `visualEffectState`.
+    public static func state(_ token: String?) -> NSVisualEffectView.State {
+        switch token?.lowercased() {
+        case "active": return .active
+        case "inactive": return .inactive
+        default: return .followsWindowActiveState
         }
     }
 

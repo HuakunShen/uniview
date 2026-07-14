@@ -496,37 +496,14 @@ final class BloomView: NSView {
 
 // MARK: - Shared ambience
 
-/// The single, window-spanning background: a behind-window frost (blurring the
-/// desktop) with soft brand blooms glowing on top. Drawn ONCE behind the whole
-/// scene so the sidebar and content share it — the brand glow in the top-left
-/// bleeds continuously into the sidebar (Music-style), instead of each pane
-/// carrying its own disjoint background. Being the backmost content view, the
-/// window masks it to its rounded corners, so there are no sharp corners or
-/// stray material edges.
-@MainActor
-final class AmbienceView: NSView {
-    private let frost = MaterialView()
-    private let bloom = BloomView()
-
-    init() {
-        super.init(frame: .zero)
-        frost.material = .underWindowBackground
-        frost.blendingMode = .behindWindow
-        frost.state = .active
-        frost.autoresizingMask = [.width, .height]
-        bloom.autoresizingMask = [.width, .height]
-        addSubview(frost)
-        addSubview(bloom)  // blooms glow on top of the frost
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func layout() {
-        super.layout()
-        frost.frame = bounds
-        bloom.frame = bounds
-    }
-}
+/// The window's ambience is two layers, composed in `RootViewController`: a
+/// backmost material (the window backdrop, which a plugin's `<Window vibrancy>`
+/// drives) and soft brand blooms glowing on top of it. Drawn ONCE behind the
+/// whole scene so the sidebar and content share it — the brand glow in the
+/// top-left bleeds continuously into the sidebar (Music-style) instead of each
+/// pane carrying its own disjoint background. Being the backmost content views,
+/// the window masks them to its rounded corners, so there are no sharp corners
+/// or stray material edges.
 
 // MARK: - Root (shared ambience + floating sidebar + content)
 
@@ -553,8 +530,20 @@ final class RootViewController: NSViewController {
     override func loadView() {
         let root = FlippedView()
 
-        let ambience = AmbienceView()
-        ambience.translatesAutoresizingMaskIntoConstraints = false
+        // The window's backdrop. It is the BACKMOST subview on purpose: that is
+        // the contract `WindowSurface` looks for, so a plugin's
+        // `<Window vibrancy="...">` drives this exact view rather than burying a
+        // second effect layer underneath it, where nothing would show. The host
+        // says where the backdrop is; the plugin says what it's made of.
+        let backdrop = MaterialView()
+        backdrop.material = .underWindowBackground
+        backdrop.blendingMode = .behindWindow
+        backdrop.state = .active
+        backdrop.translatesAutoresizingMaskIntoConstraints = false
+
+        // Brand glow, on top of whatever the backdrop happens to be.
+        let bloom = BloomView()
+        bloom.translatesAutoresizingMaskIntoConstraints = false
 
         let sidebar = SidebarViewController(sections: sections, style: sidebarStyle) {
             [weak self] index in
@@ -569,15 +558,20 @@ final class RootViewController: NSViewController {
         let contentView = content.view
         contentView.translatesAutoresizingMaskIntoConstraints = false
 
-        root.addSubview(ambience)
+        root.addSubview(backdrop)  // must stay first — see the comment above
+        root.addSubview(bloom)
         root.addSubview(contentView)
         root.addSubview(sidebarView)
 
         var constraints = [
-            ambience.topAnchor.constraint(equalTo: root.topAnchor),
-            ambience.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            ambience.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            ambience.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            backdrop.topAnchor.constraint(equalTo: root.topAnchor),
+            backdrop.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            backdrop.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            backdrop.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            bloom.topAnchor.constraint(equalTo: root.topAnchor),
+            bloom.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            bloom.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            bloom.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             sidebarView.widthAnchor.constraint(equalToConstant: sidebarStyle.width),
             contentView.topAnchor.constraint(equalTo: root.topAnchor),
             contentView.trailingAnchor.constraint(equalTo: root.trailingAnchor),

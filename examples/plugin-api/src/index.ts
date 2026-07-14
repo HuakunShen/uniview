@@ -8,7 +8,7 @@ export { Menu, MenuItem, MenuSeparator } from "./components/Menu";
 export type { MenuItemProps, MenuProps, MenuRole } from "./components/Menu";
 
 export { Window } from "./components/Window";
-export type { WindowProps } from "./components/Window";
+export type { Vibrancy, WindowLevel, WindowProps } from "./components/Window";
 
 export { Switch } from "./components/Switch";
 export type { SwitchProps } from "./components/Switch";

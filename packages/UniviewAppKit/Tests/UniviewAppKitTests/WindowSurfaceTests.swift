@@ -52,9 +52,9 @@ import Testing
                     .setRoot(
                         node: tree([
                             "title": .string("Renamed by React"),
-                            "titlebar": .string("transparent"),
+                            "titleBarStyle": .string("hidden"),
                             "minWidth": .number(880),
-                            "trafficLights": .object(["x": .number(22), "y": .number(22)]),
+                            "trafficLightPosition": .object(["x": .number(22), "y": .number(22)]),
                         ]))
                 ]))
 
@@ -81,7 +81,7 @@ import Testing
                     .setRoot(
                         node: tree([
                             "title": .string("Renamed by React"),
-                            "titlebar": .string("transparent"),
+                            "titleBarStyle": .string("hidden"),
                             "minWidth": .number(880),
                             "resizable": .bool(false),
                         ]))
@@ -112,7 +112,7 @@ import Testing
                 mutations: [
                     .setRoot(
                         node: tree([
-                            "trafficLights": .object(["x": .number(10), "y": .number(10)])
+                            "trafficLightPosition": .object(["x": .number(10), "y": .number(10)])
                         ]))
                 ]))
 
@@ -143,5 +143,137 @@ import Testing
         #expect(
             WindowSurface.point(.object(["x": .number(3), "y": .number(4)]))
                 == CGPoint(x: 3, y: 4))
+    }
+
+    /// The host says WHERE the window's backdrop is (the backmost effect view);
+    /// the plugin says what it's MADE OF. Stacking a second effect view under an
+    /// existing one would change nothing on screen and look like a dead prop.
+    @Test func vibrancyDrivesTheHostsExistingBackdropRatherThanBuryingANewOne() throws {
+        let window = makeWindow()
+        let content = FlippedView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let backdrop = MaterialView()
+        backdrop.material = .windowBackground
+        content.addSubview(backdrop)
+        window.contentView = content
+
+        let host = self.host(window)
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [.setRoot(node: tree(["vibrancy": .string("hud")]))]))
+
+        #expect(backdrop.material == .hudWindow)
+        // No second effect view was added.
+        #expect(content.subviews.compactMap { $0 as? NSVisualEffectView }.count == 1)
+
+        // Unmounting restores the host's own material.
+        host.apply(
+            CommitBatch(
+                revision: 1, mutations: [.setRoot(node: UINode(id: "root", type: "View"))]))
+        #expect(backdrop.material == .windowBackground)
+    }
+
+    @Test func vibrancyInstallsABackdropWhenTheHostHasNone() throws {
+        let window = makeWindow()
+        let content = FlippedView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        window.contentView = content
+
+        let host = self.host(window)
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [.setRoot(node: tree(["vibrancy": .string("sidebar")]))]))
+
+        let effect = try #require(content.subviews.first as? NSVisualEffectView)
+        #expect(effect.material == .sidebar)
+
+        // Ours to add, ours to remove.
+        host.apply(
+            CommitBatch(
+                revision: 1, mutations: [.setRoot(node: UINode(id: "root", type: "View"))]))
+        #expect(content.subviews.compactMap { $0 as? NSVisualEffectView }.isEmpty)
+    }
+
+    /// The full non-deprecated NSVisualEffectView set, under Electron's / Tauri's
+    /// names — an author who knows either already knows these.
+    @Test func everyVibrancyNameMapsToItsMaterial() {
+        let expected: [(String, NSVisualEffectView.Material)] = [
+            ("titlebar", .titlebar), ("selection", .selection), ("menu", .menu),
+            ("popover", .popover), ("sidebar", .sidebar), ("header", .headerView),
+            ("sheet", .sheet), ("window", .windowBackground), ("hud", .hudWindow),
+            ("fullscreen-ui", .fullScreenUI), ("tooltip", .toolTip),
+            ("content", .contentBackground), ("under-window", .underWindowBackground),
+            ("under-page", .underPageBackground),
+        ]
+        for (name, material) in expected {
+            #expect(UniviewMaterial.material(name) == material, "\(name)")
+        }
+    }
+
+    @Test func appearanceForcesLightOrDarkRegardlessOfTheSystem() {
+        let window = makeWindow()
+        let host = self.host(window)
+
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [.setRoot(node: tree(["appearance": .string("dark")]))]))
+        #expect(window.appearance?.name == .darkAqua)
+
+        host.apply(
+            CommitBatch(
+                revision: 1,
+                mutations: [.setRoot(node: tree(["appearance": .string("system")]))]))
+        #expect(window.appearance == nil)  // follow the system again
+    }
+
+    @Test func frameFalseStripsTheTitlebarEntirely() {
+        let window = makeWindow()
+        let host = self.host(window)
+
+        host.apply(
+            CommitBatch(
+                revision: 0, mutations: [.setRoot(node: tree(["frame": .bool(false)]))]))
+        #expect(!window.styleMask.contains(.titled))
+    }
+
+    @Test func alwaysOnTopAndExplicitLevels() {
+        let window = makeWindow()
+        let host = self.host(window)
+
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [.setRoot(node: tree(["alwaysOnTop": .bool(true)]))]))
+        #expect(window.level == .floating)
+
+        host.apply(
+            CommitBatch(
+                revision: 1,
+                mutations: [.setRoot(node: tree(["level": .string("screen-saver")]))]))
+        #expect(window.level == .screenSaver)
+    }
+
+    @Test func windowButtonsCanBeHiddenIndividually() {
+        let window = makeWindow()
+        let host = self.host(window)
+
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [
+                    .setRoot(
+                        node: tree([
+                            "windowButtons": .object([
+                                "close": .bool(true),
+                                "minimize": .bool(false),
+                                "maximize": .bool(false),
+                            ])
+                        ]))
+                ]))
+
+        #expect(window.standardWindowButton(.closeButton)?.isHidden == false)
+        #expect(window.standardWindowButton(.miniaturizeButton)?.isHidden == true)
+        #expect(window.standardWindowButton(.zoomButton)?.isHidden == true)
     }
 }

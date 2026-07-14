@@ -5,45 +5,65 @@ import {
   MenuItem,
   MenuSeparator,
   Window,
+  type Vibrancy,
 } from "@uniview/example-plugin-api";
 
 /**
- * The application shell — menu bar and window chrome — written in React and
+ * The application shell — menu bar AND window chrome — written in React and
  * running in Node. None of it is Swift.
  *
  * `<Menu>` and `<Window>` are *surfaces*: native, but not views. They take up no
  * space, so they sit in the tree next to the buttons and re-render from state
- * like anything else — change `title` and the real window's title changes.
+ * like anything else.
  *
- * `onSelect` needed no new protocol: it's an ordinary handler prop, so it
- * crosses the bridge as a handler id and comes back through `executeHandler`,
- * exactly like `onClick`.
- *
- * `role` items are the exception, and have to be. A plugin cannot implement
- * Copy: Copy isn't an action a program performs, it's a message sent down the
- * responder chain to whatever view has focus. A role hands the item to that
- * native action — so the focused text field handles it, the plugin never sees
- * it, and the item greys itself out when nothing on screen can handle it.
+ * The `<Window>` props are Electron's `BrowserWindow` names, because that's the
+ * vocabulary desktop authors already have. `vibrancy` is the full non-deprecated
+ * `NSVisualEffectView` set — the same fourteen materials Electron and Tauri
+ * expose. They're semantic, not visual: `sidebar` isn't "a bit of grey", it's
+ * "whatever the OS currently thinks a sidebar looks like".
  */
+const VIBRANCIES: Vibrancy[] = [
+  "under-window",
+  "under-page",
+  "content",
+  "window",
+  "sidebar",
+  "header",
+  "titlebar",
+  "menu",
+  "popover",
+  "hud",
+  "sheet",
+  "selection",
+  "fullscreen-ui",
+  "tooltip",
+];
+
 export default function MenuDemo() {
   const [count, setCount] = useState(0);
-  const [verbose, setVerbose] = useState(false);
   const [title, setTitle] = useState("Uniview Desktop");
+  const [vibrancy, setVibrancy] = useState<Vibrancy>("under-window");
+  const [titleBarStyle, setTitleBarStyle] = useState<"default" | "hidden" | "hiddenInset">("hidden");
   const [insetLights, setInsetLights] = useState(true);
-  const [titlebar, setTitlebar] = useState<"transparent" | "default">("transparent");
+  const [appearance, setAppearance] = useState<"system" | "light" | "dark">("system");
+  const [alwaysOnTop, setAlwaysOnTop] = useState(false);
   const [log, setLog] = useState<string[]>([]);
 
   const note = (line: string) => setLog((l) => [line, ...l].slice(0, 5));
 
   return (
     <div className="p-6 space-y-5">
-      {/* The real NSWindow's chrome. Nothing here creates a window — it
-          configures the one the app already has, like RN's <StatusBar>. */}
+      {/* The real NSWindow. Nothing here creates a window — it configures the
+          one the app already has, the way RN's <StatusBar> does. */}
       <Window
         title={title}
-        titlebar={titlebar}
-        transparentBackground
-        trafficLights={insetLights ? { x: 22, y: 22 } : undefined}
+        titleBarStyle={titleBarStyle}
+        vibrancy={vibrancy}
+        transparent
+        appearance={appearance}
+        alwaysOnTop={alwaysOnTop}
+        trafficLightPosition={insetLights ? { x: 22, y: 22 } : undefined}
+        movableByWindowBackground
         minWidth={880}
         minHeight={600}
       />
@@ -67,37 +87,21 @@ export default function MenuDemo() {
           <MenuItem title="Select All" shortcut="cmd+a" role="selectAll" />
         </MenuItem>
 
-        {/* From here down it's all the plugin's own — React state, React handlers. */}
-        <MenuItem title="Counter">
-          <MenuItem
-            title={`Increment (now ${count})`}
-            shortcut="cmd+i"
-            onSelect={() => {
-              setCount(count + 1);
-              note(`⌘I → increment to ${count + 1}`);
-            }}
-          />
-          <MenuItem
-            title="Reset"
-            shortcut="cmd+shift+r"
-            enabled={count > 0}
-            onSelect={() => {
-              setCount(0);
-              note("⌘⇧R → reset");
-            }}
-          />
-          <MenuSeparator />
-          <MenuItem
-            title="Verbose logging"
-            checked={verbose}
-            onSelect={() => {
-              setVerbose(!verbose);
-              note(`verbose → ${!verbose}`);
-            }}
-          />
+        {/* Every macOS material, selectable — the checkmark is React state. */}
+        <MenuItem title="Vibrancy">
+          {VIBRANCIES.map((material) => (
+            <MenuItem
+              key={material}
+              title={material}
+              checked={vibrancy === material}
+              onSelect={() => {
+                setVibrancy(material);
+                note(`vibrancy → ${material}`);
+              }}
+            />
+          ))}
         </MenuItem>
 
-        {/* A menu, written in React, that drives a window, written in React. */}
         <MenuItem title="Window">
           <MenuItem
             title="Rename Window…"
@@ -105,26 +109,50 @@ export default function MenuDemo() {
             onSelect={() => {
               const next = title === "Uniview Desktop" ? "Renamed by React" : "Uniview Desktop";
               setTitle(next);
-              note(`window title → "${next}"`);
+              note(`title → "${next}"`);
+            }}
+          />
+          <MenuSeparator />
+          <MenuItem
+            title="Show titlebar"
+            checked={titleBarStyle === "default"}
+            onSelect={() => {
+              const next = titleBarStyle === "default" ? "hidden" : "default";
+              setTitleBarStyle(next);
+              note(`titleBarStyle → ${next}`);
             }}
           />
           <MenuItem
             title="Inset traffic lights"
             checked={insetLights}
+            enabled={titleBarStyle !== "default"}
             onSelect={() => {
               setInsetLights(!insetLights);
-              note(`traffic lights → ${!insetLights ? "inset" : "default corner"}`);
+              note(`traffic lights → ${!insetLights ? "inset" : "OS corner"}`);
             }}
           />
+          <MenuSeparator />
           <MenuItem
-            title="Show titlebar"
-            checked={titlebar === "default"}
+            title="Always on top"
+            checked={alwaysOnTop}
             onSelect={() => {
-              const next = titlebar === "default" ? "transparent" : "default";
-              setTitlebar(next);
-              note(`titlebar → ${next}`);
+              setAlwaysOnTop(!alwaysOnTop);
+              note(`alwaysOnTop → ${!alwaysOnTop}`);
             }}
           />
+          {/* Force this window light or dark regardless of the system setting —
+              something a web `prefers-color-scheme` can never do. */}
+          {(["system", "light", "dark"] as const).map((mode) => (
+            <MenuItem
+              key={mode}
+              title={`Appearance: ${mode}`}
+              checked={appearance === mode}
+              onSelect={() => {
+                setAppearance(mode);
+                note(`appearance → ${mode}`);
+              }}
+            />
+          ))}
           <MenuSeparator />
           <MenuItem title="Minimize" shortcut="cmd+m" role="minimize" />
           <MenuItem title="Close" shortcut="cmd+w" role="close" />
@@ -139,31 +167,30 @@ export default function MenuDemo() {
       </div>
 
       <div className="p-4 rounded-lg bg-zinc-800/60 border border-zinc-700 space-y-2">
-        <p className="text-lg text-zinc-100">Count: {count}</p>
+        <p className="text-lg text-zinc-100">
+          vibrancy: {vibrancy} · titlebar: {titleBarStyle}
+        </p>
         <p className="text-xs text-zinc-500">
-          Window title is "{title}" — traffic lights are{" "}
-          {insetLights ? "inset" : "at the OS default corner"}.
+          Count is {count} · appearance is {appearance} · window is "{title}"
         </p>
       </div>
 
       <div className="flex gap-2">
         <Button
-          title="Increment"
+          title="Next vibrancy"
           variant="primary"
           className="flex-1"
           onClick={() => {
-            setCount(count + 1);
-            note(`button → increment to ${count + 1}`);
+            const next = VIBRANCIES[(VIBRANCIES.indexOf(vibrancy) + 1) % VIBRANCIES.length];
+            setVibrancy(next);
+            note(`vibrancy → ${next}`);
           }}
         />
         <Button
-          title="Move traffic lights"
+          title="Increment"
           variant="secondary"
           className="flex-1"
-          onClick={() => {
-            setInsetLights(!insetLights);
-            note(`traffic lights → ${!insetLights ? "inset" : "default corner"}`);
-          }}
+          onClick={() => setCount(count + 1)}
         />
       </div>
 
