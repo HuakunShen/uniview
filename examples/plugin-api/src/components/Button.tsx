@@ -12,6 +12,8 @@ export interface ButtonProps {
   children?: ReactNode;
   title?: string;
   variant?: ButtonVariant;
+  /** A leading SF Symbol — `"plus.circle"`, `"bolt.fill"`. */
+  icon?: string;
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
@@ -46,6 +48,7 @@ export function Button({
   children,
   title,
   variant = "secondary",
+  icon,
   onClick,
   disabled,
   className,
@@ -56,6 +59,7 @@ export function Button({
     "Button",
     {
       title,
+      icon,
       onClick,
       disabled,
       ...(classes ? { className: classes } : {}),

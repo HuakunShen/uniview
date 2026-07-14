@@ -55,9 +55,47 @@ extension StyleStateView {
     }
 }
 
+/// `onClick` on a plain box.
+///
+/// A row in a list, a card, a tile: none of them is an `NSButton`, and all of
+/// them are clickable. Only `Button` used to bind a handler, so `<div onClick>`
+/// did nothing whatsoever — the prop crossed the wire, reached the node, and was
+/// never read by anyone. Writing a sidebar in TypeScript is what surfaced it,
+/// which is the point of writing the sidebar in TypeScript.
+@MainActor
+public struct ClickInterest {
+    private var handlerId: String?
+    private var executor: HandlerExecutor?
+
+    public init() {}
+
+    public init(node: ShadowNode, executor: @escaping HandlerExecutor) {
+        handlerId = node.handlerId(for: "onClick")
+        self.executor = executor
+    }
+
+    public var isEmpty: Bool { handlerId == nil }
+
+    /// Fire, if anyone is listening. Returns whether the click was ours: a box
+    /// nobody is listening to must let the event travel on down the responder
+    /// chain, or it would swallow clicks — and drags of the window behind it.
+    @discardableResult
+    public func fire() -> Bool {
+        guard let handlerId, let executor else { return false }
+        executor(handlerId, [])
+        return true
+    }
+}
+
+@MainActor
+public protocol ClickableView: NSView {
+    var clickInterest: ClickInterest { get set }
+}
+
 /// A top-down `NSView` (origin at top-left) matching Yoga's coordinate space,
 /// so computed frames map straight onto subview frames.
-public class FlippedView: NSView, StyleStateView, KeyResponder {
+public class FlippedView: NSView, StyleStateView, KeyResponder, ClickableView {
+    public var clickInterest = ClickInterest()
     public var repaint: ((CALayer, Set<String>) -> Void)?
     public override var isFlipped: Bool { true }
 
@@ -145,10 +183,19 @@ public class FlippedView: NSView, StyleStateView, KeyResponder {
         // Clicking a thing that listens for keys focuses it, as it does for every
         // other control on the machine.
         if wantsKeys { window?.makeFirstResponder(self) }
-        if tracksPointer { isPressed = true } else { super.mouseDown(with: event) }
+        if tracksPointer { isPressed = true }
+        // A box nobody is listening to must pass the event on: `movableByWindow-
+        // Background` drags the window by exactly the clicks that nothing claims.
+        if !tracksPointer && clickInterest.isEmpty { super.mouseDown(with: event) }
     }
     public override func mouseUp(with event: NSEvent) {
-        if tracksPointer { isPressed = false } else { super.mouseUp(with: event) }
+        if tracksPointer { isPressed = false }
+        // On mouse-UP, and only if the pointer is still inside — press-and-slide-
+        // away cancels, the way it does for every button on the machine.
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        if !(inside && clickInterest.fire()) && !tracksPointer {
+            super.mouseUp(with: event)
+        }
     }
 
     public override func viewDidChangeEffectiveAppearance() {
@@ -159,8 +206,15 @@ public class FlippedView: NSView, StyleStateView, KeyResponder {
 
 /// A flipped `NSVisualEffectView` for native vibrancy/materials on a Uniview
 /// container (top-down coords like `FlippedView`).
-public final class MaterialView: NSVisualEffectView, StyleStateView, KeyResponder {
+public final class MaterialView: NSVisualEffectView, StyleStateView, KeyResponder, ClickableView {
     public var repaint: ((CALayer, Set<String>) -> Void)?
+    public var clickInterest = ClickInterest()
+
+    public override func mouseUp(with event: NSEvent) {
+        let inside = bounds.contains(convert(event.locationInWindow, from: nil))
+        if inside && clickInterest.fire() { return }
+        super.mouseUp(with: event)
+    }
     public var isHovered = false {
         didSet { if isHovered != oldValue { repaintNow() } }
     }

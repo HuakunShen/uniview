@@ -88,6 +88,12 @@ public struct ViewComponent: Component {
             responder.keyInterest = KeyInterest(node: node, executor: context.executeHandler)
             responder.autoFocuses = node.props["autoFocus"]?.boolValue ?? false
         }
+        // A box can be clicked — a row, a card, a tile. Not everything clickable is
+        // a button, and `<div onClick>` used to reach the node and be read by
+        // nobody.
+        if let clickable = view as? any ClickableView {
+            clickable.clickInterest = ClickInterest(node: node, executor: context.executeHandler)
+        }
 
         // Both the style-for-this-state and every `.cgColor` in it are resolved
         // inside this closure, because both depend on state the view owns and we
@@ -275,8 +281,15 @@ public struct IconComponent: Component {
             node.props["symbol"]?.stringValue
             ?? node.props["name"]?.stringValue
             ?? node.renderedText
+        // A symbol this system doesn't have used to draw *nothing at all* — an
+        // invisible failure, in a renderer whose rule is that nodes are never
+        // silently dropped. (`menubar.rectangle.fill` doesn't exist; the sidebar's
+        // selected row simply lost its glyph, and nothing said so.) A placeholder
+        // is visible, and visible is debuggable.
         let glyph = symbol.isEmpty ? "questionmark" : symbol
-        let image = NSImage(systemSymbolName: glyph, accessibilityDescription: nil)
+        let image =
+            NSImage(systemSymbolName: glyph, accessibilityDescription: nil)
+            ?? NSImage(systemSymbolName: "questionmark", accessibilityDescription: glyph)
         image?.isTemplate = true
         imageView.image = image
         let size = CGFloat(node.style.fontSize ?? 15)

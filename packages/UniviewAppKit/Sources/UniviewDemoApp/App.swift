@@ -28,11 +28,9 @@ enum DemoApp {
 
         app.delegate = Self.delegate
 
-        // Sidebar style is a setting, not a standard. `.floating` is an inset
-        // glass box that wraps the (repositioned) traffic lights; `.fullHeight`
-        // runs edge-to-edge with the lights at the default corner.
-        let sidebarStyle = SidebarStyle.floating
-        let root = RootViewController(sections: demoSections(), sidebarStyle: sidebarStyle)
+        // The app's UI — sidebar, chrome, pages — is this plugin's React tree.
+        // Nothing about it is decided here.
+        let root = RootViewController(pluginId: "app-shell")
 
         let window = UniviewWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),
@@ -51,7 +49,9 @@ enum DemoApp {
         window.contentViewController = root
         window.setFrameAutosaveName("UniviewDesktopMain")
         window.center()
-        window.trafficLightOrigin = sidebarStyle.trafficLightOrigin
+        // Where the traffic lights sit is a design decision, so it belongs to the
+        // plugin (`<Window trafficLightPosition>`) — the sidebar that has to wrap
+        // them is written there too.
         window.makeKeyAndOrderFront(nil)
 
         app.activate(ignoringOtherApps: true)

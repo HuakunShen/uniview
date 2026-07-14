@@ -12,6 +12,8 @@ export interface InputProps {
   disabled?: boolean;
   onChange?: (value: string) => void;
   className?: string;
+  /** A leading SF Symbol inside the field — `"person"`, `"magnifyingglass"`. */
+  icon?: string;
   /** Put the caret here on mount. */
   autoFocus?: boolean;
   /**
@@ -38,6 +40,7 @@ export function Input({
   disabled,
   onChange,
   className,
+  icon,
   autoFocus,
   keyDownEvents,
   onKeyDown,
@@ -52,6 +55,7 @@ export function Input({
     disabled,
     onChange,
     className,
+    icon,
     autoFocus,
     keyDownEvents,
     onKeyDown,
