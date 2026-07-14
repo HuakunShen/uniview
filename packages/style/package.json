@@ -14,12 +14,14 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "gen:palette": "node scripts/gen-palette.mjs",
     "test": "vitest run",
     "check-types": "tsc --noEmit",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "tailwindcss": "^4.1.18",
     "tsdown": "0.22.2",
     "typescript": "^5.7.0",
     "vitest": "^2.0.0"

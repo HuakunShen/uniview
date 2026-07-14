@@ -113,10 +113,10 @@ describe("resolveClassName — sizing", () => {
 describe("resolveClassName — color", () => {
   test("the Tailwind palette resolves to hex", () => {
     expect(resolveClassName("bg-emerald-500")).toMatchObject({
-      backgroundColor: "#10b981",
+      backgroundColor: "#00bc7d",
     });
     expect(resolveClassName("text-zinc-400")).toMatchObject({
-      color: "#a1a1aa",
+      color: "#9f9fa9",
     });
     expect(resolveClassName("text-white")).toMatchObject({ color: "#ffffff" });
   });
@@ -130,10 +130,10 @@ describe("resolveClassName — color", () => {
   test("the `/alpha` suffix becomes an 8-digit hex", () => {
     // #rrggbbaa is what the native hosts' color parsers already accept.
     expect(resolveClassName("bg-emerald-500/10")).toMatchObject({
-      backgroundColor: "#10b9811a",
+      backgroundColor: "#00bc7d1a",
     });
     expect(resolveClassName("border-violet-500/20")).toMatchObject({
-      borderColor: "#8b5cf633",
+      borderColor: "#8e51ff33",
     });
   });
 });
@@ -153,7 +153,7 @@ describe("resolveClassName — visual + typography", () => {
   test("`border` + a border color compose", () => {
     expect(resolveClassName("border border-emerald-500/20")).toMatchObject({
       borderWidth: 1,
-      borderColor: "#10b98133",
+      borderColor: "#00bc7d33",
     });
   });
 
