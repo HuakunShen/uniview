@@ -193,6 +193,7 @@ export type { BorderGlyphs } from "./paint/border";
 
 // Canvas rasterizers (charts)
 export { VERTICAL_BLOCKS, HORIZONTAL_BLOCKS, verticalBarColumn, horizontalBarCells } from "./canvas/blocks";
+export { SubcellCanvas } from "./canvas/subcell";
 
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";
