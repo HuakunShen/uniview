@@ -29,6 +29,12 @@ export interface RenderNode {
   background?: Color;
   /** Style (e.g. color) applied to border glyphs. */
   borderStyle?: CellStyle;
+  /** Text drawn into the top border edge (a panel title). */
+  title?: string;
+  titleAlign?: "left" | "center" | "right";
+  /** Text drawn into the bottom border edge (e.g. an "N of M" counter). */
+  footer?: string;
+  footerAlign?: "left" | "center" | "right";
   children?: RenderNode[];
 }
 
@@ -155,6 +161,30 @@ function drawBorder(
   put(right, bottom, glyphs.bottomRight);
 }
 
+/** Paint short text into a horizontal border edge (title on top, footer on bottom). */
+function drawEdgeText(
+  buffer: CellBuffer,
+  box: Rect,
+  clip: Rect,
+  edgeY: number,
+  text: string,
+  align: "left" | "center" | "right",
+  styleId: number,
+  ownerId: number,
+): void {
+  if (!text || box.width < 3) return;
+  if (edgeY < clip.y || edgeY >= clip.y + clip.height) return;
+  const innerLeft = box.x + 1; // just after the left corner
+  const innerRight = box.x + box.width - 1; // the right corner column
+  const innerWidth = innerRight - innerLeft;
+  if (innerWidth <= 0) return;
+  const w = Math.min(stringCellWidth(text), innerWidth);
+  let start = innerLeft;
+  if (align === "center") start = innerLeft + Math.max(0, Math.floor((innerWidth - w) / 2));
+  else if (align === "right") start = innerRight - w;
+  buffer.writeText(start, edgeY, text, styleId, ownerId, undefined, innerRight);
+}
+
 function paintNode(
   node: RenderNode,
   layout: LayoutResult,
@@ -183,7 +213,14 @@ function paintNode(
 
   const glyphs = borderGlyphs(node.style?.border);
   if (glyphs) {
-    drawBorder(buffer, box, boxClip, glyphs, styles.intern(node.borderStyle ?? {}), ownerId);
+    const borderStyleId = styles.intern(node.borderStyle ?? {});
+    drawBorder(buffer, box, boxClip, glyphs, borderStyleId, ownerId);
+    if (node.title) {
+      drawEdgeText(buffer, box, boxClip, box.y, node.title, node.titleAlign ?? "left", borderStyleId, ownerId);
+    }
+    if (node.footer) {
+      drawEdgeText(buffer, box, boxClip, box.y + box.height - 1, node.footer, node.footerAlign ?? "left", borderStyleId, ownerId);
+    }
   }
 
   if (isTextLeaf(node)) {
