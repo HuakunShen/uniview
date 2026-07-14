@@ -15,6 +15,9 @@ import type {
   TuiInputEvent,
 } from "@uniview/tui-core";
 
+export { VirtualList } from "./virtual-list";
+export type { VirtualListProps } from "./virtual-list";
+
 export interface TuiReactRootOptions {
   surface: CellSurface;
   size: Size;
