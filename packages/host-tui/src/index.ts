@@ -24,3 +24,14 @@ export type {
   AutomationTrace,
   WaitOptions,
 } from "./automation";
+export {
+  executeAction,
+  runTrace,
+  AUTOMATION_PROTOCOL_VERSION,
+} from "./automation-runner";
+export type {
+  AutomationActionJson,
+  SemanticTargetJson,
+  AutomationErrorCode,
+  ActionResult,
+} from "./automation-runner";
