@@ -51,8 +51,22 @@ export interface TuiEventHandlers {
   onBlur?: () => void;
 }
 
-/** Attributes shared by every TUI element: layout ({@link TuiStyle}) + handlers. */
-export interface TuiCommonProps extends TuiStyle, TuiEventHandlers {
+/**
+ * Semantic / automation attributes read by the host to build the accessibility
+ * tree (queryByRole/Name, contract tests). All optional.
+ */
+export interface TuiSemanticProps {
+  role?: string;
+  name?: string;
+  label?: string;
+  value?: string;
+  disabled?: boolean;
+  checked?: boolean;
+  selected?: boolean;
+}
+
+/** Attributes shared by every TUI element: layout ({@link TuiStyle}) + handlers + semantics. */
+export interface TuiCommonProps extends TuiStyle, TuiEventHandlers, TuiSemanticProps {
   key?: Key;
   children?: ReactNode;
   /** Fill color for the element's box region (name/CSS string or `{ r, g, b }`). */

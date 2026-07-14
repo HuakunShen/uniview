@@ -16,7 +16,10 @@ function boot() {
   const root = createTuiReactRoot({ surface, styles, size: { width: 80, height: 20 } });
   const state = createState(80, 20, 100000); // fully streamed
   let quit = false;
-  const host: AppHost = { rerender: () => root.render(App(state, host)), quit: () => (quit = true) };
+  const host: AppHost = {
+    rerender: () => root.render(<App state={state} host={host} />),
+    quit: () => (quit = true),
+  };
   host.rerender();
   // Route input the way main.tsx does.
   const send = (e: TuiInputEvent) => {

@@ -1,6 +1,5 @@
-import { createElement as h } from "react";
 import { AnsiCellSurface, StyleTable, TerminalDriver } from "@uniview/tui-core";
-import { createTuiReactRoot } from "@uniview/tui-react";
+import { Box, createTuiReactRoot, Text } from "@uniview/tui-react";
 import { GitWorkspaceModel } from "./model";
 import { GitWorkspaceTui } from "./view";
 
@@ -20,11 +19,13 @@ const surface = new AnsiCellSurface({ write: (chunk) => process.stdout.write(chu
 const root = createTuiReactRoot({ surface, styles, size: { width: 52, height: 14 } });
 
 function App() {
-  return h(
-    "box",
-    { flexDirection: "column" },
-    h(GitWorkspaceTui, { model }),
-    h("text", { color: "gray", dim: true }, "r refresh · Tab+Enter act · q quit"),
+  return (
+    <Box flexDirection="column">
+      <GitWorkspaceTui model={model} />
+      <Text color="gray" dim>
+        r refresh · Tab+Enter act · q quit
+      </Text>
+    </Box>
   );
 }
 
@@ -58,5 +59,5 @@ const driver = new TerminalDriver({
 });
 
 driver.start();
-root.render(h(App));
+root.render(<App />);
 process.stdin.on?.("end", quit);

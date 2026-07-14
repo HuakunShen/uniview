@@ -26,7 +26,7 @@ const root = createTuiReactRoot({ surface, styles, size: { width: columns, heigh
 
 let started = false;
 const host: AppHost = {
-  rerender: () => root.render(App(state, host)),
+  rerender: () => root.render(<App state={state} host={host} />),
   quit: () => {
     root.destroy();
     if (started) driver.stop();

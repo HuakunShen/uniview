@@ -1,4 +1,9 @@
-import { createElement as h, type ReactElement, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   syntaxThemes,
   type RenderNode,
@@ -7,10 +12,12 @@ import {
 } from "@uniview/tui-core";
 import { renderCode, renderDiff, renderMarkdown } from "@uniview/tui-content";
 import {
+  Box,
   clampScroll,
   CommandPalette,
   Hoverable,
   ScrollView,
+  Text,
   type Command,
 } from "@uniview/tui-react";
 import { DIFF, FILES, MESSAGE } from "./data";
@@ -61,6 +68,8 @@ export interface AppHost {
   rerender: () => void;
   quit: () => void;
 }
+
+// --- logic (pure of the view) ----------------------------------------------
 
 const theme = (s: State) => syntaxThemes[s.themeName]!;
 const contentHeight = (s: State): number => Math.max(1, s.height - 2);
@@ -213,135 +222,168 @@ export function handleKey(s: State, host: AppHost, event: TuiInputEvent): boolea
   return false;
 }
 
-// --- view -------------------------------------------------------------------
+// --- view (JSX) -------------------------------------------------------------
 
-function Tab(s: State, host: AppHost, index: number, label: string): ReactElement {
-  const active = s.page === index;
-  return h(Hoverable, {
-    key: label,
-    onClick: () => {
-      s.page = index;
-      host.rerender();
-    },
-    children: (hovered: boolean) =>
-      h(
-        "box",
-        {
-          padding: { left: 1, right: 1 },
-          backgroundColor: active ? ACTIVE_BG : hovered ? HOVER_BG : undefined,
-        },
-        h(
-          "text",
-          { bold: active, color: active || hovered ? "white" : "gray" },
-          `${index + 1} ${label}`,
-        ),
-      ),
-  });
+interface AppApi {
+  state: State;
+  host: AppHost;
+}
+const AppContext = createContext<AppApi | null>(null);
+function useApp(): AppApi {
+  const api = useContext(AppContext);
+  if (!api) throw new Error("AppContext missing");
+  return api;
 }
 
-function Header(s: State, host: AppHost): ReactElement {
-  return h(
-    "box",
-    { flexDirection: "row", gap: 1, height: 1 },
-    h("text", { bold: true, color: "cyan" }, " uniview "),
-    ...PAGES.map((label, i) => Tab(s, host, i, label)),
-    h("box", { flexGrow: 1 }),
-    h("text", { color: "gray", dim: true }, `Ctrl-K palette · ${s.themeName} `),
+function Tab({ index, label }: { index: number; label: string }): ReactElement {
+  const { state, host } = useApp();
+  const active = state.page === index;
+  return (
+    <Hoverable
+      onClick={() => {
+        state.page = index;
+        host.rerender();
+      }}
+    >
+      {(hovered) => (
+        <Box
+          padding={{ left: 1, right: 1 }}
+          backgroundColor={active ? ACTIVE_BG : hovered ? HOVER_BG : undefined}
+        >
+          <Text bold={active} color={active || hovered ? "white" : "gray"}>
+            {`${index + 1} ${label}`}
+          </Text>
+        </Box>
+      )}
+    </Hoverable>
   );
 }
 
-function StatusBar(s: State): ReactElement {
+function Header(): ReactElement {
+  const { state } = useApp();
+  return (
+    <Box flexDirection="row" gap={1} height={1}>
+      <Text bold color="cyan">
+        {" uniview "}
+      </Text>
+      {PAGES.map((label, i) => (
+        <Tab key={label} index={i} label={label} />
+      ))}
+      <Box flexGrow={1} />
+      <Text color="gray" dim>
+        {`Ctrl-K palette · ${state.themeName} `}
+      </Text>
+    </Box>
+  );
+}
+
+function StatusBar(): ReactElement {
+  const { state } = useApp();
   const hints =
-    s.page === 1
+    state.page === 1
       ? "1/2/3 pages · [ ] file · ↑↓ scroll · Ctrl-K palette · q quit"
       : "1/2/3 pages · ↑↓ PgUp/PgDn scroll · Ctrl-K palette · q quit";
-  return h(
-    "box",
-    { height: 1, backgroundColor: PANEL_BG },
-    h("text", { color: "gray", dim: true }, ` ${hints}`),
+  return (
+    <Box height={1} backgroundColor={PANEL_BG}>
+      <Text color="gray" dim>
+        {` ${hints}`}
+      </Text>
+    </Box>
   );
 }
 
-function FileList(s: State, host: AppHost): ReactElement {
-  return h(
-    "box",
-    { flexDirection: "column", width: 16, backgroundColor: PANEL_BG, height: contentHeight(s) },
-    ...FILES.map((file, i) => {
-      const active = s.file === i;
-      return h(Hoverable, {
-        key: file.name,
-        onClick: () => {
-          s.file = i;
-          s.scroll[1] = 0;
-          host.rerender();
-        },
-        children: (hovered: boolean) =>
-          h(
-            "box",
-            { width: 16, backgroundColor: active ? ACTIVE_BG : hovered ? HOVER_BG : undefined },
-            h(
-              "text",
-              { color: active || hovered ? "white" : undefined, bold: active },
-              `${active ? "▸ " : "  "}${file.name}`,
-            ),
-          ),
-      });
-    }),
+function FileList(): ReactElement {
+  const { state, host } = useApp();
+  return (
+    <Box flexDirection="column" width={16} backgroundColor={PANEL_BG} height={contentHeight(state)}>
+      {FILES.map((file, i) => {
+        const active = state.file === i;
+        return (
+          <Hoverable
+            key={file.name}
+            onClick={() => {
+              state.file = i;
+              state.scroll[1] = 0;
+              host.rerender();
+            }}
+          >
+            {(hovered) => (
+              <Box width={16} backgroundColor={active ? ACTIVE_BG : hovered ? HOVER_BG : undefined}>
+                <Text color={active || hovered ? "white" : undefined} bold={active}>
+                  {`${active ? "▸ " : "  "}${file.name}`}
+                </Text>
+              </Box>
+            )}
+          </Hoverable>
+        );
+      })}
+    </Box>
   );
 }
 
-function scroller(s: State, host: AppHost, width: number): ReactElement {
-  return h(ScrollView, {
-    content: pageContent(s),
-    height: contentHeight(s),
-    width,
-    scrollTop: s.page === 0 && s.chatFollow ? Number.MAX_SAFE_INTEGER : s.scroll[s.page],
-    onScrollChange: (top: number) => {
-      s.scroll[s.page] = top;
-      if (s.page === 0) s.chatFollow = false;
-      host.rerender();
-    },
-  });
+function PageScroller({ width }: { width: number }): ReactElement {
+  const { state, host } = useApp();
+  return (
+    <ScrollView
+      content={pageContent(state)}
+      height={contentHeight(state)}
+      width={width}
+      scrollTop={state.page === 0 && state.chatFollow ? Number.MAX_SAFE_INTEGER : state.scroll[state.page]}
+      onScrollChange={(top) => {
+        state.scroll[state.page] = top;
+        if (state.page === 0) state.chatFollow = false;
+        host.rerender();
+      }}
+    />
+  );
 }
 
-function PageBody(s: State, host: AppHost): ReactNode {
-  if (s.page === 1) {
-    return h(
-      "box",
-      { flexDirection: "row", gap: 1, height: contentHeight(s) },
-      FileList(s, host),
-      scroller(s, host, s.width - 17),
+function PageBody(): ReactNode {
+  const { state } = useApp();
+  if (state.page === 1) {
+    return (
+      <Box flexDirection="row" gap={1} height={contentHeight(state)}>
+        <FileList />
+        <PageScroller width={state.width - 17} />
+      </Box>
     );
   }
-  return scroller(s, host, s.width);
+  return <PageScroller width={state.width} />;
 }
 
-function Palette(s: State, host: AppHost): ReactNode {
-  if (!s.palette.open) return null;
-  const width = Math.min(48, s.width - 6);
-  return h(CommandPalette, {
-    items: COMMANDS,
-    query: s.palette.query,
-    selectedIndex: s.palette.selected,
-    top: 2,
-    left: Math.max(2, Math.floor((s.width - width) / 2)),
-    width,
-    onSelect: (id: string) => runCommand(s, host, id),
-    onHover: (i: number) => {
-      s.palette.selected = i;
-      host.rerender();
-    },
-  });
+function Palette(): ReactNode {
+  const { state, host } = useApp();
+  if (!state.palette.open) return null;
+  const width = Math.min(48, state.width - 6);
+  return (
+    <CommandPalette
+      items={COMMANDS}
+      query={state.palette.query}
+      selectedIndex={state.palette.selected}
+      top={2}
+      left={Math.max(2, Math.floor((state.width - width) / 2))}
+      width={width}
+      onSelect={(id) => runCommand(state, host, id)}
+      onHover={(i) => {
+        state.palette.selected = i;
+        host.rerender();
+      }}
+    />
+  );
 }
 
-/** The whole app view for a given state. */
-export function App(s: State, host: AppHost): ReactElement {
-  return h(
-    "box",
-    { flexDirection: "column", width: s.width, height: s.height },
-    Header(s, host),
-    h("box", { flexGrow: 1 }, PageBody(s, host)),
-    StatusBar(s),
-    Palette(s, host),
+/** The whole app view for a given state + host. */
+export function App({ state, host }: AppApi): ReactElement {
+  return (
+    <AppContext.Provider value={{ state, host }}>
+      <Box flexDirection="column" width={state.width} height={state.height}>
+        <Header />
+        <Box flexGrow={1}>
+          <PageBody />
+        </Box>
+        <StatusBar />
+        <Palette />
+      </Box>
+    </AppContext.Provider>
   );
 }

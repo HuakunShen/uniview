@@ -1,6 +1,6 @@
-import { createElement as h, useEffect, useState } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { AnsiCellSurface, StyleTable, TerminalDriver } from "@uniview/tui-core";
-import { createTuiReactRoot, Diff, StreamingMarkdown } from "@uniview/tui-react";
+import { Box, createTuiReactRoot, Diff, StreamingMarkdown, Text } from "@uniview/tui-react";
 
 /**
  * AI-assistant-style content demo. Streams a Markdown message token-by-token
@@ -53,7 +53,7 @@ const CONTENT_WIDTH = WIDTH - 2;
 /** Headless (piped) runs render everything at once and exit, for verification. */
 const ONCE = !process.stdout.isTTY || process.env.UNIVIEW_DEMO_ONCE === "1";
 
-function App(): ReturnType<typeof h> {
+function App(): ReactElement {
   const [shown, setShown] = useState(ONCE ? MESSAGE.length : 0);
   const done = shown >= MESSAGE.length;
 
@@ -67,14 +67,22 @@ function App(): ReturnType<typeof h> {
     return () => clearTimeout(t);
   }, [shown, done]);
 
-  return h(
-    "box",
-    { flexDirection: "column", gap: 1, padding: 1 },
-    h("text", { color: "cyan", bold: true }, "assistant"),
-    h(StreamingMarkdown, { content: MESSAGE.slice(0, shown), width: CONTENT_WIDTH }),
-    done ? h("text", { color: "gray", dim: true }, "proposed change · src/app.ts") : null,
-    done ? h(Diff, { patch: DIFF, language: "typescript" }) : null,
-    h("text", { color: "gray", dim: true }, "q quit"),
+  return (
+    <Box flexDirection="column" gap={1} padding={1}>
+      <Text color="cyan" bold>
+        assistant
+      </Text>
+      <StreamingMarkdown content={MESSAGE.slice(0, shown)} width={CONTENT_WIDTH} />
+      {done ? (
+        <Text color="gray" dim>
+          proposed change · src/app.ts
+        </Text>
+      ) : null}
+      {done ? <Diff patch={DIFF} language="typescript" /> : null}
+      <Text color="gray" dim>
+        q quit
+      </Text>
+    </Box>
   );
 }
 
@@ -111,4 +119,4 @@ if (!ONCE) {
   started = true;
   process.stdin.on?.("end", quit);
 }
-root.render(h(App));
+root.render(<App />);

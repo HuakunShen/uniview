@@ -5,8 +5,8 @@
   "private": true,
   "description": "Flagship Git Workspace plugin — shared model, TUI view, semantic contract tests",
   "scripts": {
-    "dev": "tsx src/main.ts",
-    "start": "tsx src/main.ts",
+    "dev": "tsx src/main.tsx",
+    "start": "tsx src/main.tsx",
     "test": "vitest run",
     "check-types": "tsc --noEmit"
   },
