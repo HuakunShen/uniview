@@ -3,7 +3,9 @@ import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-
 import { createTuiReactRoot } from "@uniview/tui-react";
 import { App, createState, handleKey, type AppHost } from "../src/app";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+const tick = async () => {
+  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+};
 const keyEv = (k: string, shift = false): TuiInputEvent => ({ type: "key", key: k, ctrl: false, alt: false, shift, meta: false });
 const textEv = (t: string): TuiInputEvent => ({ type: "text", text: t });
 

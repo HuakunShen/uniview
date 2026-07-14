@@ -3,7 +3,7 @@ import { createElement as h, useState } from "react";
 import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
 import { createTuiReactRoot } from "../src/index";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 
 function mouseUp(x: number, y: number): TuiInputEvent {
   return { type: "mouse", action: "up", button: "left", x, y, ctrl: false, alt: false, shift: false };

@@ -8,7 +8,9 @@ import { createAi, type Ai } from "../src/ai/controller";
 import { handleKey } from "../src/keys";
 import { boardToTiles, type Rng } from "../src/vendor/board";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+const tick = async () => {
+  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+};
 
 function seeded(seed: number): Rng {
   let a = seed >>> 0;

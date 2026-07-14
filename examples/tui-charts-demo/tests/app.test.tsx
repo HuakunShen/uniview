@@ -3,7 +3,9 @@ import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
 import { createTuiReactRoot } from "@uniview/tui-react";
 import { App, createState, tick, type AppHost } from "../src/app";
 
-const settle = () => new Promise((r) => setTimeout(r, 20));
+const settle = async () => {
+  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+};
 
 function boot() {
   const styles = new StyleTable();

@@ -4,7 +4,7 @@ import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
 import { createTuiSolidRoot } from "../src/index";
 import { BarChart, Gauge, Histogram, LineChart, Scatter, Sparkline } from "../src/charts";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();

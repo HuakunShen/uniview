@@ -18,10 +18,8 @@ import {
   render,
   serializeTree,
 } from "../src";
+import { flush } from "./flush";
 
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 30));
-}
 
 describe("handler lifecycle", () => {
   test("registry does not grow across re-renders (full mode)", async () => {

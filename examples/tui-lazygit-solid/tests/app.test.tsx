@@ -3,7 +3,9 @@ import { MemoryCellSurface, StyleTable, type Color, type TuiInputEvent } from "@
 import { createTuiSolidRoot } from "@uniview/tui-solid";
 import { App, createAppState, handleKey, type AppHost } from "../src/app";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+const tick = async () => {
+  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+};
 
 function mount(width: number, height: number) {
   const styles = new StyleTable();

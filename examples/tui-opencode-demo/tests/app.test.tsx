@@ -3,7 +3,9 @@ import { InputParser, MemoryCellSurface, StyleTable, type TuiInputEvent } from "
 import { createTuiReactRoot } from "@uniview/tui-react";
 import { App, createState, handleKey, type AppHost } from "../src/app";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+const tick = async () => {
+  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+};
 const text = (t: string): TuiInputEvent => ({ type: "text", text: t });
 const keyEv = (k: string, ctrl = false): TuiInputEvent => ({ type: "key", key: k, ctrl, alt: false, shift: false, meta: false });
 const wheel = (x: number, y: number, deltaY: -1 | 1): TuiInputEvent => ({ type: "mouse", action: "wheel", button: "none", x, y, deltaY, ctrl: false, alt: false, shift: false });

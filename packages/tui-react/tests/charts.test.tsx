@@ -11,7 +11,7 @@ import {
   Sparkline,
 } from "../src/charts";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 function mount(el: ReactElement, width: number, height: number) {
   const styles = new StyleTable();
   const surface = new MemoryCellSurface({ styles });

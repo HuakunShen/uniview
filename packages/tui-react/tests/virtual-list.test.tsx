@@ -4,7 +4,7 @@ import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-
 import { createTuiReactRoot } from "../src/index";
 import { VirtualList } from "../src/virtual-list";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 const key = (k: string): TuiInputEvent => ({ type: "key", key: k, ctrl: false, alt: false, shift: false, meta: false });
 
 const items = Array.from({ length: 20 }, (_, i) => `Item ${i}`);

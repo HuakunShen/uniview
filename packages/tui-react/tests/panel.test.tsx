@@ -4,7 +4,7 @@ import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
 import { createTuiReactRoot } from "../src/index";
 import { Panel } from "../src/panel";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 function mount(el: ReactElement, width: number, height: number) {
   const styles = new StyleTable();
   const surface = new MemoryCellSurface({ styles });

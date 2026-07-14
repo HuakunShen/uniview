@@ -4,7 +4,7 @@ import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-
 import { createTuiReactRoot } from "../src/index";
 import { Box, Button, Text } from "../src/compat";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 const key = (k: string): TuiInputEvent => ({ type: "key", key: k, ctrl: false, alt: false, shift: false, meta: false });
 
 // A counter written against the OLD @uniview/tui-renderer component API.

@@ -5,7 +5,7 @@ import { createTuiSolidRoot } from "../src/index";
 import { List, listCounter } from "../src/list";
 import { Text } from "../src/primitives";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 const key = (k: string): TuiInputEvent => ({
   type: "key",
   key: k,

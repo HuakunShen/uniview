@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
 import { createTuiSolidRoot } from "../src/index";
 
-const tick = () => new Promise((r) => setTimeout(r, 0));
+import { tick } from "./tick";
 
 function mouseUp(x: number, y: number): TuiInputEvent {
   return { type: "mouse", action: "up", button: "left", x, y, ctrl: false, alt: false, shift: false };

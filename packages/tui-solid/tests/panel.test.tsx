@@ -5,7 +5,7 @@ import { createTuiSolidRoot } from "../src/index";
 import { Panel } from "../src/panel";
 import { Text } from "../src/primitives";
 
-const tick = () => new Promise((r) => setTimeout(r, 0));
+import { tick } from "./tick";
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();

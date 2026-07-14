@@ -4,7 +4,7 @@ import { MemoryCellSurface, StyleTable, type RenderNode, type TuiInputEvent } fr
 import { createTuiReactRoot } from "../src/index";
 import { CommandPalette, filterCommands, Hoverable, ScrollView } from "../src/interactive";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 function mount(el: ReactElement, width: number, height: number) {
   const styles = new StyleTable();
   const surface = new MemoryCellSurface({ styles });

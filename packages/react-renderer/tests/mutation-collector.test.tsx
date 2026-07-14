@@ -9,7 +9,7 @@ import {
   render,
 } from "../src";
 
-const flush = () => new Promise<void>((r) => setTimeout(r, 30));
+import { flush } from "./flush";
 
 function collect() {
   const renderer = createRenderer();

@@ -11,7 +11,7 @@ vi.mock("@uniview/tui-content", async (importOriginal) => {
   return { ...actual, renderMarkdown: vi.fn(actual.renderMarkdown) };
 });
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();

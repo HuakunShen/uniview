@@ -6,7 +6,7 @@ import { createTuiReactRoot } from "@uniview/tui-react";
 import { GitWorkspaceModel } from "../src/model";
 import { GitWorkspaceTui } from "../src/view";
 
-const tick = () => new Promise((r) => setTimeout(r, 25));
+import { tick } from "./tick";
 
 function mount() {
   const model = new GitWorkspaceModel();

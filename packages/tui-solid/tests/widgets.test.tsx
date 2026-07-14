@@ -6,7 +6,7 @@ import { Select } from "../src/select";
 import { VirtualList } from "../src/virtual-list";
 import { Text } from "../src/primitives";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();

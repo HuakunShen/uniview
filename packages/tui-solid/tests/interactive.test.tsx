@@ -4,7 +4,7 @@ import { createTuiSolidRoot } from "../src/index";
 import { CommandPalette, Hoverable, ScrollView } from "../src/interactive";
 import { Text } from "../src/primitives";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MemoryCellSurface, StyleTable, type RenderNode } from "@uniview/tui-core";
 import { createTuiSolidRoot, renderNodeToElement } from "../src/index";
 
-const tick = () => new Promise((r) => setTimeout(r, 0));
+import { tick } from "./tick";
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();

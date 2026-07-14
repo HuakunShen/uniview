@@ -9,7 +9,7 @@ import {
 import { createTuiReactRoot } from "../src/index";
 import { Code, Diff, Markdown, StreamingMarkdown } from "../src/content";
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+import { tick } from "./tick";
 
 function mount(el: ReactElement, width: number, height: number) {
   const styles = new StyleTable();
