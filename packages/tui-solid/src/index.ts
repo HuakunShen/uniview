@@ -35,8 +35,25 @@ export type {
 } from "./content";
 export { createFocusList, nextFocus } from "./focus";
 export type { FocusList } from "./focus";
+export {
+  clampScroll,
+  CommandPalette,
+  filterCommands,
+  Hoverable,
+  ScrollView,
+} from "./interactive";
+export type {
+  Command,
+  CommandPaletteProps,
+  HoverableProps,
+  ScrollViewProps,
+} from "./interactive";
 export { List, listCounter } from "./list";
 export type { ListProps } from "./list";
+export { Select } from "./select";
+export type { SelectProps } from "./select";
+export { VirtualList } from "./virtual-list";
+export type { VirtualListProps } from "./virtual-list";
 export { Panel } from "./panel";
 export type { PanelProps } from "./panel";
 export { Box, RichText, Text } from "./primitives";
