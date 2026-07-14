@@ -1,0 +1,24 @@
+{
+  "name": "@uniview/tui-content-demo",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AI-assistant-style streaming Markdown + code + diff in a real terminal",
+  "scripts": {
+    "dev": "tsx src/main.tsx",
+    "start": "tsx src/main.tsx",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uniview/tui-content": "workspace:*",
+    "@uniview/tui-core": "workspace:*",
+    "@uniview/tui-react": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

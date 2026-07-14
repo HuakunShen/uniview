@@ -1,0 +1,45 @@
+{
+  "name": "@uniview/tui-react",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Render React plugins to the terminal via @uniview/host-tui and @uniview/tui-core",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./compat": "./dist/compat.mjs",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@uniview/host-tui": "workspace:*",
+    "@uniview/react-renderer": "workspace:*",
+    "@uniview/tui-charts": "workspace:*",
+    "@uniview/tui-content": "workspace:*",
+    "@uniview/tui-core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "react": "catalog:",
+    "tsdown": "0.22.2",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}

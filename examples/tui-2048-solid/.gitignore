@@ -1,0 +1,4 @@
+# Trained n-tuple weights (~84 MB) — never commit.
+# Fetch them from the training repo; see README.md. The game runs without them
+# (human play); only AI mode needs them.
+model/

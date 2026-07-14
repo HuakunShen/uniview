@@ -18,7 +18,8 @@ export type EventPropName =
   | "onKeyDown"
   | "onKeyUp"
   | "onMouseEnter"
-  | "onMouseLeave";
+  | "onMouseLeave"
+  | "onWheel";
 
 /**
  * List of all event prop names for runtime checking
@@ -34,6 +35,7 @@ export const EVENT_PROPS: readonly EventPropName[] = [
   "onKeyUp",
   "onMouseEnter",
   "onMouseLeave",
+  "onWheel",
 ] as const;
 
 /**

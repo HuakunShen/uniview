@@ -1,0 +1,128 @@
+---
+title: Solid
+description: The Solid binding — and three traps that will bite you
+icon: Zap
+---
+
+`@uniview/tui-solid` is feature-for-feature equivalent to `@uniview/tui-react`: same
+components, same props, same output. What differs is the reactivity model — and three
+things that are genuinely easy to get wrong.
+
+## Mount once
+
+The React demo keeps mutable state and calls `root.render(...)` again after every key. The
+Solid one mounts a single time; a signal write is enough, and only the panels that actually
+changed are repainted.
+
+```tsx
+const [focused, setFocused] = createSignal(2);
+
+root.render(() => <App focused={focused()} />);   // once
+
+// later, from a key handler — no rerender call anywhere:
+setFocused(3);
+```
+
+Resize needs no re-render either: `renderer.resize()` invalidates layout and schedules its
+own repaint, and the component tree is untouched.
+
+## Trap 1 — never write literal `<text>` JSX
+
+solid-js ships an SVG `text` intrinsic, and an explicit member beats the renderer's
+catch-all index signature. So `<text>` is type-checked against **SVG attributes**, not ours.
+
+```tsx
+<text color="red">nope</text>          {/* ❌ resolves to solid-js's SVG <text> */}
+<Text color="red">yes</Text>           {/* ✅ the exported component */}
+```
+
+`<box>` and `<richtext>` have no such collision, but the capitalized components are the
+supported surface.
+
+## Trap 2 — never destructure props
+
+Destructuring reads the value once and freezes it — the component stops being reactive.
+This is not a style rule; a mutation test in the suite fails if you break it.
+
+```tsx
+// ❌ focused is captured at creation and never updates
+function Panel({ title, focused }: PanelProps) { … }
+
+// ✅
+function Panel(props: PanelProps) {
+  const [local, rest] = splitProps(props, ["title", "focused"]);
+  return <box {...rest} borderColor={local.focused ? "green" : undefined} />;
+}
+```
+
+## Trap 3 — `tsx`/esbuild cannot compile this
+
+Solid JSX has to go through `babel-preset-solid` targeting the **universal** renderer.
+esbuild — which `tsx` uses — only knows the React-style transform and would emit
+`React.createElement`-shaped calls. So a runnable Solid app is run with `vite-node`, whose
+config hosts the babel plugin:
+
+```ts title="vite.config.ts"
+import { transformAsync } from "@babel/core";
+import ts from "@babel/preset-typescript";
+import solid from "babel-preset-solid";
+import { defineConfig } from "vitest/config";
+
+function solidUniversal() {
+  return {
+    name: "solid-universal",
+    enforce: "pre" as const,
+    async transform(code: string, id: string) {
+      if (!id.endsWith(".tsx")) return null;
+      const out = await transformAsync(code, {
+        filename: id,
+        presets: [
+          [solid, { moduleName: "@uniview/solid-renderer", generate: "universal" }],
+          [ts],
+        ],
+        sourceMaps: true,
+      });
+      return out?.code ? { code: out.code, map: out.map } : null;
+    },
+  };
+}
+
+export default defineConfig({
+  plugins: [solidUniversal()],
+  // Without this, Node resolves Solid's SSR build and nothing ever updates.
+  resolve: { conditions: ["development", "browser"] },
+  ssr: { noExternal: ["solid-js", "@uniview/solid-renderer", "@uniview/tui-solid"] },
+});
+```
+
+```json title="package.json"
+{ "scripts": { "dev": "vite-node src/main.tsx" } }
+```
+
+The same config serves vitest. Your app must also depend on `@uniview/solid-renderer`
+directly, because that is what the compiled JSX imports from.
+
+<Callout type="info">
+Copy the config from `examples/tui-lazygit-solid` or `examples/tui-2048-solid` rather than
+retyping it — the `resolve.conditions` line in particular fails silently if you miss it: the
+app renders once and then never updates again.
+</Callout>
+
+## Reactivity notes
+
+- `useState` → `createSignal`, `useMemo` → `createMemo` (no dependency array — Solid tracks
+  reads itself), `React.memo` → drop it.
+- Lists use `<For>` / `<Index>`; there is no `key` prop.
+- `Hoverable`'s render-prop child receives an `Accessor<boolean>`, so call it: `hovered()`.
+
+## A controlled list still needs the "last requested" trick
+
+`List` is controlled: `selectedIndex` only becomes the new prop once the parent commits. If
+the parent commits **asynchronously** — a selection owned by a host and echoed back over
+RPC, say — two arrow keys in one tick would both read the stale index and collapse into a
+single step. `List` therefore tracks the last *requested* index internally.
+
+This is easy to dismiss as a React artifact. It is not: Solid compiles `selectedIndex={sel()}`
+to a live getter, so a *synchronous* parent does update in time — which means the naive test
+passes and the bug hides until the parent is async. `List` handles it for you; if you write
+your own controlled widget, do the same.

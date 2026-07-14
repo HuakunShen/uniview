@@ -2,10 +2,8 @@ import { createElement } from "react";
 import { describe, expect, test } from "vitest";
 import type { UINode } from "@uniview/protocol";
 import { HandlerRegistry, createRenderer, render, serializeTree } from "../src";
+import { flush } from "./flush";
 
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 30));
-}
 
 describe("serializeProps value handling", () => {
   test("keeps null-valued props (null is a valid JSONValue) but drops undefined", async () => {

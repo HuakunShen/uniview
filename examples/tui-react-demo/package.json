@@ -1,0 +1,23 @@
+{
+  "name": "@uniview/tui-react-demo",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A React counter rendered to the terminal via @uniview/tui-react",
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "start": "tsx src/index.tsx",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uniview/tui-core": "workspace:*",
+    "@uniview/tui-react": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
+  }
+}

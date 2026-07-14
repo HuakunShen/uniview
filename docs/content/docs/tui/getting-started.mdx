@@ -1,0 +1,150 @@
+---
+title: Getting started
+description: Render your first terminal frame with React or Solid
+icon: Play
+---
+
+## Install
+
+<Tabs items={["React", "Solid"]}>
+<Tab value="React">
+
+```bash
+pnpm add @uniview/tui-react @uniview/tui-core react
+```
+
+</Tab>
+<Tab value="Solid">
+
+```bash
+pnpm add @uniview/tui-solid @uniview/tui-core solid-js
+```
+
+</Tab>
+</Tabs>
+
+## A first frame
+
+<Tabs items={["React", "Solid"]}>
+<Tab value="React">
+
+```tsx title="main.tsx"
+import { AnsiCellSurface, StyleTable, TerminalDriver } from "@uniview/tui-core";
+import { createTuiReactRoot, Panel, Text } from "@uniview/tui-react";
+
+const styles = new StyleTable();
+const surface = new AnsiCellSurface({
+  write: (chunk) => process.stdout.write(chunk),
+  styles,
+});
+const root = createTuiReactRoot({
+  surface,
+  styles,
+  size: { width: process.stdout.columns, height: process.stdout.rows },
+});
+
+root.render(
+  <Panel title="Hello" focused>
+    <Text bold>from React</Text>
+  </Panel>,
+);
+```
+
+</Tab>
+<Tab value="Solid">
+
+```tsx title="main.tsx"
+import { AnsiCellSurface, StyleTable } from "@uniview/tui-core";
+import { createTuiSolidRoot, Panel, Text } from "@uniview/tui-solid";
+
+const styles = new StyleTable();
+const surface = new AnsiCellSurface({
+  write: (chunk) => process.stdout.write(chunk),
+  styles,
+});
+const root = createTuiSolidRoot({
+  surface,
+  styles,
+  size: { width: process.stdout.columns, height: process.stdout.rows },
+});
+
+// Mounted once. Signal writes drive every later frame — there is no rerender().
+root.render(() => (
+  <Panel title="Hello" focused>
+    <Text bold>from Solid</Text>
+  </Panel>
+));
+```
+
+</Tab>
+</Tabs>
+
+## Taking input
+
+`TerminalDriver` puts the terminal in raw mode and emits normalized events. Feed them to
+the root and they route to whichever component is focused.
+
+```tsx
+import { TerminalDriver } from "@uniview/tui-core";
+
+const driver = new TerminalDriver({
+  input: process.stdin,
+  output: process.stdout,
+  mouse: "motion", // or "off"
+  onEvent: (event) => {
+    if (event.type === "resize") {
+      root.host.renderer.resize({ width: event.width, height: event.height });
+      return;
+    }
+    root.dispatchInput(event);
+  },
+});
+
+driver.start();
+```
+
+<Callout type="warn" title="Keys reach the focused node">
+A key event only reaches a component that is **focused** and has an `onKeyDown` — bubbling
+up to the nearest ancestor that handles it. In tests, dispatch a `Tab` first, or nothing is
+focused and every key is dropped. Note also that letters and digits arrive as `text` events
+while named keys (`ArrowDown`, `Tab`, `Enter`) arrive as `key` events.
+</Callout>
+
+## Testing without a terminal
+
+Swap the surface. `MemoryCellSurface` renders into memory, and you assert on the text:
+
+```tsx
+import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
+
+const styles = new StyleTable();
+const surface = new MemoryCellSurface({ styles });
+const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 3 } });
+
+root.render(<Panel title="Hi" width={20} height={3} />);
+await new Promise((r) => setTimeout(r, 20));
+
+expect(surface.text({ trimRight: true })).toContain("Hi");
+```
+
+You can also assert on the *style* of an individual cell — that a focused border really is
+green, say:
+
+```tsx
+const frame = surface.cells()!;
+const corner = frame.cells[0][0];
+expect(styles.get(corner.styleId).fg).toBe("green");
+```
+
+## Exporting a frame as an image
+
+`SvgCellSurface` records a frame and hands you an SVG — that is how every screenshot in
+these docs is produced, and why they cannot drift from the code.
+
+```tsx
+import { SvgCellSurface } from "@uniview/tui-core";
+
+const surface = new SvgCellSurface({ styles });
+// …render…
+writeFileSync("frame.svg", surface.toSVG()!);
+```
