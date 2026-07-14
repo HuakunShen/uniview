@@ -27,6 +27,25 @@ export type FlexWrap = "nowrap" | "wrap" | "wrap-reverse";
 export type PositionType = "relative" | "absolute";
 export type TextAlign = "left" | "center" | "right";
 export type FontWeight = "normal" | "medium" | "semibold" | "bold";
+export type FontStyle = "normal" | "italic";
+export type TextDecoration = "none" | "underline" | "line-through";
+/** `none` removes the box from layout entirely (Yoga's `display: none`). */
+export type Display = "flex" | "none";
+export type Overflow = "visible" | "hidden" | "scroll";
+
+/**
+ * A drop shadow, as geometry rather than a name.
+ *
+ * `shadow-lg` is a *look*, and every design system draws it differently — so the
+ * IR carries the numbers and the theme owns the scale. A host that hardcodes the
+ * radius and offset (as this one did) can render exactly one shadow, forever.
+ */
+export interface BoxShadow {
+  offsetX: number;
+  offsetY: number;
+  radius: number;
+  color: string;
+}
 
 /**
  * The resolved style object. Padding/margin are always expressed as the
@@ -67,19 +86,41 @@ export interface ResolvedStyle {
   right?: number;
   bottom?: number;
   left?: number;
+  /** Sibling paint order. Higher draws later (on top). */
+  zIndex?: number;
+  /** `none` takes the box out of layout — not merely invisible, absent. */
+  display?: Display;
+  overflow?: Overflow;
+  /** width / height. Yoga sizes the missing axis from the other one. */
+  aspectRatio?: number;
   // Visual
   backgroundColor?: string;
   borderColor?: string;
   borderWidth?: number;
   borderRadius?: number;
   opacity?: number;
+  shadow?: BoxShadow;
+  /** Overrides `shadow.color`, so `shadow-lg shadow-emerald-500/30` composes. */
+  shadowColor?: string;
   // Typography
   color?: string;
   fontSize?: number;
   fontWeight?: FontWeight;
+  fontStyle?: FontStyle;
   fontFamily?: string;
   textAlign?: TextAlign;
+  textDecoration?: TextDecoration;
+  /** Line height in points. Wins over `lineHeightMultiple` when both are set. */
   lineHeight?: number;
+  /**
+   * Line height as a multiple of the font size — what Tailwind's `leading-tight`
+   * actually means. It can't be resolved to points here: the font size may be set
+   * by a *later* class, or inherited from a parent the resolver never sees. The
+   * host knows the final font size, so the host does the multiplication.
+   */
+  lineHeightMultiple?: number;
+  /** Truncate to this many lines (`truncate` = 1, `line-clamp-3` = 3). */
+  maxLines?: number;
 }
 
 /**

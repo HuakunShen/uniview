@@ -51,26 +51,42 @@ const STATIC_CLASSES: Record<string, ResolvedStyle> = {
   "self-stretch": { alignSelf: "stretch" },
   relative: { position: "relative" },
   absolute: { position: "absolute" },
+  // `hidden` removes the box from layout, not just from view — it is Yoga's
+  // `display: none`, so the siblings close the gap.
+  hidden: { display: "none" },
+  block: { display: "flex" },
+  "overflow-visible": { overflow: "visible" },
+  "overflow-hidden": { overflow: "hidden" },
+  "overflow-scroll": { overflow: "scroll" },
+  "overflow-auto": { overflow: "scroll" },
   border: { borderWidth: 1 },
   "border-0": { borderWidth: 0 },
   "font-normal": { fontWeight: "normal" },
   "font-medium": { fontWeight: "medium" },
   "font-semibold": { fontWeight: "semibold" },
   "font-bold": { fontWeight: "bold" },
+  italic: { fontStyle: "italic" },
+  "not-italic": { fontStyle: "normal" },
+  underline: { textDecoration: "underline" },
+  "line-through": { textDecoration: "line-through" },
+  "no-underline": { textDecoration: "none" },
+  truncate: { maxLines: 1 },
   "text-left": { textAlign: "left" },
   "text-center": { textAlign: "center" },
   "text-right": { textAlign: "right" },
 };
 
-/** A Tailwind numeric step: `4`, `0.5`, `1.5`. */
-const NUM = "(\\d+(?:\\.\\d+)?)";
-
+/**
+ * Rules whose argument is a length on the spacing scale. The argument is matched
+ * loosely (`(.+)`) and handed to `spacingValue`, so an arbitrary value
+ * (`p-[13px]`) works everywhere a step (`p-4`) does, without a second rule table.
+ */
 const EDGE_RULES: Array<[RegExp, (v: number) => ResolvedStyle]> = [
-  [new RegExp(`^gap-${NUM}$`), (v) => ({ gap: v })],
+  [/^gap-(.+)$/, (v) => ({ gap: v })],
   // Tailwind spaces children with margins; a flex engine spaces them with gap.
-  [new RegExp(`^space-[xy]-${NUM}$`), (v) => ({ gap: v })],
+  [/^space-[xy]-(.+)$/, (v) => ({ gap: v })],
   [
-    new RegExp(`^p-${NUM}$`),
+    /^p-(.+)$/,
     (v) => ({
       paddingTop: v,
       paddingRight: v,
@@ -78,23 +94,37 @@ const EDGE_RULES: Array<[RegExp, (v: number) => ResolvedStyle]> = [
       paddingLeft: v,
     }),
   ],
-  [new RegExp(`^px-${NUM}$`), (v) => ({ paddingLeft: v, paddingRight: v })],
-  [new RegExp(`^py-${NUM}$`), (v) => ({ paddingTop: v, paddingBottom: v })],
-  [new RegExp(`^pt-${NUM}$`), (v) => ({ paddingTop: v })],
-  [new RegExp(`^pr-${NUM}$`), (v) => ({ paddingRight: v })],
-  [new RegExp(`^pb-${NUM}$`), (v) => ({ paddingBottom: v })],
-  [new RegExp(`^pl-${NUM}$`), (v) => ({ paddingLeft: v })],
+  [/^px-(.+)$/, (v) => ({ paddingLeft: v, paddingRight: v })],
+  [/^py-(.+)$/, (v) => ({ paddingTop: v, paddingBottom: v })],
+  [/^pt-(.+)$/, (v) => ({ paddingTop: v })],
+  [/^pr-(.+)$/, (v) => ({ paddingRight: v })],
+  [/^pb-(.+)$/, (v) => ({ paddingBottom: v })],
+  [/^pl-(.+)$/, (v) => ({ paddingLeft: v })],
   [
-    new RegExp(`^m-${NUM}$`),
+    /^m-(.+)$/,
     (v) => ({ marginTop: v, marginRight: v, marginBottom: v, marginLeft: v }),
   ],
-  [new RegExp(`^mx-${NUM}$`), (v) => ({ marginLeft: v, marginRight: v })],
-  [new RegExp(`^my-${NUM}$`), (v) => ({ marginTop: v, marginBottom: v })],
-  [new RegExp(`^mt-${NUM}$`), (v) => ({ marginTop: v })],
-  [new RegExp(`^mr-${NUM}$`), (v) => ({ marginRight: v })],
-  [new RegExp(`^mb-${NUM}$`), (v) => ({ marginBottom: v })],
-  [new RegExp(`^ml-${NUM}$`), (v) => ({ marginLeft: v })],
+  [/^mx-(.+)$/, (v) => ({ marginLeft: v, marginRight: v })],
+  [/^my-(.+)$/, (v) => ({ marginTop: v, marginBottom: v })],
+  [/^mt-(.+)$/, (v) => ({ marginTop: v })],
+  [/^mr-(.+)$/, (v) => ({ marginRight: v })],
+  [/^mb-(.+)$/, (v) => ({ marginBottom: v })],
+  [/^ml-(.+)$/, (v) => ({ marginLeft: v })],
+  // Position offsets. `absolute` without these could declare a box out of flow
+  // and then had no way to say *where* — the IR always had the fields.
+  // The axis rules come FIRST: `/^inset-(.+)$/` would otherwise swallow
+  // `inset-x-2` with the argument "x-2" and resolve it to nothing.
+  [/^inset-x-(.+)$/, (v) => ({ left: v, right: v })],
+  [/^inset-y-(.+)$/, (v) => ({ top: v, bottom: v })],
+  [/^inset-(.+)$/, (v) => ({ top: v, right: v, bottom: v, left: v })],
+  [/^top-(.+)$/, (v) => ({ top: v })],
+  [/^right-(.+)$/, (v) => ({ right: v })],
+  [/^bottom-(.+)$/, (v) => ({ bottom: v })],
+  [/^left-(.+)$/, (v) => ({ left: v })],
 ];
+
+/** Rules that a leading `-` may negate (`-mt-2`, `-inset-1`). Lengths only. */
+const NEGATABLE = /^(m[xytrbl]?|inset(-[xy])?|top|right|bottom|left|z)-/;
 
 const AUTO_MARGINS: Record<string, ResolvedStyle> = {
   "m-auto": {
@@ -121,12 +151,45 @@ const SIZE_RULES: Array<[RegExp, (d: Dimension) => ResolvedStyle]> = [
 ];
 
 /**
+ * The contents of an arbitrary value: `[13px]` → `"13px"`. Tailwind's escape
+ * hatch, and the answer to every "the scale doesn't have the number I need".
+ */
+function arbitrary(token: string): string | undefined {
+  return token.startsWith("[") && token.endsWith("]")
+    ? token.slice(1, -1).replace(/_/g, " ") // Tailwind spells spaces `_`
+    : undefined;
+}
+
+/** A length in points: a spacing step (`4` → 16), or an arbitrary `[13px]`. */
+function spacingValue(token: string, theme: Theme): number | undefined {
+  const raw = arbitrary(token);
+  if (raw !== undefined) {
+    const n = Number.parseFloat(raw);
+    return Number.isNaN(n) ? undefined : n; // `px`/unitless both land here
+  }
+  if (token === "px") return 1; // Tailwind's one-pixel step
+  return /^\d+(\.\d+)?$/.test(token) ? theme.spacing(Number(token)) : undefined;
+}
+
+/**
  * A sizing argument: `full`, `auto`, `screen`, a named size (`md` → the theme's
- * size scale), a fraction (`1/2` → `"50%"`), or a spacing step (`10` → 40px).
+ * size scale), a fraction (`1/2` → `"50%"`), an arbitrary `[137px]` / `[50%]`,
+ * or a spacing step (`10` → 40px).
  */
 function parseDimension(token: string, theme: Theme): Dimension | undefined {
   if (token === "full") return "100%";
   if (token === "auto") return "auto";
+
+  const raw = arbitrary(token);
+  if (raw !== undefined) {
+    if (raw.endsWith("%")) {
+      const pct = Number.parseFloat(raw);
+      return Number.isNaN(pct) ? undefined : (`${pct}%` as Dimension);
+    }
+    const n = Number.parseFloat(raw);
+    return Number.isNaN(n) ? undefined : n;
+  }
+
   if (token in theme.sizes) return theme.sizes[token];
 
   const fraction = token.match(/^(\d+)\/(\d+)$/);
@@ -135,8 +198,7 @@ function parseDimension(token: string, theme: Theme): Dimension | undefined {
     return `${Number(pct.toFixed(4))}%`;
   }
 
-  if (/^\d+(\.\d+)?$/.test(token)) return theme.spacing(Number(token));
-  return undefined;
+  return spacingValue(token, theme);
 }
 
 /** `0` → `"00"`, `255` → `"ff"`. */
@@ -155,6 +217,9 @@ function alphaByte(fraction: number): string {
  * host needs an `rgba()` parser.
  */
 function parseColor(token: string, theme: Theme): string | undefined {
+  const literal = arbitrary(token);
+  if (literal !== undefined) return literal; // `bg-[#ff0000]`, `text-[rgb(…)]`
+
   const slash = token.lastIndexOf("/");
   const name = slash === -1 ? token : token.slice(0, slash);
 
@@ -173,12 +238,27 @@ function parseColor(token: string, theme: Theme): string | undefined {
 
 /** Resolve one class token to a partial style, or null when unrecognized. */
 function matchToken(token: string, theme: Theme): ResolvedStyle | null {
+  // `-mt-2` / `-inset-1`. Only length rules can be negated; negating, say, a
+  // border radius would be nonsense, so the base has to be on the allowlist.
+  if (token.startsWith("-") && NEGATABLE.test(token.slice(1))) {
+    const positive = matchToken(token.slice(1), theme);
+    if (!positive) return null;
+    return Object.fromEntries(
+      Object.entries(positive).map(([key, value]) => [
+        key,
+        typeof value === "number" ? -value : value,
+      ]),
+    );
+  }
+
   const staticMatch = STATIC_CLASSES[token] ?? AUTO_MARGINS[token];
   if (staticMatch) return staticMatch;
 
   for (const [pattern, build] of EDGE_RULES) {
     const m = token.match(pattern);
-    if (m) return build(theme.spacing(Number(m[1])));
+    if (!m) continue;
+    const value = spacingValue(m[1], theme);
+    return value === undefined ? null : build(value);
   }
 
   for (const [pattern, build] of SIZE_RULES) {
@@ -193,14 +273,48 @@ function matchToken(token: string, theme: Theme): ResolvedStyle | null {
   if ((m = token.match(/^rounded(?:-(.+))?$/))) {
     const key = m[1] ?? "default";
     if (key in theme.radii) return { borderRadius: theme.radii[key] };
-    const n = Number(key);
-    return Number.isNaN(n) ? null : { borderRadius: n };
+    const value = spacingValue(key, theme) ?? Number(key);
+    return Number.isNaN(value) ? null : { borderRadius: value };
   }
+
+  // `shadow-lg` is elevation; `shadow-emerald-500/30` is the color of it.
+  if ((m = token.match(/^shadow(?:-(.+))?$/))) {
+    const key = m[1] ?? "default";
+    if (key in theme.shadows) return { shadow: theme.shadows[key] };
+    const color = parseColor(key, theme);
+    return color === undefined ? null : { shadowColor: color };
+  }
+
+  // `-z-10`, not `z--10` — the leading minus is Tailwind's negation syntax.
+  if ((m = token.match(/^z-(\d+)$/))) return { zIndex: Number(m[1]) };
+
+  if ((m = token.match(/^aspect-(.+)$/))) {
+    const key = m[1];
+    if (key === "square") return { aspectRatio: 1 };
+    if (key === "video") return { aspectRatio: 16 / 9 };
+    const raw = arbitrary(key) ?? key;
+    const ratio = raw.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+    if (ratio) return { aspectRatio: Number(ratio[1]) / Number(ratio[2]) };
+    const n = Number.parseFloat(raw);
+    return Number.isNaN(n) ? null : { aspectRatio: n };
+  }
+
+  // `leading-tight` is a *multiple*; `leading-6` is points. They can't be folded
+  // together here — the multiple needs a font size the resolver may never see.
+  if ((m = token.match(/^leading-(.+)$/))) {
+    const key = m[1];
+    if (key in theme.leadings) return { lineHeightMultiple: theme.leadings[key] };
+    const value = spacingValue(key, theme);
+    return value === undefined ? null : { lineHeight: value };
+  }
+
+  if ((m = token.match(/^line-clamp-(\d+)$/)))
+    return { maxLines: Number(m[1]) };
 
   // `border-2` is a width; `border-emerald-500` is a color.
   if ((m = token.match(/^border-(\d+)$/))) return { borderWidth: Number(m[1]) };
 
-  if ((m = token.match(new RegExp(`^opacity-${NUM}$`))))
+  if ((m = token.match(/^opacity-(\d+(?:\.\d+)?)$/)))
     return { opacity: Number(m[1]) / 100 };
 
   if ((m = token.match(/^bg-(.+)$/))) {
@@ -217,6 +331,10 @@ function matchToken(token: string, theme: Theme): ResolvedStyle | null {
   if ((m = token.match(/^text-(.+)$/))) {
     const key = m[1];
     if (key in theme.fontSizes) return { fontSize: theme.fontSizes[key] };
+    const size = arbitrary(key);
+    if (size !== undefined && /^[\d.]/.test(size)) {
+      return { fontSize: Number.parseFloat(size) };
+    }
     const color = parseColor(key, theme);
     return color === undefined ? null : { color };
   }

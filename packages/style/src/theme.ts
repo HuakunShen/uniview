@@ -1,4 +1,5 @@
 import { tailwindPalette } from "./palette";
+import type { BoxShadow } from "./types";
 
 /**
  * Design tokens the resolver reads to turn Tailwind-like classes into
@@ -30,6 +31,10 @@ export interface Theme {
   radii: Record<string, number> & { default: number };
   /** Named font sizes → px. */
   fontSizes: Record<string, number>;
+  /** Named drop shadows. Must include `default` (the bare `shadow` class). */
+  shadows: Record<string, BoxShadow> & { default: BoxShadow };
+  /** Named line-height multiples (`leading-tight` → 1.25). */
+  leadings: Record<string, number>;
   /** Named sizes for `w-` / `max-w-` etc. (Tailwind's `max-w-md` scale) → px. */
   sizes: Record<string, number>;
 }
@@ -84,6 +89,25 @@ export const defaultTheme: Theme = {
     "2xl": 22,
     "3xl": 28,
     "4xl": 34,
+  },
+  // Tailwind's elevation scale, as geometry. A host can't invent these — and one
+  // that hardcodes them (as this one used to) can draw exactly one shadow.
+  shadows: {
+    none: { offsetX: 0, offsetY: 0, radius: 0, color: "transparent" },
+    sm: { offsetX: 0, offsetY: 1, radius: 2, color: "#0000000d" },
+    default: { offsetX: 0, offsetY: 1, radius: 3, color: "#0000001a" },
+    md: { offsetX: 0, offsetY: 4, radius: 6, color: "#0000001a" },
+    lg: { offsetX: 0, offsetY: 10, radius: 15, color: "#0000001a" },
+    xl: { offsetX: 0, offsetY: 20, radius: 25, color: "#0000001a" },
+    "2xl": { offsetX: 0, offsetY: 25, radius: 50, color: "#00000040" },
+  },
+  leadings: {
+    none: 1,
+    tight: 1.25,
+    snug: 1.375,
+    normal: 1.5,
+    relaxed: 1.625,
+    loose: 2,
   },
   sizes: {
     xs: 320,

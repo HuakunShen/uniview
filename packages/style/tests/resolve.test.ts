@@ -313,3 +313,108 @@ describe("semantic tokens stay symbolic so the host can keep them alive", () => 
     });
   });
 });
+
+describe("arbitrary values — the escape hatch when the scale doesn't have your number", () => {
+  test("lengths, anywhere a step works", () => {
+    expect(resolveClassName("w-[137px] p-[13px] gap-[3px] mt-[2px]")).toMatchObject({
+      width: 137,
+      paddingTop: 13,
+      gap: 3,
+      marginTop: 2,
+    });
+  });
+
+  test("percentages and colors", () => {
+    expect(resolveClassName("w-[62%] bg-[#ff0000] text-[13px]")).toMatchObject({
+      width: "62%",
+      backgroundColor: "#ff0000",
+      fontSize: 13,
+    });
+  });
+
+  test("`px` is Tailwind's one-pixel step, not a unit", () => {
+    expect(resolveClassName("p-px")).toMatchObject({ paddingTop: 1 });
+  });
+
+  test("garbage inside the brackets is dropped, not NaN'd into the IR", () => {
+    expect(resolveClassName("w-[nonsense]")).toEqual({});
+  });
+});
+
+describe("position offsets — `absolute` could declare a box out of flow but not place it", () => {
+  test("inset and the four edges", () => {
+    expect(resolveClassName("absolute inset-0")).toMatchObject({
+      position: "absolute",
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    });
+    expect(resolveClassName("top-2 left-4")).toMatchObject({ top: 8, left: 16 });
+    expect(resolveClassName("inset-x-2")).toMatchObject({ left: 8, right: 8 });
+  });
+
+  test("negative offsets", () => {
+    expect(resolveClassName("-top-1 -mt-2")).toMatchObject({ top: -4, marginTop: -8 });
+  });
+
+  test("only lengths can be negated — `-rounded-lg` is nonsense and stays unmatched", () => {
+    expect(resolveClassName("-rounded-lg")).toEqual({});
+  });
+
+  test("z-index, including negative", () => {
+    expect(resolveClassName("z-10")).toMatchObject({ zIndex: 10 });
+    expect(resolveClassName("z--1")).toEqual({});
+  });
+});
+
+describe("the visual gaps", () => {
+  test("`hidden` removes the box from layout, it isn't merely invisible", () => {
+    expect(resolveClassName("hidden")).toMatchObject({ display: "none" });
+  });
+
+  test("overflow", () => {
+    expect(resolveClassName("overflow-hidden")).toMatchObject({ overflow: "hidden" });
+    expect(resolveClassName("overflow-auto")).toMatchObject({ overflow: "scroll" });
+  });
+
+  test("shadow is geometry from the theme, so a host can draw more than one", () => {
+    expect(resolveClassName("shadow-lg")).toMatchObject({
+      shadow: { offsetX: 0, offsetY: 10, radius: 15, color: "#0000001a" },
+    });
+    expect(resolveClassName("shadow")).toMatchObject({ shadow: { radius: 3 } });
+    expect(resolveClassName("shadow-none")).toMatchObject({ shadow: { radius: 0 } });
+  });
+
+  test("a shadow color composes with an elevation instead of replacing it", () => {
+    expect(resolveClassName("shadow-lg shadow-emerald-500/30")).toMatchObject({
+      shadow: { radius: 15 },
+      shadowColor: "#00bc7d4d",
+    });
+  });
+
+  test("aspect ratio", () => {
+    expect(resolveClassName("aspect-square")).toMatchObject({ aspectRatio: 1 });
+    expect(resolveClassName("aspect-video")).toMatchObject({ aspectRatio: 16 / 9 });
+    expect(resolveClassName("aspect-[4/3]")).toMatchObject({ aspectRatio: 4 / 3 });
+  });
+
+  test("leading: a name is a multiple, a number is points", () => {
+    // They can't be folded together — the multiple needs a font size the
+    // resolver may never see (it can come from a later class, or a parent).
+    expect(resolveClassName("leading-tight")).toMatchObject({ lineHeightMultiple: 1.25 });
+    expect(resolveClassName("leading-6")).toMatchObject({ lineHeight: 24 });
+  });
+
+  test("truncation", () => {
+    expect(resolveClassName("truncate")).toMatchObject({ maxLines: 1 });
+    expect(resolveClassName("line-clamp-3")).toMatchObject({ maxLines: 3 });
+  });
+
+  test("italic and underline", () => {
+    expect(resolveClassName("italic underline")).toMatchObject({
+      fontStyle: "italic",
+      textDecoration: "underline",
+    });
+  });
+});
