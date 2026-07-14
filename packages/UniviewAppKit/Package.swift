@@ -18,12 +18,25 @@ let package = Package(
     products: [
         .library(name: "UniviewNativeCore", targets: ["UniviewNativeCore"]),
         .library(name: "UniviewAppKit", targets: ["UniviewAppKit"]),
+        .library(name: "UniviewYoga", targets: ["UniviewYoga"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/facebook/yoga.git", from: "3.0.0")
     ],
     targets: [
         .target(name: "UniviewNativeCore"),
         .target(
             name: "UniviewAppKit",
             dependencies: ["UniviewNativeCore"]
+        ),
+        // Yoga-backed LayoutEngine — isolates the C++ Yoga dependency so
+        // UniviewAppKit consumers only pull it in when they want real flexbox.
+        .target(
+            name: "UniviewYoga",
+            dependencies: [
+                "UniviewNativeCore",
+                .product(name: "yoga", package: "yoga"),
+            ]
         ),
         .testTarget(
             name: "UniviewNativeCoreTests",
@@ -32,6 +45,10 @@ let package = Package(
         .testTarget(
             name: "UniviewAppKitTests",
             dependencies: ["UniviewAppKit"]
+        ),
+        .testTarget(
+            name: "UniviewYogaTests",
+            dependencies: ["UniviewYoga"]
         ),
     ]
 )
