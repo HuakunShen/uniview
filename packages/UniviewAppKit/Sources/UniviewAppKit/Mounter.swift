@@ -76,7 +76,7 @@ public final class Mounter {
             view = existing  // reuse — surgical update, no teardown
         } else {
             views[node.id]?.removeFromSuperview()
-            view = component.makeView()
+            view = component.makeView(for: node)
             views[node.id] = view
             types[node.id] = node.type
         }

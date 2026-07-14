@@ -28,8 +28,9 @@ public protocol Component {
     /// (`Text`/`Button`/`TextInput`) render their own content from props/text
     /// and return false. Defaults to true.
     var mountsChildren: Bool { get }
-    /// Create a fresh native view for this component type.
-    func makeView() -> NSView
+    /// Create a fresh native view for `node` (may inspect its style/props, e.g.
+    /// to back a container with a native material).
+    func makeView(for node: ShadowNode) -> NSView
     /// Apply `node`'s props/style/text to an existing view of this type.
     func update(_ view: NSView, node: ShadowNode, context: MountContext)
 }

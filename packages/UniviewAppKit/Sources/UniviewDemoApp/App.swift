@@ -1,34 +1,9 @@
 import AppKit
-import UniviewAppKit
-import UniviewNativeCore
-import UniviewYoga
 
-/// Owns the Uniview host and keeps its layout in sync with the window size.
-@MainActor
-final class DemoController: NSObject, NSWindowDelegate {
-    let host: UniviewHost
-    let container: FlippedView
-
-    override init() {
-        container = FlippedView(frame: NSRect(x: 0, y: 0, width: 860, height: 540))
-        container.autoresizingMask = [.width, .height]
-        host = UniviewHost(
-            layoutEngine: YogaLayoutEngine(),
-            containerSize: Size(width: 860, height: 540),
-            executeHandler: { id, args in
-                print("[uniview] handler \(id) args=\(args)")
-            })
-        super.init()
-        host.apply(CommitBatch(revision: 0, mutations: [.setRoot(node: demoTree())]))
-        if let root = host.rootView { container.addSubview(root) }
-    }
-
-    func windowDidResize(_ notification: Notification) {
-        host.setContainerSize(
-            Size(width: Double(container.bounds.width), height: Double(container.bounds.height)))
-    }
-}
-
+/// Uniview Desktop — a thin native shell (transparent-titlebar, full-size
+/// content, Liquid Glass sidebar) hosting Uniview-rendered content. Programmatic
+/// AppKit only; no storyboard, no SwiftUI. Framework logic lives in the
+/// packages, not here.
 @main
 enum DemoApp {
     @MainActor
@@ -36,16 +11,24 @@ enum DemoApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
 
-        let controller = DemoController()
+        let split = MainSplitViewController(sections: demoSections())
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 860, height: 540),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            contentRect: NSRect(x: 0, y: 0, width: 980, height: 640),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false)
         window.title = "Uniview Desktop"
-        window.contentView = controller.container
-        window.delegate = controller
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.toolbarStyle = .unified
+        // Clear/non-opaque so the behind-window frost blurs the desktop through
+        // the UI (Music/Finder-style ambience).
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.minSize = NSSize(width: 840, height: 540)
+        window.contentViewController = split
+        window.setFrameAutosaveName("UniviewDesktopMain")
         window.center()
         window.makeKeyAndOrderFront(nil)
 

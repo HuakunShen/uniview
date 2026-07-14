@@ -9,7 +9,16 @@ import UniviewNativeCore
 public struct ViewComponent: Component {
     public init() {}
 
-    public func makeView() -> NSView {
+    public func makeView(for node: ShadowNode) -> NSView {
+        // A `material` prop turns the container into native vibrancy/glass.
+        if let material = node.props["material"]?.stringValue, !material.isEmpty {
+            let effect = MaterialView()
+            effect.material = UniviewMaterial.material(material)
+            effect.blendingMode = UniviewMaterial.blendingMode(material)
+            effect.state = .active
+            effect.wantsLayer = true
+            return effect
+        }
         let view = FlippedView()
         view.wantsLayer = true
         return view
@@ -19,8 +28,13 @@ public struct ViewComponent: Component {
         view.wantsLayer = true
         guard let layer = view.layer else { return }
         let style = node.style
-        layer.backgroundColor = style.backgroundColor.flatMap(CSSColor.parse)?.cgColor
-        layer.cornerRadius = CGFloat(style.borderRadius ?? 0)
+        // Vibrancy views draw their own background; don't overpaint it.
+        if !(view is NSVisualEffectView) {
+            layer.backgroundColor = style.backgroundColor.flatMap(CSSColor.parse)?.cgColor
+        }
+        let radius = CGFloat(style.borderRadius ?? 0)
+        layer.cornerRadius = radius
+        layer.masksToBounds = radius > 0
         layer.borderWidth = CGFloat(style.borderWidth ?? 0)
         layer.borderColor = style.borderColor.flatMap(CSSColor.parse)?.cgColor
         view.alphaValue = CGFloat(style.opacity ?? 1)
@@ -37,7 +51,7 @@ public struct TextComponent: Component {
 
     public var mountsChildren: Bool { false }
 
-    public func makeView() -> NSView {
+    public func makeView(for node: ShadowNode) -> NSView {
         let label = NSTextField(labelWithString: "")
         label.lineBreakMode = .byWordWrapping
         label.maximumNumberOfLines = 0
@@ -77,7 +91,7 @@ public struct ButtonComponent: Component {
 
     public var mountsChildren: Bool { false }
 
-    public func makeView() -> NSView {
+    public func makeView(for node: ShadowNode) -> NSView {
         let button = HandlerButton(frame: .zero)
         button.bezelStyle = .rounded
         return button
@@ -88,6 +102,8 @@ public struct ButtonComponent: Component {
         let title = node.props["title"]?.stringValue ?? node.renderedText
         button.title = title.isEmpty ? "Button" : title
         button.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
+        // A `variant: "primary"` button becomes the default (accent-filled) button.
+        button.keyEquivalent = node.props["variant"]?.stringValue == "primary" ? "\r" : ""
         button.bind(handlerId: node.handlerId(for: "onClick"), executor: context.executeHandler)
     }
 }
@@ -121,7 +137,7 @@ public struct TextInputComponent: Component {
 
     public var mountsChildren: Bool { false }
 
-    public func makeView() -> NSView {
+    public func makeView(for node: ShadowNode) -> NSView {
         let field = HandlerTextField(frame: .zero)
         field.configure()
         return field
@@ -179,7 +195,7 @@ public struct UnknownComponent: Component {
 
     public var mountsChildren: Bool { false }
 
-    public func makeView() -> NSView {
+    public func makeView(for node: ShadowNode) -> NSView {
         NSTextField(labelWithString: "")
     }
 

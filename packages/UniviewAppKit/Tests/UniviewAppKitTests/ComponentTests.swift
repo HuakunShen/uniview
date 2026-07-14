@@ -6,45 +6,39 @@ import Testing
 
 @MainActor
 @Suite struct ComponentTests {
+    private func mount(_ component: Component, _ node: ShadowNode, context: MountContext = .noop)
+        -> NSView
+    {
+        let view = component.makeView(for: node)
+        component.update(view, node: node, context: context)
+        return view
+    }
+
     @Test func buttonReflectsTitleAndDisabled() throws {
-        let component = ButtonComponent()
-        let view = component.makeView()
         let node = ShadowNode.from(
             UINode(
                 id: "b", type: "Button",
-                props: ["title": .string("Save"), "disabled": .bool(true)])
-        )
-        component.update(view, node: node, context: .noop)
-        let button = try #require(view as? NSButton)
+                props: ["title": .string("Save"), "disabled": .bool(true)]))
+        let button = try #require(mount(ButtonComponent(), node) as? NSButton)
         #expect(button.title == "Save")
         #expect(button.isEnabled == false)
     }
 
     @Test func buttonFallsBackToFlattenedTextForTitle() throws {
-        let component = ButtonComponent()
-        let view = component.makeView()
         let node = ShadowNode.from(
-            UINode(id: "b", type: "Button", children: [UINode.text("Open", id: "t")])
-        )
-        component.update(view, node: node, context: .noop)
-        let button = try #require(view as? NSButton)
+            UINode(id: "b", type: "Button", children: [UINode.text("Open", id: "t")]))
+        let button = try #require(mount(ButtonComponent(), node) as? NSButton)
         #expect(button.title == "Open")
     }
 
     @Test func buttonClickFiresHandlerId() throws {
-        let component = ButtonComponent()
-        let view = component.makeView()
         var fired: (id: String, args: [JSONValue])?
         let context = MountContext { id, args in fired = (id, args) }
         let node = ShadowNode.from(
             UINode(
                 id: "b", type: "Button",
-                props: ["title": .string("Go"), "_onClickHandlerId": .string("h1")])
-        )
-        component.update(view, node: node, context: context)
-        // Drive the wired target/action directly (performClick needs an app
-        // run loop that doesn't exist in a windowless test).
-        let button = try #require(view as? NSButton)
+                props: ["title": .string("Go"), "_onClickHandlerId": .string("h1")]))
+        let button = try #require(mount(ButtonComponent(), node, context: context) as? NSButton)
         let action = try #require(button.action)
         _ = (button.target as? NSObject)?.perform(action)
         #expect(fired?.id == "h1")
@@ -52,42 +46,52 @@ import Testing
     }
 
     @Test func textUsesFlattenedChildrenAndTypography() throws {
-        let component = TextComponent()
-        let view = component.makeView()
         let node = ShadowNode.from(
             UINode(
                 id: "t", type: "Text",
                 props: ["style": .object(["fontSize": .number(20), "fontWeight": .string("bold")])],
-                children: [UINode.text("Hello", id: "x")])
-        )
-        component.update(view, node: node, context: .noop)
-        let label = try #require(view as? NSTextField)
+                children: [UINode.text("Hello", id: "x")]))
+        let label = try #require(mount(TextComponent(), node) as? NSTextField)
         #expect(label.stringValue == "Hello")
         #expect(label.font?.pointSize == 20)
     }
 
+    @Test func textResolvesSemanticColor() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "t", type: "Text",
+                props: ["style": .object(["color": .string("secondaryLabel")])],
+                children: [UINode.text("Muted", id: "x")]))
+        let label = try #require(mount(TextComponent(), node) as? NSTextField)
+        #expect(label.textColor == .secondaryLabelColor)
+    }
+
     @Test func viewAppliesBackgroundAndRadius() throws {
-        let component = ViewComponent()
-        let view = component.makeView()
         let node = ShadowNode.from(
             UINode(
                 id: "v", type: "View",
                 props: [
                     "style": .object([
-                        "backgroundColor": .string("#ff0000"),
-                        "borderRadius": .number(8),
+                        "backgroundColor": .string("#ff0000"), "borderRadius": .number(8),
                     ])
-                ])
-        )
-        component.update(view, node: node, context: .noop)
+                ]))
+        let view = mount(ViewComponent(), node)
         let layer = try #require(view.layer)
         #expect(layer.cornerRadius == 8)
         #expect(layer.backgroundColor != nil)
+        #expect(!(view is NSVisualEffectView))
+    }
+
+    @Test func viewWithMaterialBecomesVibrancy() throws {
+        let node = ShadowNode.from(
+            UINode(id: "v", type: "View", props: ["material": .string("sidebar")]))
+        let view = mount(ViewComponent(), node)
+        let effect = try #require(view as? NSVisualEffectView)
+        #expect(effect.material == .sidebar)
+        #expect(effect.blendingMode == .behindWindow)
     }
 
     @Test func textInputGuardsAgainstFeedbackLoop() throws {
-        let component = TextInputComponent()
-        let view = component.makeView()
         var changes: [String] = []
         let context = MountContext { _, args in
             if case .string(let value)? = args.first { changes.append(value) }
@@ -95,14 +99,11 @@ import Testing
         let node = ShadowNode.from(
             UINode(
                 id: "i", type: "TextInput",
-                props: ["value": .string("initial"), "_onChangeHandlerId": .string("h")])
-        )
-        component.update(view, node: node, context: context)
-        let field = try #require(view as? HandlerTextField)
+                props: ["value": .string("initial"), "_onChangeHandlerId": .string("h")]))
+        let field = try #require(mount(TextInputComponent(), node, context: context) as? HandlerTextField)
         #expect(field.stringValue == "initial")
-        #expect(changes.isEmpty)  // host-driven value must not echo back
+        #expect(changes.isEmpty)
 
-        // A user edit routes through the delegate and fires onChange.
         field.stringValue = "typed"
         field.controlTextDidChange(
             Notification(name: NSControl.textDidChangeNotification, object: field))
