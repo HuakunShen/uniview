@@ -17,6 +17,8 @@ import type {
 
 export { VirtualList } from "./virtual-list";
 export type { VirtualListProps } from "./virtual-list";
+export { Select } from "./select";
+export type { SelectProps } from "./select";
 
 export interface TuiReactRootOptions {
   surface: CellSurface;
