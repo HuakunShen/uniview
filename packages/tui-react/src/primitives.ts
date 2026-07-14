@@ -1,5 +1,14 @@
 import { createElement, type Key, type ReactElement, type ReactNode } from "react";
-import type { Color, StyledSpan, TuiStyle } from "@uniview/tui-core";
+import type {
+  Color,
+  StyledSpan,
+  TuiEventHandlers,
+  TuiKeyEvent,
+  TuiPointerEvent,
+  TuiSemanticProps,
+  TuiStyle,
+  TuiWheelEvent,
+} from "@uniview/tui-core";
 
 /**
  * First-class JSX components for the Uniview TUI host primitives, so plugins
@@ -16,54 +25,15 @@ import type { Color, StyledSpan, TuiStyle } from "@uniview/tui-core";
  * intrinsic elements from `@types/react`.
  */
 
-/** Keyboard event delivered to `onKeyDown`. */
-export interface TuiKeyEvent {
-  key: string;
-  ctrl: boolean;
-  alt: boolean;
-  shift: boolean;
-  meta: boolean;
-}
-
-/** Mouse-wheel event delivered to `onWheel`. */
-export interface TuiWheelEvent {
-  deltaY: number;
-  x: number;
-  y: number;
-}
-
-/** Pointer position delivered to click/hover handlers. */
-export interface TuiPointerEvent {
-  x: number;
-  y: number;
-}
-
-/** Event handlers any interactive TUI element may declare. */
-export interface TuiEventHandlers {
-  onClick?: (event?: TuiPointerEvent) => void;
-  onKeyDown?: (event: TuiKeyEvent) => void;
-  onWheel?: (event: TuiWheelEvent) => void;
-  onMouseEnter?: (event?: TuiPointerEvent) => void;
-  onMouseLeave?: (event?: TuiPointerEvent) => void;
-  onChange?: (value: string) => void;
-  onSubmit?: (value: string) => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
-}
-
-/**
- * Semantic / automation attributes read by the host to build the accessibility
- * tree (queryByRole/Name, contract tests). All optional.
- */
-export interface TuiSemanticProps {
-  role?: string;
-  name?: string;
-  label?: string;
-  value?: string;
-  disabled?: boolean;
-  checked?: boolean;
-  selected?: boolean;
-}
+// Event types + semantic props are framework-agnostic and live in
+// `@uniview/tui-core`; re-exported here so tui-react's public API is unchanged.
+export type {
+  TuiEventHandlers,
+  TuiKeyEvent,
+  TuiPointerEvent,
+  TuiSemanticProps,
+  TuiWheelEvent,
+};
 
 /** Attributes shared by every TUI element: layout ({@link TuiStyle}) + handlers + semantics. */
 export interface TuiCommonProps extends TuiStyle, TuiEventHandlers, TuiSemanticProps {

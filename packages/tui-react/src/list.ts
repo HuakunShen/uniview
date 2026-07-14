@@ -1,6 +1,11 @@
 import { createElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { listCounter } from "@uniview/tui-core";
 import type { Color, Dimension } from "@uniview/tui-core";
 import type { TuiKeyEvent } from "./primitives";
+
+// `listCounter` is a pure, framework-agnostic helper that lives in
+// `@uniview/tui-core`; re-exported here so tui-react's public API is unchanged.
+export { listCounter };
 
 export interface ListProps<T> {
   items: readonly T[];
@@ -16,12 +21,6 @@ export interface ListProps<T> {
   selectedBackground?: Color;
   /** Text color of the selected row. */
   selectedColor?: Color;
-}
-
-/** "N of M" position label (1-based), or "0 of 0" when empty. */
-export function listCounter(selectedIndex: number, total: number): string {
-  if (total <= 0) return "0 of 0";
-  return `${Math.min(selectedIndex + 1, total)} of ${total}`;
 }
 
 /**

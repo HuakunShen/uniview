@@ -1,6 +1,12 @@
 import { createElement, useState, type ReactElement, type ReactNode } from "react";
+import { clampScroll, filterCommands } from "@uniview/tui-core";
 import type { RenderNode } from "@uniview/tui-core";
 import { renderNodeToElement } from "./content";
+
+// `clampScroll` and `filterCommands` are pure, framework-agnostic helpers
+// that live in `@uniview/tui-core`; re-exported here so tui-react's public
+// API is unchanged.
+export { clampScroll, filterCommands };
 
 // --- ScrollView -------------------------------------------------------------
 
@@ -17,11 +23,6 @@ export interface ScrollViewProps {
   scrollTop?: number;
   /** Controlled-mode callback: report a requested new scroll offset (already clamped). */
   onScrollChange?: (scrollTop: number) => void;
-}
-
-/** Clamp a scroll offset to the valid range for a row count and viewport height. */
-export function clampScroll(scrollTop: number, rowCount: number, height: number): number {
-  return Math.max(0, Math.min(Math.max(0, rowCount - height), scrollTop));
 }
 
 function scrollbarColumn(rowCount: number, height: number, scrollTop: number): ReactElement {
@@ -139,22 +140,6 @@ export interface Command {
   id: string;
   label: string;
   hint?: string;
-}
-
-/** Case-insensitive subsequence filter over command labels (fuzzy-ish). */
-export function filterCommands(commands: readonly Command[], query: string): Command[] {
-  const q = query.toLowerCase();
-  if (q.length === 0) return [...commands];
-  return commands.filter((c) => {
-    const label = c.label.toLowerCase();
-    let i = 0;
-    for (const ch of q) {
-      i = label.indexOf(ch, i);
-      if (i < 0) return false;
-      i += 1;
-    }
-    return true;
-  });
 }
 
 export interface CommandPaletteProps {

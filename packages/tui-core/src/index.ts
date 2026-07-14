@@ -184,6 +184,21 @@ export type { CheckboxEffect, CheckboxInit } from "./components/checkbox-machine
 export { TabsMachine } from "./components/tabs-machine";
 export type { TabsEffect, TabsInit } from "./components/tabs-machine";
 
+// Framework-agnostic UI event types & pure helpers (shared by tui-react/tui-solid)
+export {
+  clampScroll,
+  filterCommands,
+  listCounter,
+  nextFocus,
+} from "./ui/events";
+export type {
+  TuiEventHandlers,
+  TuiKeyEvent,
+  TuiPointerEvent,
+  TuiSemanticProps,
+  TuiWheelEvent,
+} from "./ui/events";
+
 // Paint pipeline
 export { renderToBuffer } from "./paint/paint";
 export type { RenderNode, RenderOutput } from "./paint/paint";
