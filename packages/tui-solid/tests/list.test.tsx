@@ -159,11 +159,9 @@ describe("List", () => {
     }
     const { root } = mount(() => <Clickable />, 16, 3);
     await tick();
-    root.dispatchInput(click(13, 1)); // click row 1 ("beta") — also focuses that row
-    // Focusables are [list-root, row0, row1, row2] in tree order; the click left
-    // row1 (index 2) focused, so two Tabs wrap focus back onto the list root.
-    root.dispatchInput(key("Tab"));
-    root.dispatchInput(key("Tab"));
+    root.dispatchInput(click(13, 1)); // click row 1 ("beta") — focuses that row
+    // No Tab needed: the key bubbles from the focused row up to the list, which
+    // is what a user pressing ↓ right after clicking an item expects.
     root.dispatchInput(key("ArrowDown")); // same turn: prop is still 0, requested is 1
     await tick();
     expect(seen).toEqual([1, 2]); // stepped from the clicked row, not from the stale prop

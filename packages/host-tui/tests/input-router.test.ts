@@ -123,6 +123,79 @@ describe("InputRouter — onKeyDown", () => {
     router.dispatch(key("ArrowUp"));
     expect(events.map((e) => e.key)).toEqual(["ArrowDown", "ArrowUp"]);
   });
+
+  /**
+   * A left-click focuses the exact node under the cursor. In a list that node is
+   * the row — which carries onClick but no onKeyDown — so an arrow key pressed
+   * right after a click used to land on the row and be dropped, silently killing
+   * keyboard navigation until the user pressed Tab. Keys bubble to the nearest
+   * ancestor that handles them, the same way clicks already do.
+   */
+  function setupRows() {
+    const events: { key: string }[] = [];
+    const clicks: string[] = [];
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 20, height: 3 },
+      onInvokeHandler: (id, payload) => {
+        if (id === "keys") events.push(payload as { key: string });
+        else clicks.push(id);
+      },
+    });
+    host.setRoot({
+      id: "list",
+      type: "box",
+      props: { [handlerIdProp("onKeyDown")]: "keys" },
+      children: [
+        {
+          id: "row0",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "click0", width: 20, height: 1 },
+          // The row wraps its label, so the node actually under the cursor is
+          // this text node — which is not focusable at all. That is the real
+          // shape a List renders, and the reason the click used to focus nothing.
+          children: [textEl("row0label", "alpha")],
+        },
+      ],
+    });
+    const router = new InputRouter(host);
+    router.onRender();
+    return { router, events, clicks };
+  }
+
+  const click = (x: number, y: number): TuiInputEvent => ({
+    type: "mouse",
+    action: "up",
+    button: "left",
+    x,
+    y,
+    ctrl: false,
+    alt: false,
+    shift: false,
+  });
+
+  it("bubbles keys to an ancestor handler after a click focuses a plain row", () => {
+    const { router, events, clicks } = setupRows();
+    router.dispatch(click(2, 0)); // click the row — focus moves to it
+    expect(clicks).toEqual(["click0"]);
+
+    router.dispatch(key("ArrowDown")); // must still reach the list
+    expect(events.map((e) => e.key)).toEqual(["ArrowDown"]);
+  });
+
+  it("still activates the focused node on Enter rather than feeding the ancestor", () => {
+    const { router, events, clicks } = setupRows();
+    router.dispatch(click(2, 0));
+    expect(clicks).toEqual(["click0"]);
+
+    // Enter activates the focused row; it must NOT be swallowed by the list's
+    // onKeyDown just because the list is now reachable by bubbling.
+    router.dispatch(key("Enter"));
+    expect(clicks).toEqual(["click0", "click0"]);
+    expect(events).toEqual([]);
+  });
 });
 
 const textEl = (id: string, t: string): UINode => ({

@@ -143,6 +143,22 @@ export class TuiHost {
   }
 
   /**
+   * The nearest node at or above `startId` that can take focus. A pointer hit
+   * usually lands on a leaf (the label inside a row), which is not focusable
+   * itself — focusing it would be a silent no-op, leaving focus stranded on
+   * whatever was focused before.
+   */
+  nearestFocusable(startId: string | null): string | null {
+    const focusable = new Set(this.focusableTargets().map((t) => t.id));
+    let id: string | undefined | null = startId;
+    while (id) {
+      if (focusable.has(id)) return id;
+      id = this.tree.parentId(id);
+    }
+    return null;
+  }
+
+  /**
    * Fire an event starting at `startId` and bubbling up ancestors until a
    * handler runs (like DOM bubbling). Returns whether any handler was invoked.
    */
