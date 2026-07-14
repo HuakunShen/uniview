@@ -169,7 +169,7 @@ final class SidebarStatusFooter: NSView {
 /// not a standard — so it is a settable option, not hardcoded. Two presets ship:
 /// a `floating` glass panel (inset, rounded, traffic lights on the ambience
 /// above) and a `fullHeight` sidebar (edge-to-edge, running to the window top
-/// with the traffic lights inline). Both sit on the one shared `AmbienceView`.
+/// with the traffic lights inline). Both sit on the one shared window backdrop.
 struct SidebarStyle {
     enum Placement { case floating, fullHeight }
 
@@ -221,8 +221,8 @@ final class SidebarViewController: NSViewController {
 
     override func loadView() {
         // The sidebar's OWN surface: a glass panel with a distinct material that
-        // sits on the shared ambience. `withinWindow` blending lets a hint of the
-        // frost + bloom behind it show through, so it reads as a translucent panel
+        // sits on the window's backdrop. `withinWindow` blending lets a hint of
+        // the backdrop behind it show through, so it reads as a translucent panel
         // rather than an opaque slab. Corner/border come from the chosen style.
         let root = MaterialView()
         root.material = style.material
@@ -274,11 +274,10 @@ final class SidebarViewController: NSViewController {
 
 // MARK: - Content pane (transparent — shares the window ambience)
 
-/// The detail pane hosting Uniview content. It is fully transparent: the shared
-/// window ambience (frost + brand blooms, drawn once behind the whole scene by
-/// `AmbienceView`) shows through, so the background is continuous under the
-/// sidebar and content alike — the Music-style look. The Uniview root is inset
-/// to the safe area so it clears the transparent title bar.
+/// The detail pane hosting Uniview content. It is fully transparent: the window's
+/// backdrop material shows through, so the background is continuous under the
+/// sidebar and the content alike — the Music-style look. The Uniview root is
+/// inset to the safe area so it clears the transparent title bar.
 /// Routes a native interaction to whatever is currently driving the UI. The host's
 /// handler closure is built before the plugin connection exists, so it talks to
 /// this box instead of capturing a connection directly.
@@ -449,66 +448,19 @@ final class ContentViewController: NSViewController {
     }
 }
 
-/// Draws soft brand-colored radial "blooms" that glow through the frost.
-final class BloomView: NSView {
-    override var isFlipped: Bool { true }
-    private let blooms: [(color: NSColor, opacity: CGFloat, size: CGFloat, dx: CGFloat, dy: CGFloat)] = [
-        // Top-left brand bloom pulled over the sidebar so its glow bleeds in.
-        (univiewBrandColor, 0.30, 1.20, -0.34, -0.30),
-        (univiewBrandViolet, 0.18, 0.88, 0.46, 0.42),
-        (univiewBrandCyan, 0.14, 0.70, 0.15, 0.58),
-    ]
-    private var bloomLayers: [CAGradientLayer] = []
+// MARK: - Window backdrop
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        for spec in blooms {
-            let g = CAGradientLayer()
-            g.type = .radial
-            g.colors = [
-                spec.color.withAlphaComponent(spec.opacity).cgColor,
-                spec.color.withAlphaComponent(0).cgColor,
-            ]
-            g.startPoint = CGPoint(x: 0.5, y: 0.5)
-            g.endPoint = CGPoint(x: 1, y: 1)
-            layer?.addSublayer(g)
-            bloomLayers.append(g)
-        }
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func layout() {
-        super.layout()
-        let w = bounds.width
-        let h = bounds.height
-        for (i, spec) in blooms.enumerated() {
-            let size = max(w, h) * spec.size
-            let layer = bloomLayers[i]
-            layer.frame = CGRect(
-                x: w * 0.5 + w * spec.dx - size / 2,
-                y: h * 0.5 + h * spec.dy - size / 2,
-                width: size, height: size)
-        }
-    }
-}
-
-// MARK: - Shared ambience
-
-/// The window's ambience is two layers, composed in `RootViewController`: a
-/// backmost material (the window backdrop, which a plugin's `<Window vibrancy>`
-/// drives) and soft brand blooms glowing on top of it. Drawn ONCE behind the
-/// whole scene so the sidebar and content share it — the brand glow in the
-/// top-left bleeds continuously into the sidebar (Music-style) instead of each
-/// pane carrying its own disjoint background. Being the backmost content views,
-/// the window masks them to its rounded corners, so there are no sharp corners
-/// or stray material edges.
+/// The window's background is ONE material, the backmost view in the content
+/// view (see `RootViewController`), which a plugin's `<Window vibrancy>` drives.
+/// Drawn once behind the whole scene so the sidebar and the content share it,
+/// rather than each pane carrying its own disjoint background — and left
+/// unpainted, so what you see really is the material blurring what is behind the
+/// window, not a gradient imitating one.
 
 // MARK: - Root (shared ambience + floating sidebar + content)
 
 /// The window's content controller. It composes three layers to show that the
-/// host can express a "virtual floating sidebar": one shared `AmbienceView`
+/// host can express a "virtual floating sidebar": one shared window backdrop
 /// spanning the whole window, a floating sidebar panel with its OWN glass
 /// surface inset over that ambience, and a transparent content pane. Swapping
 /// the sidebar's insets/material here (edge-to-edge vs. floating) is purely a
@@ -541,9 +493,11 @@ final class RootViewController: NSViewController {
         backdrop.state = .active
         backdrop.translatesAutoresizingMaskIntoConstraints = false
 
-        // Brand glow, on top of whatever the backdrop happens to be.
-        let bloom = BloomView()
-        bloom.translatesAutoresizingMaskIntoConstraints = false
+        // No gradient wash over the backdrop. A brand glow painted on top of the
+        // material makes the window look good and makes it *unreadable*: you can
+        // no longer tell whether the background is a real translucent blur of
+        // what's behind the window, or just a picture of one. The window's
+        // appearance belongs to `<Window vibrancy>` now — leave it visible.
 
         let sidebar = SidebarViewController(sections: sections, style: sidebarStyle) {
             [weak self] index in
@@ -559,7 +513,6 @@ final class RootViewController: NSViewController {
         contentView.translatesAutoresizingMaskIntoConstraints = false
 
         root.addSubview(backdrop)  // must stay first — see the comment above
-        root.addSubview(bloom)
         root.addSubview(contentView)
         root.addSubview(sidebarView)
 
@@ -568,10 +521,6 @@ final class RootViewController: NSViewController {
             backdrop.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             backdrop.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             backdrop.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            bloom.topAnchor.constraint(equalTo: root.topAnchor),
-            bloom.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            bloom.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            bloom.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             sidebarView.widthAnchor.constraint(equalToConstant: sidebarStyle.width),
             contentView.topAnchor.constraint(equalTo: root.topAnchor),
             contentView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
