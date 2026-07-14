@@ -169,6 +169,14 @@ function paintNode(
 
   const ownerId = node.id ? owners.intern(node.id) : 0;
 
+  // A container claims its whole box for hit-testing (geometric, like a DOM
+  // element), so a click on the empty part of a row still resolves to it and
+  // bubbles to its onClick. Children paint after and overwrite their own cells,
+  // so the deepest owner wins. Leaves own only the cells they paint.
+  if (ownerId !== 0 && !isTextLeaf(node) && !isSpansLeaf(node)) {
+    buffer.stampOwner(boxClip.x, boxClip.y, boxClip.width, boxClip.height, ownerId);
+  }
+
   if (node.background !== undefined) {
     fillRect(buffer, boxClip, styles.intern({ bg: node.background }), ownerId);
   }

@@ -67,21 +67,29 @@ describe("ScrollView", () => {
 
 describe("Hoverable", () => {
   it("exposes a hovered flag that flips on pointer enter/leave", async () => {
+    // Hoverable is row 0 (full width — geometric hit-test covers the whole row);
+    // row 1 is a plain sibling used as the "off it" target.
     const { root, surface } = mount(
-      h(Hoverable, { children: (hovered: boolean) => h("text", null, hovered ? "HOT" : "cold") }),
+      h(
+        "box",
+        { flexDirection: "column" },
+        h(Hoverable, { children: (hovered: boolean) => h("text", null, hovered ? "HOT" : "cold") }),
+        h("text", null, "----"),
+      ),
       12,
-      1,
+      2,
     );
+    const firstLine = () => surface.text({ trimRight: true }).split("\n")[0];
     await tick();
-    expect(surface.text({ trimRight: true })).toBe("cold");
+    expect(firstLine()).toBe("cold");
 
-    root.dispatchInput(move(0, 0)); // over the text
+    root.dispatchInput(move(9, 0)); // anywhere on the Hoverable's row now counts
     await tick();
-    expect(surface.text({ trimRight: true })).toBe("HOT");
+    expect(firstLine()).toBe("HOT");
 
-    root.dispatchInput(move(9, 0)); // off it
+    root.dispatchInput(move(0, 1)); // move off it, onto the sibling row
     await tick();
-    expect(surface.text({ trimRight: true })).toBe("cold");
+    expect(firstLine()).toBe("cold");
   });
 });
 

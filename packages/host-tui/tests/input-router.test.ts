@@ -216,3 +216,44 @@ describe("InputRouter — mouse hover and wheel", () => {
     expect(calls.find((c) => c.id === "wheelA")?.payload).toMatchObject({ deltaY: 1 });
   });
 });
+
+describe("InputRouter — whole-row click target", () => {
+  it("clicking the empty part of a menu-item row fires its onClick", () => {
+    const calls: string[] = [];
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 16, height: 1 },
+      onInvokeHandler: (id) => calls.push(id),
+    });
+    host.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "item",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "pick" },
+          children: [textEl("lbl", "lib.rs")],
+        },
+      ],
+    });
+    const router = new InputRouter(host);
+    router.onRender();
+    // The 16-wide row shows only "lib.rs" (6 cells). Click col 12 — well past
+    // the label, in the empty part of the row — and it should still activate.
+    router.dispatch({
+      type: "mouse",
+      action: "up",
+      button: "left",
+      x: 12,
+      y: 0,
+      ctrl: false,
+      alt: false,
+      shift: false,
+    });
+    expect(calls).toEqual(["pick"]);
+  });
+});

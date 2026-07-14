@@ -145,6 +145,17 @@ describe("opencode demo — mouse", () => {
     expect(sidebar[0]).not.toBe(JSON.stringify(null)); // and it IS a color
   });
 
+  it("selects a file by clicking the empty part of its row (not just the text)", async () => {
+    const t = boot();
+    t.send(text("2")); // Code page — sidebar rows 1..4 = greet/config/server/lib
+    await tick();
+    // Row 3 is server.py ("  server.py" ≈ 11 cells); click col 13, well past the
+    // label in the empty part of the 16-wide row.
+    t.send(click(13, 3));
+    await tick();
+    expect(screen(t)).toContain("import asyncio"); // server.py is now previewed
+  });
+
   it("highlights a file row on hover", async () => {
     const t = boot();
     t.send(text("2"));

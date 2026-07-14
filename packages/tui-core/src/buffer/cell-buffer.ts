@@ -84,6 +84,23 @@ export class CellBuffer {
     this.flags.fill(CellFlags.None);
   }
 
+  /**
+   * Mark a rectangular region as owned by `ownerId` for hit-testing, without
+   * touching the visible cells. Containers stamp their whole box so a click on
+   * empty space inside them still resolves to the container (children paint
+   * after and overwrite their own cells, so the deepest owner wins).
+   */
+  stampOwner(x: number, y: number, width: number, height: number, ownerId: number): void {
+    const x0 = Math.max(0, x);
+    const y0 = Math.max(0, y);
+    const x1 = Math.min(this.width, x + width);
+    const y1 = Math.min(this.height, y + height);
+    for (let yy = y0; yy < y1; yy += 1) {
+      const row = yy * this.width;
+      for (let xx = x0; xx < x1; xx += 1) this.ownerIds[row + xx] = ownerId;
+    }
+  }
+
   /** Reset a single cell in-place to a blank single-width cell. */
   private blankCell(i: number): void {
     this.graphemes[i] = BLANK;
