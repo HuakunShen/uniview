@@ -106,6 +106,8 @@ export type {
   LayoutBox,
   MeasureConstraints,
 } from "./layout/layout";
+export { customLayoutEngine } from "./layout/engine";
+export type { LayoutEngine } from "./layout/engine";
 
 // Render loop
 export { TuiRenderer } from "./renderer/tui-renderer";
