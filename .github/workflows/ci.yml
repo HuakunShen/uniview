@@ -31,12 +31,18 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: pnpm-lock.yaml
 
+      # vendors/kkrpc's own `prepare` script (its package.json runs
+      # `bun run scripts/prepare.ts`) needs the `bun` binary just to be invoked
+      # at all, before it even reaches the CF_PAGES check below.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Install dependencies
-        # vendors/kkrpc's own `prepare` script shells out to `deno` to generate
-        # ambient Deno types, which this job doesn't have and doesn't need —
-        # uniview only consumes kkrpc's built dist, never its Deno declarations.
-        # CF_PAGES=1 is kkrpc's own upstream escape hatch for exactly this case
-        # (see vendors/kkrpc/packages/kkrpc/scripts/prepare.ts).
+        # That prepare script then shells out to `deno` to generate ambient Deno
+        # types, which this job doesn't have and doesn't need — uniview only
+        # consumes kkrpc's built dist, never its Deno declarations. CF_PAGES=1 is
+        # kkrpc's own upstream escape hatch for exactly this case (see
+        # vendors/kkrpc/packages/kkrpc/scripts/prepare.ts).
         run: pnpm install --frozen-lockfile
         env:
           CF_PAGES: "1"
