@@ -81,7 +81,10 @@ private func iconChip(_ id: String, _ symbol: String) -> UINode {
         style: [
             "width": .number(46), "height": .number(46), "borderRadius": .number(12),
             "alignItems": .string("center"), "justifyContent": .string("center"),
-            "backgroundGradient": .array([.string("brand"), .string("brand-violet")]),
+            "backgroundGradient": .object([
+                "direction": .string("to-br"),
+                "colors": .array([.string("#2e91c7"), .string("#4f6bf2")]),
+            ]),
             // The shadow is geometry now, and its color carries its own alpha —
             // the host no longer has an opinion baked into it.
             "shadow": .object([

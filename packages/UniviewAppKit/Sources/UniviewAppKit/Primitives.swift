@@ -32,20 +32,32 @@ public struct ViewComponent: Component {
 
     public func update(_ view: NSView, node: ShadowNode, context: MountContext) {
         view.wantsLayer = true
-        let style = node.style
-        let radius = CGFloat(style.borderRadius ?? 0)
-        let wantsShadow = style.shadow != nil
+        let base = node.style
         let isGradient = view is GradientView
         let isMaterial = view is NSVisualEffectView
 
-        // Every `.cgColor` below is resolved against whatever appearance is current
-        // when this closure runs — so it is stored, not just run, and re-run on
-        // every appearance change. See `AppearanceSensitive`.
-        let paint: (CALayer) -> Void = { [weak view] layer in
-            if let gradientView = view as? GradientView {
-                let colors = (style.backgroundGradient ?? [])
-                    .compactMap { CSSColor.parse($0)?.cgColor }
-                gradientView.setGradientColors(colors)
+        // A tracking area costs something and most views never hover, so only the
+        // ones whose style actually mentions `hover:` / `active:` get one.
+        if let flipped = view as? FlippedView {
+            flipped.tracksPointer = (base.variants ?? [:]).keys.contains {
+                $0.contains("hover") || $0.contains("active")
+            }
+        }
+
+        // Both the style-for-this-state and every `.cgColor` in it are resolved
+        // inside this closure, because both depend on state the view owns and we
+        // do not: the appearance it ended up in, and where the pointer is. It is
+        // stored, not merely run, and re-run whenever that changes.
+        // See `StyleStateView`.
+        let paint: (CALayer, Set<String>) -> Void = { [weak view] layer, state in
+            let style = base.resolved(for: state)
+            let radius = CGFloat(style.borderRadius ?? 0)
+            let wantsShadow = style.shadow != nil
+
+            if let gradientView = view as? GradientView, let fill = style.backgroundGradient {
+                gradientView.setGradient(
+                    colors: fill.colors.compactMap { CSSColor.parse($0)?.cgColor },
+                    direction: fill.direction)
             } else if !isMaterial {
                 // Vibrancy views draw their own background; don't overpaint it.
                 layer.backgroundColor = style.backgroundColor.flatMap(CSSColor.parse)?.cgColor
@@ -75,12 +87,12 @@ public struct ViewComponent: Component {
             if let z = style.zIndex { layer.zPosition = CGFloat(z) }
         }
 
-        if let sensitive = view as? any AppearanceSensitive {
-            sensitive.setRepaint(paint)
+        if let stateful = view as? any StyleStateView {
+            stateful.setRepaint(paint)
         } else if let layer = view.layer {
-            view.effectiveAppearance.performAsCurrentDrawingAppearance { paint(layer) }
+            view.effectiveAppearance.performAsCurrentDrawingAppearance { paint(layer, []) }
         }
-        view.alphaValue = CGFloat(style.opacity ?? 1)
+        view.alphaValue = CGFloat(base.opacity ?? 1)
     }
 }
 
@@ -236,9 +248,18 @@ public struct IconComponent: Component {
 
 // MARK: - Button
 
-/// A native push button. Non-primary is a plain rounded button; `variant:
-/// "primary"` renders a brand-gradient button. Title from `props.title` or
-/// flattened text, optional leading `icon`; fires `onClick` through the executor.
+/// A push button. Title from `props.title` or flattened text, optional leading
+/// `icon`; fires `onClick` through the executor.
+///
+/// It has **no variants**. It used to: `variant: "primary"` painted a blue→violet
+/// diagonal and a matching colored shadow — Uniview's brand, compiled into the
+/// renderer, unreachable from the tree, and waiting to be copy-pasted into every
+/// new platform. A renderer that knows what "primary" looks like is a renderer
+/// with a design system inside it, and it can host exactly one product.
+///
+/// So: style the button and it is drawn from the Style IR; style nothing and you
+/// get the real native bezel button, which is what a macOS button *should* look
+/// like by default. Whose blue it is, is the plugin's business.
 @MainActor
 public struct ButtonComponent: Component {
     public init() {}
@@ -246,44 +267,17 @@ public struct ButtonComponent: Component {
     public var mountsChildren: Bool { false }
 
     public func makeView(for node: ShadowNode) -> NSView {
-        if node.props["variant"]?.stringValue == "primary" {
-            return GradientButton(frame: .zero)
-        }
-        let button = HandlerButton(frame: .zero)
-        button.bezelStyle = .rounded
-        return button
+        StyledButton(frame: .zero)
     }
 
     public func update(_ view: NSView, node: ShadowNode, context: MountContext) {
-        guard let button = view as? HandlerButton else { return }
+        guard let button = view as? StyledButton else { return }
+        let style = node.style
         let raw = node.props["title"]?.stringValue ?? node.renderedText
         let title = raw.isEmpty ? "Button" : raw
-        button.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
-        let iconName = node.props["icon"]?.stringValue
 
-        if let gradient = button as? GradientButton {
-            // Icon pinned to the leading edge, title centered in the full button
-            // width (independent of the icon) — the reference button layout.
-            gradient.title = title
-            gradient.attributedTitle = NSAttributedString(
-                string: title,
-                attributes: [
-                    .foregroundColor: NSColor.white,
-                    .font: NSFont.systemFont(ofSize: 13.5, weight: .semibold),
-                ])
-            gradient.setLeadingIcon(symbolImage(iconName, template: true))
-            gradient.alphaValue = button.isEnabled ? 1 : 0.45
-        } else {
-            button.title = title
-            button.keyEquivalent = ""
-            if let image = symbolImage(iconName, template: false) {
-                button.image = image
-                button.imagePosition = .imageLeading
-                button.imageScaling = .scaleProportionallyDown
-            } else {
-                button.image = nil
-            }
-        }
+        button.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
+        button.apply(style: style, title: title, icon: node.props["icon"]?.stringValue)
         button.bind(handlerId: node.handlerId(for: "onClick"), executor: context.executeHandler)
     }
 
@@ -293,21 +287,25 @@ public struct ButtonComponent: Component {
         let title = node.props["title"]?.stringValue ?? node.renderedText
         let label = measureText(
             title.isEmpty ? "Button" : title,
-            font: NSFont.systemFont(ofSize: 13.5, weight: .semibold),
+            font: nsFont(for: node.style, defaultSize: Self.fontSize),
             maxWidth: .infinity)
         let icon: Double = node.props["icon"] == nil ? 0 : Self.iconWidth
-        return Size(width: label.width + icon + Self.horizontalPadding, height: Self.height)
+        let padding =
+            (node.style.paddingLeft ?? Self.horizontalPadding / 2)
+            + (node.style.paddingRight ?? Self.horizontalPadding / 2)
+        return Size(
+            width: label.width + icon + padding,
+            height: node.style.height.flatMap(points) ?? Self.height)
     }
 
+    private static let fontSize: Double = 13.5
     private static let height: Double = 32
     private static let horizontalPadding: Double = 28
     private static let iconWidth: Double = 22
 
-    private func symbolImage(_ name: String?, template: Bool) -> NSImage? {
-        guard let name, let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
-        else { return nil }
-        image.isTemplate = template
-        return image
+    private func points(_ dimension: StyleDimension) -> Double? {
+        if case .points(let value) = dimension { return value }
+        return nil
     }
 }
 
@@ -329,40 +327,63 @@ class HandlerButton: NSButton {
     }
 }
 
-/// The brand-gradient primary button: a custom-drawn `HandlerButton` with a
-/// diagonal brand fill, white title, rounded corners and a soft brand shadow —
-/// still a real `NSControl` firing the same handler path.
+/// A button that looks like whatever the Style IR says, and like a *native
+/// button* when the IR says nothing.
+///
+/// The two modes are not two designs; they are "the plugin painted this" and
+/// "the plugin didn't". Only the first needs a layer, and the second must stay a
+/// genuine `NSButton` bezel — the whole point of rendering natively is that an
+/// unstyled button is indistinguishable from every other button on the machine.
 @MainActor
-final class GradientButton: HandlerButton {
+final class StyledButton: HandlerButton, StyleStateView {
+    var repaint: ((CALayer, Set<String>) -> Void)?
+
+    // A button is where `hover:` earns its keep, so it always tracks the pointer.
+    var isHovered = false {
+        didSet { if isHovered != oldValue { repaintNow() } }
+    }
+    var isPressed = false {
+        didSet { if isPressed != oldValue { repaintNow() } }
+    }
+    private var pointerArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let pointerArea { removeTrackingArea(pointerArea) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self)
+        addTrackingArea(area)
+        pointerArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        isPressed = false
+    }
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        super.mouseDown(with: event)  // the click still has to reach the handler
+        isPressed = false
+    }
+
     private let gradient = CAGradientLayer()
     private let leadingIcon = NSImageView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        isBordered = false
-        bezelStyle = .regularSquare
-        alignment = .center  // title centered in the full button width
         setButtonType(.momentaryChange)
 
-        gradient.colors = univiewBrandGradient
-        gradient.startPoint = CGPoint(x: 0, y: 0)
-        gradient.endPoint = CGPoint(x: 1, y: 1)
-        gradient.cornerRadius = 10
         gradient.masksToBounds = true
         layer?.insertSublayer(gradient, at: 0)
 
-        layer?.masksToBounds = false
-        layer?.shadowColor = univiewBrandColor.cgColor
-        layer?.shadowOpacity = 0.32
-        layer?.shadowRadius = 8
-        layer?.shadowOffset = CGSize(width: 0, height: -3)
-
-        // A separate leading glyph, pinned to the left edge so the title stays
-        // centered in the full width regardless of the icon.
+        // A separate leading glyph, pinned to the left edge, so the title stays
+        // centered in the full width regardless of whether there is an icon.
         leadingIcon.translatesAutoresizingMaskIntoConstraints = false
         leadingIcon.imageScaling = .scaleProportionallyDown
-        leadingIcon.contentTintColor = .white
         leadingIcon.isHidden = true
         addSubview(leadingIcon)
         NSLayoutConstraint.activate([
@@ -375,9 +396,110 @@ final class GradientButton: HandlerButton {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func setLeadingIcon(_ image: NSImage?) {
-        leadingIcon.image = image
-        leadingIcon.isHidden = image == nil
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        repaintNow()
+    }
+
+    func apply(style: StyleIR, title: String, icon: String?) {
+        // "Did the plugin paint this?" is the only question. A fill is the signal:
+        // borders and radii alone would leave a bezel button with a rectangle
+        // drawn over it.
+        let painted = style.backgroundColor != nil || style.backgroundGradient != nil
+        isBordered = !painted
+        bezelStyle = painted ? .regularSquare : .rounded
+        alignment = painted ? .center : .center
+        alphaValue = isEnabled ? 1 : 0.45
+
+        let image = icon.flatMap {
+            NSImage(systemSymbolName: $0, accessibilityDescription: nil)
+        }
+
+        if painted {
+            image?.isTemplate = true
+            leadingIcon.image = image
+            leadingIcon.isHidden = image == nil
+            leadingIcon.contentTintColor = style.color.flatMap(CSSColor.parse) ?? .labelColor
+            self.image = nil
+
+            let font = nsFont(for: style, defaultSize: 13.5)
+            attributedTitle = NSAttributedString(
+                string: title,
+                attributes: [
+                    .foregroundColor: style.color.flatMap(CSSColor.parse) ?? NSColor.labelColor,
+                    .font: font,
+                ])
+        } else {
+            leadingIcon.image = nil
+            leadingIcon.isHidden = true
+            self.title = title
+            keyEquivalent = ""
+            self.image = image
+            if image != nil {
+                imagePosition = .imageLeading
+                imageScaling = .scaleProportionallyDown
+            }
+        }
+
+        setRepaint { [weak self] layer, state in
+            guard let self else { return }
+            // The title and the glyph are re-tinted here too, not just the layer:
+            // `hover:text-foreground` is at least as common as `hover:bg-muted`,
+            // and a button whose background responds to the pointer while its
+            // label doesn't looks broken in a way that's hard to name.
+            let style = style.resolved(for: state)
+            if painted {
+                self.leadingIcon.contentTintColor =
+                    style.color.flatMap(CSSColor.parse) ?? .labelColor
+                self.attributedTitle = NSAttributedString(
+                    string: title,
+                    attributes: [
+                        .foregroundColor: style.color.flatMap(CSSColor.parse)
+                            ?? NSColor.labelColor,
+                        .font: nsFont(for: style, defaultSize: 13.5),
+                    ])
+            }
+            guard painted else {
+                self.gradient.isHidden = true
+                layer.backgroundColor = nil
+                layer.borderWidth = 0
+                layer.shadowOpacity = 0
+                return
+            }
+            let radius = CGFloat(style.borderRadius ?? 0)
+
+            if let fill = style.backgroundGradient {
+                let (start, end) = fill.direction.unit
+                self.gradient.isHidden = false
+                self.gradient.colors = fill.colors.compactMap { CSSColor.parse($0)?.cgColor }
+                self.gradient.startPoint = CGPoint(x: start.x, y: start.y)
+                self.gradient.endPoint = CGPoint(x: end.x, y: end.y)
+                self.gradient.cornerRadius = radius
+                layer.backgroundColor = nil
+            } else {
+                self.gradient.isHidden = true
+                layer.backgroundColor = style.backgroundColor.flatMap(CSSColor.parse)?.cgColor
+            }
+
+            layer.cornerRadius = radius
+            layer.borderWidth = CGFloat(style.borderWidth ?? 0)
+            layer.borderColor = style.borderColor.flatMap(CSSColor.parse)?.cgColor
+
+            // A shadow needs to escape the bounds; a rounded fill needs to be
+            // clipped by them. The gradient sublayer carries its own corner
+            // radius so the fill stays rounded either way.
+            if let shadow = style.shadow {
+                let color = CSSColor.parse(style.shadowColor ?? shadow.color)
+                layer.masksToBounds = false
+                layer.shadowColor = color?.cgColor
+                layer.shadowOpacity = Float(color?.alphaComponent ?? 0)
+                layer.shadowRadius = CGFloat(shadow.radius)
+                layer.shadowOffset = CGSize(width: shadow.offsetX, height: shadow.offsetY)
+            } else {
+                layer.shadowOpacity = 0
+                layer.masksToBounds = radius > 0
+            }
+        }
     }
 
     override func layout() {
@@ -482,9 +604,9 @@ public final class StyledFieldView: NSView {
         effectiveAppearance.performAsCurrentDrawingAppearance { [self] in
             layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.06).cgColor
             layer?.borderColor =
-                (focused ? univiewBrandColor.withAlphaComponent(0.85) : NSColor.separatorColor)
+                (focused ? NSColor.controlAccentColor.withAlphaComponent(0.85) : NSColor.separatorColor)
                 .cgColor
-            iconView.contentTintColor = focused ? univiewBrandColor : .secondaryLabelColor
+            iconView.contentTintColor = focused ? .controlAccentColor : .secondaryLabelColor
         }
     }
 

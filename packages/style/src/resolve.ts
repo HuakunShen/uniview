@@ -1,5 +1,13 @@
 import { defaultTheme, type Theme } from "./theme";
-import type { Dimension, ResolvedStyle, StyleInput } from "./types";
+import type {
+  Dimension,
+  GradientDirection,
+  LinearGradient,
+  ResolvedStyle,
+  StyleInput,
+  StyleVariants,
+  VariantName,
+} from "./types";
 
 /**
  * The Tailwind-subset resolver. Runs plugin-side: a native host receives the
@@ -342,6 +350,56 @@ function matchToken(token: string, theme: Theme): ResolvedStyle | null {
   return null;
 }
 
+const GRADIENT_DIRECTIONS = new Set<string>([
+  "to-t",
+  "to-tr",
+  "to-r",
+  "to-br",
+  "to-b",
+  "to-bl",
+  "to-l",
+  "to-tl",
+]);
+
+/**
+ * `bg-linear-to-br from-sky-500 via-indigo-400 to-violet-600` (v4), or the same
+ * with v3's `bg-gradient-to-br`.
+ *
+ * A gradient is the one thing in Tailwind that a *single* token cannot express:
+ * the direction and each stop arrive as separate classes and have to be gathered.
+ * So it gets a pass of its own rather than being bent into the per-token table.
+ *
+ * `to-` is deliberately matched only here. Everywhere else in Tailwind a bare
+ * `to-…` means nothing, so there is no ambiguity to resolve.
+ */
+function gradient(tokens: string[], theme: Theme): LinearGradient | undefined {
+  let direction: GradientDirection | undefined;
+  let from: string | undefined;
+  let to: string | undefined;
+  const via: string[] = [];
+
+  for (const token of tokens) {
+    const arrow = token.match(/^bg-(?:linear|gradient)-(to-[a-z]{1,2})$/);
+    if (arrow && GRADIENT_DIRECTIONS.has(arrow[1])) {
+      direction = arrow[1] as GradientDirection;
+      continue;
+    }
+    const stop = token.match(/^(from|via|to)-(.+)$/);
+    if (!stop) continue;
+    const color = parseColor(stop[2], theme);
+    if (color === undefined) continue;
+    if (stop[1] === "from") from = color;
+    else if (stop[1] === "to") to = color;
+    else via.push(color);
+  }
+
+  // A direction with nothing to interpolate isn't a gradient, and two stops is
+  // the minimum — a lone `from-` would paint a solid fill and silently swallow
+  // whatever `bg-…` the author also wrote.
+  if (direction === undefined || from === undefined || to === undefined) return undefined;
+  return { direction, colors: [from, ...via, to] };
+}
+
 /**
  * Class strings are static literals re-serialized on every render, so the parse
  * is memoized per theme. Cached results are frozen: callers spread, never write.
@@ -364,16 +422,70 @@ export function resolveClassName(
   const hit = themeCache.get(className);
   if (hit) return hit;
 
+  const tokens = className.trim().split(/\s+/).filter(Boolean);
+
   const out: ResolvedStyle = {};
-  for (const token of className.trim().split(/\s+/)) {
-    if (!token) continue;
-    const partial = matchToken(token, theme);
-    if (partial) Object.assign(out, partial);
+  const variants: StyleVariants = {};
+  const base: string[] = [];
+
+  for (const token of tokens) {
+    const split = splitVariants(token);
+    if (split === null) continue; // an unknown prefix — see `splitVariants`
+
+    const [conditions, rest] = split;
+    if (conditions.length === 0) {
+      base.push(rest);
+      const partial = matchToken(rest, theme);
+      if (partial) Object.assign(out, partial);
+      continue;
+    }
+
+    const partial = matchToken(rest, theme);
+    if (!partial) continue;
+    const key = conditions.join(":");
+    variants[key] = { ...variants[key], ...partial };
   }
+
+  // A gradient is spelled across several classes (`bg-gradient-to-br from-… to-…`),
+  // so it reads the token list — and only the unconditional ones.
+  const fill = gradient(base, theme);
+  if (fill) out.backgroundGradient = fill;
+
+  if (Object.keys(variants).length > 0) out.variants = variants;
 
   const frozen = Object.freeze(out);
   themeCache.set(className, frozen);
   return frozen;
+}
+
+/** The conditions a variant prefix may name. Anything else is not a variant. */
+const VARIANTS: ReadonlySet<string> = new Set<VariantName>([
+  "dark",
+  "light",
+  "hover",
+  "focus",
+  "active",
+  "disabled",
+]);
+
+/**
+ * `dark:hover:bg-zinc-800` → `[["dark", "hover"], "bg-zinc-800"]`.
+ *
+ * Returns `null` for a prefix that isn't a variant we can honour. Dropping the
+ * whole token is deliberate: strip an unknown `md:` and it would silently become
+ * an *unconditional* style, which is worse than it not working.
+ */
+function splitVariants(token: string): [string[], string] | null {
+  // An arbitrary value may contain a colon (`bg-[url(a:b)]`), so only look for
+  // prefixes ahead of the bracket.
+  const bracket = token.indexOf("[");
+  const head = bracket === -1 ? token : token.slice(0, bracket);
+  const count = head.split(":").length - 1;
+  if (count === 0) return [[], token];
+
+  const conditions = token.split(":", count);
+  const rest = token.slice(conditions.reduce((n, c) => n + c.length + 1, 0));
+  return conditions.every((c) => VARIANTS.has(c)) ? [conditions, rest] : null;
 }
 
 /** The styling props every Uniview component accepts. */

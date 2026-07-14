@@ -418,3 +418,87 @@ describe("the visual gaps", () => {
     });
   });
 });
+
+describe("gradients — so a brand can live in the plugin, not in the renderer", () => {
+  test("gathers direction and stops from separate classes", () => {
+    expect(
+      resolveClassName("bg-linear-to-br from-sky-500 to-violet-600"),
+    ).toMatchObject({
+      backgroundGradient: {
+        direction: "to-br",
+        colors: ["#00a6f4", "#7f22fe"],
+      },
+    });
+  });
+
+  test("accepts v3's `bg-gradient-to-*` spelling too", () => {
+    const v3 = resolveClassName("bg-gradient-to-r from-white to-black");
+    const v4 = resolveClassName("bg-linear-to-r from-white to-black");
+    expect(v3.backgroundGradient).toEqual(v4.backgroundGradient);
+    expect(v3.backgroundGradient?.direction).toBe("to-r");
+  });
+
+  test("`via` becomes a middle stop, in order", () => {
+    expect(
+      resolveClassName("bg-linear-to-t from-red-500 via-white to-blue-500")
+        .backgroundGradient?.colors,
+    ).toHaveLength(3);
+  });
+
+  test("arbitrary stop colors work (a brand is rarely on the palette)", () => {
+    expect(
+      resolveClassName("bg-linear-to-br from-[#2e91c7] to-[#4f6bf2]")
+        .backgroundGradient?.colors,
+    ).toEqual(["#2e91c7", "#4f6bf2"]);
+  });
+
+  test("a lone `from-` is not a gradient — it would swallow the bg it sits next to", () => {
+    const r = resolveClassName("bg-zinc-800 bg-linear-to-br from-sky-500");
+    expect(r.backgroundGradient).toBeUndefined();
+    expect(r.backgroundColor).toBe("#27272a");
+  });
+
+  test("stops without a direction are not a gradient", () => {
+    expect(
+      resolveClassName("from-sky-500 to-violet-600").backgroundGradient,
+    ).toBeUndefined();
+  });
+});
+
+describe("variants — the conditions belong to the host, not the plugin", () => {
+  test("dark: is collected, not resolved", () => {
+    // The plugin can't know: one window can be light while the system is dark.
+    const r = resolveClassName("bg-white dark:bg-zinc-900");
+    expect(r.backgroundColor).toBe("#ffffff");
+    expect(r.variants?.dark).toMatchObject({ backgroundColor: "#18181b" });
+  });
+
+  test("hover: too — streaming mouse-enter over RPC to re-render a tree is absurd", () => {
+    const r = resolveClassName("hover:bg-muted hover:text-foreground");
+    expect(r.variants?.hover).toMatchObject({
+      backgroundColor: "muted",
+      color: "foreground",
+    });
+  });
+
+  test("a chain is one key, and every condition in it must hold", () => {
+    const r = resolveClassName("dark:hover:border-zinc-600");
+    expect(Object.keys(r.variants ?? {})).toEqual(["dark:hover"]);
+  });
+
+  test("an unknown prefix drops the whole token", () => {
+    // Stripping `md:` would silently make it an UNCONDITIONAL style — worse
+    // than it not working, because it would look like it worked.
+    const r = resolveClassName("md:bg-red-500");
+    expect(r.backgroundColor).toBeUndefined();
+    expect(r.variants).toBeUndefined();
+  });
+
+  test("a colon inside an arbitrary value is not a variant prefix", () => {
+    expect(resolveClassName("bg-[rgb(1,2,3)]").backgroundColor).toBe("rgb(1,2,3)");
+  });
+
+  test("no variants means no `variants` key at all — the IR stays lean", () => {
+    expect(resolveClassName("p-4").variants).toBeUndefined();
+  });
+});

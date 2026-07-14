@@ -21,6 +21,14 @@ struct DemoSection {
     }
 }
 
+// MARK: - Demo brand
+
+/// This demo app's brand color. It lives HERE, in the product, because that is
+/// what it is. `UniviewAppKit` has no brand and must never grow one: a renderer
+/// that knows what "primary" looks like can host exactly one product, and would
+/// have that product ported into Windows and HarmonyOS along with it.
+let demoBrandColor = NSColor(srgbRed: 0.18, green: 0.57, blue: 0.78, alpha: 1)
+
 // MARK: - Sidebar
 
 /// A Music/Finder-style sidebar row: SF Symbol + label on a soft neutral pill.
@@ -94,8 +102,8 @@ final class SidebarRow: NSView {
         let pill: NSColor
         if isSelected {
             pill = NSColor.labelColor.withAlphaComponent(0.09)
-            icon.contentTintColor = univiewBrandColor
-            label.textColor = univiewBrandColor
+            icon.contentTintColor = demoBrandColor
+            label.textColor = demoBrandColor
             label.font = .systemFont(ofSize: 13, weight: .semibold)
         } else if isHovering {
             pill = NSColor.labelColor.withAlphaComponent(0.05)
@@ -318,6 +326,14 @@ final class ContentViewController: NSViewController {
             layoutEngine: YogaLayoutEngine(),
             containerSize: .zero,
             executeHandler: { id, args in router.execute(id, args) })
+
+        // A style field this host can't use is a bug in the plugin — or a plugin
+        // newer than this host. Neither is a reason to tear the UI down (that's
+        // what `onError` does): the node keeps the styling we *do* understand and
+        // the dropped field goes to the log, where it can be fixed.
+        host.tree.onStyleIssue = { nodeId, issue in
+            FileHandle.standardError.write(Data("[uniview] node '\(nodeId)': \(issue)\n".utf8))
+        }
         super.init(nibName: nil, bundle: nil)
 
         // `<Window>` configures the window the app already owns — it can't be

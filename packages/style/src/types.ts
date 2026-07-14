@@ -47,11 +47,66 @@ export interface BoxShadow {
   color: string;
 }
 
+/** Tailwind's eight gradient directions, as unit vectors the host can use as-is. */
+export type GradientDirection =
+  | "to-t"
+  | "to-tr"
+  | "to-r"
+  | "to-br"
+  | "to-b"
+  | "to-bl"
+  | "to-l"
+  | "to-tl";
+
+/**
+ * A linear gradient — `bg-linear-to-br from-sky-500 via-indigo-400 to-violet-600`.
+ *
+ * This exists so that a *brand* can live in the plugin. The AppKit host used to
+ * hardcode a blue→violet diagonal and paint it on any `<Button variant="primary">`:
+ * a product decision compiled into a renderer, unreachable from the tree, and due
+ * to be copy-pasted into every new platform. A gradient is geometry; whose
+ * gradient it is, is not the renderer's business.
+ */
+export interface LinearGradient {
+  direction: GradientDirection;
+  /** `from`, then any `via`, then `to` — at least two stops. */
+  colors: string[];
+}
+
+/**
+ * A condition a style can be gated on. These are all things the *host* knows and
+ * the plugin does not: which appearance the view ended up in, where the mouse is,
+ * who holds first responder.
+ */
+export type VariantName =
+  | "dark"
+  | "light"
+  | "hover"
+  | "focus"
+  | "active"
+  | "disabled";
+
+/**
+ * Conditional styles, keyed by their condition chain (`"dark"`, `"hover"`,
+ * `"dark:hover"`). Every condition in the key must hold for the style to apply;
+ * more specific keys (more conditions) win over less specific ones.
+ *
+ * The whole point is that these are resolved by the HOST, not the plugin.
+ * `dark:bg-zinc-900` could have been done by pushing the color scheme to the
+ * plugin and re-rendering — but that costs a round trip, it can't be per-view
+ * (one window forced light while the system is dark), and `hover:` can't work
+ * that way at all: streaming every mouse-enter over RPC to re-render a tree is
+ * absurd. So both variants travel *with* the style and the view picks.
+ */
+export type StyleVariants = Record<string, ResolvedStyle>;
+
 /**
  * The resolved style object. Padding/margin are always expressed as the
  * four explicit edges (hosts map these straight onto Yoga edges).
  */
 export interface ResolvedStyle {
+  /** Conditional overlays. See `StyleVariants`. */
+  variants?: StyleVariants;
   // Layout — flex container
   flexDirection?: FlexDirection;
   justifyContent?: JustifyContent;
@@ -95,6 +150,7 @@ export interface ResolvedStyle {
   aspectRatio?: number;
   // Visual
   backgroundColor?: string;
+  backgroundGradient?: LinearGradient;
   borderColor?: string;
   borderWidth?: number;
   borderRadius?: number;

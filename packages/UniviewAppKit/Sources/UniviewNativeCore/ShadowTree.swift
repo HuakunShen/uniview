@@ -11,6 +11,11 @@ public final class ShadowTree {
     /// The last applied commit revision; `-1` before the first commit.
     public private(set) var revision: Int = -1
 
+    /// Called for every style field a node had to drop (unknown to this host, or
+    /// carrying an unusable value). Hosts route this to their error/log path;
+    /// unset means the drops stay silent.
+    public var onStyleIssue: StyleIssueReporter?
+
     private var index: [String: ShadowNode] = [:]
 
     public init() {}
@@ -40,7 +45,8 @@ public final class ShadowTree {
         case .setProps(let nodeId, let props):
             guard let node = index[nodeId] else { return }
             node.props = props
-            node.style = ShadowNode.resolveStyle(from: props)
+            node.style = ShadowNode.resolveStyle(
+                from: props, nodeId: nodeId, reportingTo: onStyleIssue)
 
         case .setText(let nodeId, let text):
             index[nodeId]?.text = text
@@ -48,14 +54,14 @@ public final class ShadowTree {
         case .appendChild(let parentId, let node):
             guard let parent = index[parentId] else { return }
             detachIfPresent(node.id)  // MOVE-safe: never duplicate an id
-            let child = ShadowNode.from(node)
+            let child = ShadowNode.from(node, reportingTo: onStyleIssue)
             parent.appendChild(child)
             indexSubtree(child)
 
         case .insertBefore(let parentId, let node, let beforeId):
             guard let parent = index[parentId] else { return }
             detachIfPresent(node.id)
-            let child = ShadowNode.from(node)
+            let child = ShadowNode.from(node, reportingTo: onStyleIssue)
             parent.insertChild(child, before: beforeId)
             indexSubtree(child)
 
@@ -71,7 +77,7 @@ public final class ShadowTree {
     private func setRoot(_ node: UINode?) {
         index.removeAll()
         if let node {
-            let newRoot = ShadowNode.from(node)
+            let newRoot = ShadowNode.from(node, reportingTo: onStyleIssue)
             root = newRoot
             indexSubtree(newRoot)
         } else {

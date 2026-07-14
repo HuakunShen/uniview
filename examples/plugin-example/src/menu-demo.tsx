@@ -219,6 +219,18 @@ export default function MenuDemo() {
       {/* The gaps that just landed: an absolutely-placed badge (its offsets used
           to be un-expressible), a real elevation from the theme's scale, an
           arbitrary size, a clamp, and an aspect ratio. */}
+      {/* `hover:` and `dark:` never reach the plugin — no RPC fires when you move
+          the mouse over this, and nothing re-renders. Both styles are in the IR
+          and the native view picks. Hover it; flip Appearance in the Window menu. */}
+      <div className="flex gap-2">
+        <div className="flex-1 p-3 rounded-lg border border-border bg-card hover:bg-emerald-500 dark:hover:bg-violet-500">
+          <p className="text-sm text-foreground text-center">hover me — no RPC</p>
+        </div>
+        <div className="flex-1 p-3 rounded-lg border border-border bg-amber-100 dark:bg-zinc-800">
+          <p className="text-sm text-foreground text-center">dark: vs light</p>
+        </div>
+      </div>
+
       <div className="relative p-4 rounded-lg bg-card border border-border shadow-lg">
         <div className="absolute -top-2 -right-2 w-[22px] aspect-square rounded-full bg-emerald-500" />
         <p className="text-sm text-foreground leading-relaxed line-clamp-2">

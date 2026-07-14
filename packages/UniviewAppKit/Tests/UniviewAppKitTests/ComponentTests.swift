@@ -112,14 +112,54 @@ import Testing
         #expect(changes == ["typed"])
     }
 
-    @Test func primaryVariantButtonIsGradientButton() throws {
+    /// An unstyled button is a REAL native button. The renderer has no house
+    /// style to impose — that is the whole point of rendering natively.
+    @Test func anUnstyledButtonIsANativeBezelButton() throws {
+        let node = ShadowNode.from(
+            UINode(id: "b", type: "Button", props: ["title": .string("Save")]))
+        let button = try #require(mount(ButtonComponent(), node) as? NSButton)
+        #expect(button.title == "Save")
+        #expect(button.isBordered)
+        #expect(button.bezelStyle == .rounded)
+    }
+
+    /// The brand belongs to the plugin. `variant: "primary"` used to make the
+    /// renderer paint *Uniview's* blue→violet gradient; now a gradient is only
+    /// ever drawn because the tree asked for one, in colors the tree chose.
+    @Test func aButtonPaintsOnlyTheGradientTheTreeAskedFor() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "b", type: "Button",
+                props: [
+                    "title": .string("Save"),
+                    "style": .object([
+                        "backgroundGradient": .object([
+                            "direction": .string("to-r"),
+                            "colors": .array([.string("#ff0000"), .string("#00ff00")]),
+                        ]),
+                        "borderRadius": .number(10),
+                    ]),
+                ]))
+        let button = try #require(mount(ButtonComponent(), node) as? NSButton)
+        #expect(!button.isBordered)  // custom fill replaces the bezel
+
+        let gradient = try #require(
+            button.layer?.sublayers?.compactMap { $0 as? CAGradientLayer }.first)
+        #expect(gradient.colors?.count == 2)
+        #expect(gradient.startPoint == CGPoint(x: 0, y: 0.5))  // to-r
+        #expect(gradient.endPoint == CGPoint(x: 1, y: 0.5))
+        #expect(gradient.cornerRadius == 10)
+    }
+
+    /// `variant` is not a prop any more. A tree that still sends one gets a plain
+    /// native button — never a design the renderer invented.
+    @Test func variantIsNotAThing() throws {
         let node = ShadowNode.from(
             UINode(
                 id: "b", type: "Button",
                 props: ["title": .string("Save"), "variant": .string("primary")]))
-        let button = try #require(mount(ButtonComponent(), node) as? GradientButton)
-        // Still a real NSButton with a working title (fires through the same path).
-        #expect(button.title == "Save")
+        let button = try #require(mount(ButtonComponent(), node) as? NSButton)
+        #expect(button.isBordered)
     }
 
     @Test func viewWithGradientBecomesGradientView() throws {
@@ -128,7 +168,10 @@ import Testing
                 id: "v", type: "View",
                 props: [
                     "style": .object([
-                        "backgroundGradient": .array([.string("brand"), .string("brand-violet")])
+                        "backgroundGradient": .object([
+                            "direction": .string("to-br"),
+                            "colors": .array([.string("#2e91c7"), .string("#4f6bf2")]),
+                        ])
                     ])
                 ]))
         let view = mount(ViewComponent(), node)
@@ -141,11 +184,13 @@ import Testing
                 id: "i", type: "Icon",
                 props: [
                     "symbol": .string("house.fill"),
-                    "style": .object(["color": .string("brand")]),
+                    "style": .object(["color": .string("accent")]),
                 ]))
         let imageView = try #require(mount(IconComponent(), node) as? NSImageView)
         #expect(imageView.image != nil)
-        #expect(imageView.contentTintColor == univiewBrandColor)
+        // `accent` is the color the USER picked in System Settings — not a blue
+        // the framework decided on.
+        #expect(imageView.contentTintColor == NSColor.controlAccentColor)
     }
 
     @Test func registryResolvesBuiltinsAndFallback() {

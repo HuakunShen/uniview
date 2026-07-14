@@ -64,3 +64,94 @@ import Testing
         #expect(String(data: data, encoding: .utf8) == "\"100%\"")
     }
 }
+
+/// Decoding is field-by-field, so one bad field costs only itself. A plugin built
+/// against a newer `@uniview/style` sends fields this host has never heard of; the
+/// node must degrade to the styling we *do* understand, not lose all of it.
+@Suite struct StyleIRResilientDecodingTests {
+    @Test func unknownFieldIsSkippedAndKnownFieldsSurvive() {
+        let (style, issues) = StyleIR.decoding(
+            .object([
+                "width": .number(120),
+                "backgroundColor": .string("#0a84ff"),
+                "backdropSaturation": .number(1.8),  // a field from a newer @uniview/style
+            ]))
+
+        #expect(style.width == .points(120))
+        #expect(style.backgroundColor == "#0a84ff")
+        #expect(issues == [StyleDecodeIssue(field: "backdropSaturation", reason: .unknownField)])
+    }
+
+    @Test func wrongTypedFieldIsSkippedAndTheRestSurvives() {
+        // The regression: `shadow` used to be a color string, and is now a
+        // BoxShadow. The stale string must not take the whole style down with it.
+        let (style, issues) = StyleIR.decoding(
+            .object([
+                "width": .number(200),
+                "height": .number(64),
+                "borderRadius": .number(12),
+                "backgroundGradient": .object([
+                    "direction": .string("to-r"),
+                    "colors": .array([.string("#111"), .string("#333")]),
+                ]),
+                "shadow": .string("brand"),  // stale: was a color token, now a struct
+            ]))
+
+        #expect(style.width == .points(200))
+        #expect(style.height == .points(64))
+        #expect(style.borderRadius == 12)
+        #expect(
+            style.backgroundGradient
+                == LinearGradient(direction: .toRight, colors: ["#111", "#333"]))
+        #expect(style.shadow == nil)
+        #expect(issues.count == 1)
+        #expect(issues.first?.field == "shadow")
+        #expect(issues.first?.reason != .unknownField)
+    }
+
+    @Test func wellFormedStyleReportsNoIssues() {
+        let (style, issues) = StyleIR.decoding(
+            .object(["flexDirection": .string("row"), "gap": .number(8)]))
+
+        #expect(style.flexDirection == .row)
+        #expect(style.gap == 8)
+        #expect(issues.isEmpty)
+    }
+
+    @Test func nullFieldMeansUnsetNotBroken() {
+        let (style, issues) = StyleIR.decoding(.object(["gap": .null, "width": .number(10)]))
+
+        #expect(style.gap == nil)
+        #expect(style.width == .points(10))
+        #expect(issues.isEmpty)
+    }
+
+    @Test func nonObjectStyleYieldsEmptyStyleAndOneIssue() {
+        let (style, issues) = StyleIR.decoding(.string("nonsense"))
+
+        #expect(style == StyleIR())
+        #expect(issues.count == 1)
+    }
+
+    /// The whole point of the exercise, at the level the host actually sees it.
+    @Test func nodeKeepsItsStylingWhenOneFieldIsBad() {
+        var reported: [(String, StyleDecodeIssue)] = []
+        let node = UINode(
+            id: "card", type: "View",
+            props: [
+                "_style": .object([
+                    "width": .number(320),
+                    "borderRadius": .number(16),
+                    "shadow": .string("brand"),
+                ])
+            ])
+
+        let shadow = ShadowNode.from(node, reportingTo: { reported.append(($0, $1)) })
+
+        #expect(shadow.style.width == .points(320))
+        #expect(shadow.style.borderRadius == 16)
+        #expect(reported.count == 1)
+        #expect(reported.first?.0 == "card")
+        #expect(reported.first?.1.field == "shadow")
+    }
+}

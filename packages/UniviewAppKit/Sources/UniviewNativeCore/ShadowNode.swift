@@ -76,16 +76,20 @@ public final class ShadowNode {
         return children.map(\.renderedText).joined()
     }
 
-    /// Recursively build a shadow node from a serialized `UINode`, decoding
-    /// the Style IR from the node's props (absent/invalid → empty style).
-    public static func from(_ node: UINode) -> ShadowNode {
+    /// Recursively build a shadow node from a serialized `UINode`, decoding the
+    /// Style IR from the node's props. Style fields the host cannot use are
+    /// dropped individually and passed to `reporter` — the rest of the style
+    /// still reaches the node.
+    public static func from(_ node: UINode, reportingTo reporter: StyleIssueReporter? = nil)
+        -> ShadowNode
+    {
         ShadowNode(
             id: node.id,
             type: node.type,
             props: node.props,
-            style: resolveStyle(from: node.props),
+            style: resolveStyle(from: node.props, nodeId: node.id, reportingTo: reporter),
             text: node.text,
-            children: node.children.map(ShadowNode.from)
+            children: node.children.map { from($0, reportingTo: reporter) }
         )
     }
 
@@ -94,10 +98,15 @@ public final class ShadowNode {
     /// Web hosts keep reading the plugin's `className` / `style` — the same tree
     /// serves both, which is why the IR gets its own key instead of overwriting
     /// `style` (there it would mean "a CSS object").
-    static func resolveStyle(from props: [String: JSONValue]) -> StyleIR {
-        let raw = props["_style"] ?? props["style"]
-        guard let raw, let style = try? raw.decode(StyleIR.self) else {
-            return StyleIR()
+    static func resolveStyle(
+        from props: [String: JSONValue],
+        nodeId: String,
+        reportingTo reporter: StyleIssueReporter? = nil
+    ) -> StyleIR {
+        guard let raw = props["_style"] ?? props["style"] else { return StyleIR() }
+        let (style, issues) = StyleIR.decoding(raw)
+        if let reporter {
+            for issue in issues { reporter(nodeId, issue) }
         }
         return style
     }

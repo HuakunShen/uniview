@@ -1,45 +1,108 @@
 import AppKit
 import UniviewNativeCore
 
-/// A view whose layer colors are re-resolved whenever its appearance changes.
+/// A view that re-paints itself whenever the *conditions* it is styled on change.
 ///
-/// This is what makes a native color token worth anything at all. `NSColor` is
-/// dynamic — `.labelColor` *is* a different color in dark mode. `CGColor` is a
-/// **snapshot**. The moment you write `layer.backgroundColor = color.cgColor` you
-/// have frozen that color at whatever appearance happened to be current, and it
-/// will not move again: not when the user flips the system to dark, and not when
-/// the view lands inside a window carrying `<Window appearance="light">`. The
-/// token would arrive perfectly intact and still paint the wrong color.
+/// Two separate reasons this has to exist, and they turn out to be the same one.
 ///
-/// So the paint step is *stored*, not merely performed — and re-run with the
-/// view's own appearance made current, because "current appearance" is precisely
-/// what `.cgColor` reads to decide what it means.
+/// `NSColor` is dynamic; `CGColor` is a **snapshot**. Writing
+/// `layer.backgroundColor = color.cgColor` freezes the color at whatever
+/// appearance happened to be current, and it never moves again — not when the
+/// system flips to dark, and not when the view lands in a window carrying
+/// `<Window appearance="light">`. A semantic token would arrive perfectly intact
+/// and still paint the wrong thing.
+///
+/// And `dark:` / `hover:` / `active:` are conditions the *host* owns. The plugin
+/// cannot know them: one window can be light while the system is dark, and
+/// streaming every mouse-enter over RPC to re-render a React tree is absurd. So
+/// both styles travel together in the IR and the view decides — here.
+///
+/// Which means the paint step is *stored*, not merely performed, and re-run
+/// whenever the state changes, with this view's own appearance made current
+/// (that is precisely what `.cgColor` reads to decide what it means).
 @MainActor
-public protocol AppearanceSensitive: NSView {
-    /// How this view paints its layer. Re-run on every appearance change.
-    var repaint: ((CALayer) -> Void)? { get set }
+public protocol StyleStateView: NSView {
+    /// How this view paints its layer, given the conditions that currently hold.
+    var repaint: ((CALayer, Set<String>) -> Void)? { get set }
+    var isHovered: Bool { get set }
+    var isPressed: Bool { get set }
 }
 
-extension AppearanceSensitive {
+extension StyleStateView {
+    /// The conditions that hold right now — the keys `StyleIR.variants` is keyed by.
+    public var styleState: Set<String> {
+        var state: Set<String> = []
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        state.insert(dark ? "dark" : "light")
+        if isHovered { state.insert("hover") }
+        if isPressed { state.insert("active") }
+        if let responder = window?.firstResponder as? NSView, responder === self {
+            state.insert("focus")
+        }
+        return state
+    }
+
     /// Record how to paint, and paint now.
-    public func setRepaint(_ paint: @escaping (CALayer) -> Void) {
+    public func setRepaint(_ paint: @escaping (CALayer, Set<String>) -> Void) {
         repaint = paint
         repaintNow()
     }
 
-    /// Re-run the stored paint step under this view's *effective* appearance —
-    /// the window's, if it overrides the system's.
     public func repaintNow() {
         guard let layer, let repaint else { return }
-        effectiveAppearance.performAsCurrentDrawingAppearance { repaint(layer) }
+        let state = styleState
+        effectiveAppearance.performAsCurrentDrawingAppearance { repaint(layer, state) }
     }
 }
 
 /// A top-down `NSView` (origin at top-left) matching Yoga's coordinate space,
 /// so computed frames map straight onto subview frames.
-public class FlippedView: NSView, AppearanceSensitive {
-    public var repaint: ((CALayer) -> Void)?
+public class FlippedView: NSView, StyleStateView {
+    public var repaint: ((CALayer, Set<String>) -> Void)?
     public override var isFlipped: Bool { true }
+
+    public var isHovered = false {
+        didSet { if isHovered != oldValue { repaintNow() } }
+    }
+    public var isPressed = false {
+        didSet { if isPressed != oldValue { repaintNow() } }
+    }
+
+    /// A tracking area is not free, and most views never hover. Only the ones
+    /// whose style actually mentions `hover:` / `active:` pay for one.
+    public var tracksPointer = false {
+        didSet {
+            guard tracksPointer != oldValue else { return }
+            if !tracksPointer { isHovered = false; isPressed = false }
+            updateTrackingAreas()
+        }
+    }
+    private var pointerArea: NSTrackingArea?
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let pointerArea { removeTrackingArea(pointerArea) }
+        pointerArea = nil
+        guard tracksPointer else { return }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self)
+        addTrackingArea(area)
+        pointerArea = area
+    }
+
+    public override func mouseEntered(with event: NSEvent) { isHovered = true }
+    public override func mouseExited(with event: NSEvent) {
+        isHovered = false
+        isPressed = false
+    }
+    public override func mouseDown(with event: NSEvent) {
+        if tracksPointer { isPressed = true } else { super.mouseDown(with: event) }
+    }
+    public override func mouseUp(with event: NSEvent) {
+        if tracksPointer { isPressed = false } else { super.mouseUp(with: event) }
+    }
 
     public override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -49,8 +112,14 @@ public class FlippedView: NSView, AppearanceSensitive {
 
 /// A flipped `NSVisualEffectView` for native vibrancy/materials on a Uniview
 /// container (top-down coords like `FlippedView`).
-public final class MaterialView: NSVisualEffectView, AppearanceSensitive {
-    public var repaint: ((CALayer) -> Void)?
+public final class MaterialView: NSVisualEffectView, StyleStateView {
+    public var repaint: ((CALayer, Set<String>) -> Void)?
+    public var isHovered = false {
+        didSet { if isHovered != oldValue { repaintNow() } }
+    }
+    public var isPressed = false {
+        didSet { if isPressed != oldValue { repaintNow() } }
+    }
     public override var isFlipped: Bool { true }
 
     public override func viewDidChangeEffectiveAppearance() {
@@ -69,15 +138,19 @@ public final class GradientView: FlippedView {
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        gradient.startPoint = CGPoint(x: 0, y: 0)
-        gradient.endPoint = CGPoint(x: 1, y: 1)
         layer?.insertSublayer(gradient, at: 0)
     }
 
     public required init?(coder: NSCoder) { fatalError() }
 
-    public func setGradientColors(_ colors: [CGColor]) {
+    /// The direction comes from the IR. This used to be fixed at top-leading →
+    /// bottom-trailing, which was only ever "correct" because the sole gradient
+    /// the host drew was one it had hardcoded itself.
+    public func setGradient(colors: [CGColor], direction: GradientDirection) {
         gradient.colors = colors.isEmpty ? nil : colors
+        let (start, end) = direction.unit
+        gradient.startPoint = CGPoint(x: start.x, y: start.y)
+        gradient.endPoint = CGPoint(x: end.x, y: end.y)
     }
 
     public override func layout() {
@@ -132,16 +205,11 @@ public enum UniviewMaterial {
     }
 }
 
-/// The Uniview brand accent (matched to the reference app's bright blue).
-public let univiewBrandColor = NSColor(srgbRed: 0.18, green: 0.57, blue: 0.78, alpha: 1)
-public let univiewBrandViolet = NSColor(srgbRed: 0.31, green: 0.42, blue: 0.95, alpha: 1)
-public let univiewBrandCyan = NSColor(srgbRed: 0.18, green: 0.70, blue: 0.92, alpha: 1)
-
-/// The signature diagonal brand gradient (top-leading → bottom-trailing) used on
-/// hero chips and the primary button — mirrors the reference app's `brandGradient`.
-public var univiewBrandGradient: [CGColor] {
-    [univiewBrandColor.cgColor, univiewBrandViolet.cgColor]
-}
+// No brand colors live here, and none ever should. A renderer that knows what
+// "the accent" looks like has a design system baked into it, can host exactly one
+// product, and will have that product copy-pasted into every platform it is
+// ported to. `accent` below resolves to the color the *user* chose in System
+// Settings — which is both the agnostic answer and the native one.
 
 /// The font a Style IR describes.
 func nsFont(for style: StyleIR, defaultSize: Double = Double(NSFont.systemFontSize)) -> NSFont {
@@ -253,11 +321,11 @@ public enum CSSColor {
             return .underPageBackgroundColor
         case "separator", "border", "hairline": return .separatorColor
         case "grid": return .gridColor
-        case "brand", "accent", "primary", "tint": return univiewBrandColor
+        // The user's own accent color, from System Settings. A plugin that wants
+        // *its* blue says so with a palette color or an arbitrary value; `accent`
+        // means "whatever this machine calls accent".
+        case "accent", "primary", "tint", "control-accent": return .controlAccentColor
         case "primary-foreground": return .white
-        case "brand-violet": return univiewBrandViolet
-        case "brand-cyan": return univiewBrandCyan
-        case "control-accent": return .controlAccentColor
         case "selected-text-background": return .selectedTextBackgroundColor
         default: return nil
         }
