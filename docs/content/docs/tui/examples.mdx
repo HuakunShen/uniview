@@ -1,0 +1,74 @@
+---
+title: Examples
+description: Four runnable demos — and how the screenshots are made
+icon: LayoutGrid
+---
+
+import Image from "next/image";
+import lazygitSolid from "@/public/tui/lazygit-solid.svg";
+import charts from "@/public/tui/charts-react.svg";
+import game2048 from "@/public/tui/2048-solid.svg";
+
+## lazygit — in both frameworks
+
+<Image src={lazygitSolid} alt="The lazygit demo: status, files, branches, commits and stash panels down the left, a log panel on the right, a keybinding bar at the bottom" />
+
+```bash
+pnpm --filter @uniview/tui-lazygit-demo  dev   # React
+pnpm --filter @uniview/tui-lazygit-solid dev   # Solid
+```
+
+The same application, written twice. `1`–`5`/`0` focus a panel; `↑`/`↓` move the branch or
+commit selection; the log panel mirrors the selected commit.
+
+These two exist to be compared. Their rendered frames are **byte-identical** — the proof
+that the framework sits above the renderer, not inside it.
+
+## Charts — an oha-style dashboard
+
+<Image src={charts} alt="A load-test dashboard: progress gauge, request stats, status-code distribution, requests-per-second bar chart, response-time histogram" />
+
+```bash
+pnpm --filter @uniview/tui-charts-demo dev
+```
+
+A simulated load test: gauge, bar chart, histogram, and live stats.
+
+## 2048 — played by a trained agent
+
+<Image src={game2048} alt="2048 in the terminal showing the 2048 tile reached, score 20904, a score-curve sparkline, and an AI panel reading depth 2" />
+
+```bash
+pnpm --filter @uniview/tui-2048-solid dev
+```
+
+`↑↓←→` to play, `a` to hand it to the AI, `s` to step it once, `+`/`-` for search depth.
+
+The AI is not a heuristic. It is an n-tuple network (5 patterns, 8-way dihedral symmetry,
+~84 MB of trained weights) driving expectimax over afterstates. At depth 1 it reaches 2048;
+at depth 2 it reaches 4096. The engine is verified against the reference implementation —
+816 golden move cases, and `V(board)` reproduced across six different grid shapes.
+
+The weights are not in the repository. **The game runs without them** — it is fully playable
+by hand, and the AI panel simply says so.
+
+Note what the board is made of: colored `Box`es and centered `Text`, and the score curve is
+the same `Sparkline` the charts demo uses. A game needed no new render primitive.
+
+## How these screenshots are made
+
+Each example has a `snapshot` script. It runs the real application and swaps exactly one
+line — `AnsiCellSurface` becomes `SvgCellSurface` — then writes `toSVG()` into
+`docs/public/tui/`.
+
+```bash
+pnpm --filter @uniview/tui-2048-solid snapshot
+# wrote docs/public/tui/2048-solid.svg (17481 bytes, won=true, score=20904)
+```
+
+So the images are real frames of the real component tree, not mock-ups that can quietly
+drift from the code. They are SVG, so they stay crisp at any zoom — and being cells, they
+are also just text underneath.
+
+Snapshots are seeded where the app is random (2048 picks its spawns from an injected RNG),
+so re-running the script does not churn the diff.

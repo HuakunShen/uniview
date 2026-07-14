@@ -50,3 +50,4 @@ yarn-error.log*
 references/
 
 examples/bun*
+docs/superpowers

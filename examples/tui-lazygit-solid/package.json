@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite-node src/main.tsx",
     "test": "vitest run",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "snapshot": "vite-node scripts/snapshot.tsx"
   },
   "dependencies": {
     "@uniview/solid-renderer": "workspace:*",

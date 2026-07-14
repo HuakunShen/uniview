@@ -1,0 +1,81 @@
+---
+title: Charts
+description: Bars, sparklines, gauges, line plots and scatter — at sub-cell resolution
+icon: ChartColumn
+---
+
+import Image from "next/image";
+import charts from "@/public/tui/charts-react.svg";
+
+<Image src={charts} alt="A load-test dashboard rendered in the terminal: progress gauge, stats panel, status-code distribution, a bar chart of requests per second, and a response-time histogram" />
+
+## Sub-cell resolution
+
+A terminal cell is a coarse pixel, so the charts cheat two ways:
+
+- **Eighth blocks** (`▁▂▃▄▅▆▇█`) give bars and sparklines 8 vertical steps per row.
+- **Braille** (`⠀`–`⣿`) packs a 2×4 dot matrix into a single cell, so line and scatter plots
+  get **8× the resolution** of the character grid.
+
+Both live in `@uniview/tui-core` (`verticalBarColumn`, `SubcellCanvas`), and the chart
+builders in `@uniview/tui-charts` are pure functions on top of them — `data → RenderNode`,
+no React, no Solid, no terminal.
+
+That is why the components are thin: they are `createMemo`/`useMemo` wrappers over the same
+builder, which is what makes a chart render identically in both frameworks.
+
+## The six
+
+```tsx
+<BarChart data={[{ label: "a", value: 12 }, { label: "b", value: 30 }]} />
+<Histogram values={latencies} options={{ bins: 12 }} />
+<Sparkline values={scoreHistory} options={{ max: 100 }} />
+<Gauge fraction={elapsed / total} options={{ width: 40 }} />
+<LineChart series={[{ points: [[0, 0], [1, 4], [2, 3]] }]} options={{ width: 60, height: 12 }} />
+<Scatter series={[{ points: samples }]} options={{ width: 60, height: 12 }} />
+```
+
+## Using the builders directly
+
+Nothing forces you through a component. The builders return a `RenderNode`, which you can
+render with `renderNodeToElement` — or paint yourself.
+
+```tsx
+import { renderSparkline } from "@uniview/tui-charts";
+import { renderNodeToElement } from "@uniview/tui-react";
+
+const node = renderSparkline(values, { max: 8 });
+return renderNodeToElement(node);
+```
+
+<Callout type="warn" title="Sparkline draws one glyph per value">
+There is no `width` option — a sparkline is exactly as many columns as it has values. If
+your series is long (a game with a thousand moves, a day of samples), **resample it to the
+width you have** rather than handing the whole thing over:
+
+```tsx
+const fit = (series: readonly number[], width: number) =>
+  series.length <= width
+    ? [...series]
+    : Array.from({ length: width }, (_, i) =>
+        series[Math.round((i * (series.length - 1)) / (width - 1))]);
+
+<Sparkline values={fit(history, 20)} />
+```
+
+Sampling rather than truncating keeps the shape of the whole series visible.
+</Callout>
+
+## Colors
+
+`Color` is `string | RgbColor`, so named colors and truecolor both work:
+
+```tsx
+<Sparkline values={values} options={{ color: { r: 0x2e, g: 0x9e, b: 0xf7 } }} />
+```
+
+<Callout type="info">
+When plotting several series, reuse **one** color object per series rather than allocating a
+fresh `{ r, g, b }` per point. `SubcellCanvas` merges color runs by reference, so a new
+object per dot defeats the merge and bloats the span list.
+</Callout>
