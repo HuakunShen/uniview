@@ -17,6 +17,7 @@ import type {
   TuiInputEvent,
 } from "@uniview/tui-core";
 
+export { renderNodeToElement } from "./content";
 export { Box, RichText, Text } from "./primitives";
 export type {
   BoxProps,
