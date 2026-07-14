@@ -39,6 +39,14 @@ public final class Mounter {
         if let view = views[node.id] {
             let rect = node.layout
             view.frame = NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
+
+            // A corner radius can't exceed half the box. `rounded-full` asks for a
+            // pill by naming an absurd radius (9999); left unclamped, CoreAnimation
+            // renders a degenerate rounded rect and — once masked — nothing at all.
+            // Only here is the final size known.
+            if let radius = node.style.borderRadius, let layer = view.layer {
+                layer.cornerRadius = min(CGFloat(radius), min(rect.width, rect.height) / 2)
+            }
         }
         for child in node.children where !child.isTextNode {
             applyLayout(node: child)

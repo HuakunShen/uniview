@@ -119,10 +119,13 @@ public struct StyleIR: Equatable, Sendable, Codable {
     public var paddingRight: Double?
     public var paddingBottom: Double?
     public var paddingLeft: Double?
-    public var marginTop: Double?
-    public var marginRight: Double?
-    public var marginBottom: Double?
-    public var marginLeft: Double?
+    /// Margins are dimensions, not plain points: `auto` margins are how a
+    /// fixed-width box centers itself (Tailwind's `mx-auto`), and Yoga
+    /// implements that natively.
+    public var marginTop: StyleDimension?
+    public var marginRight: StyleDimension?
+    public var marginBottom: StyleDimension?
+    public var marginLeft: StyleDimension?
     // Layout — sizing
     public var width: StyleDimension?
     public var height: StyleDimension?

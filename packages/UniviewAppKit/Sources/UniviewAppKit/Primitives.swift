@@ -96,6 +96,31 @@ public struct TextComponent: Component {
         case .left, .none: label.alignment = .left
         }
     }
+
+    /// Measured with a real `NSTextField`, not with the raw string: the cell adds
+    /// its own insets, and measuring the glyphs alone comes up a few points
+    /// short — just enough for the last word to wrap onto a line the box has no
+    /// room for, and get clipped.
+    public func intrinsicSize(_ node: ShadowNode, maxWidth: Double) -> Size? {
+        let text = node.renderedText
+        guard !text.isEmpty else { return nil }
+
+        let ruler = Self.ruler
+        ruler.stringValue = text
+        ruler.font = nsFont(for: node.style)
+        ruler.preferredMaxLayoutWidth =
+            maxWidth.isFinite ? CGFloat(maxWidth) : CGFloat.greatestFiniteMagnitude
+        let fitting = ruler.fittingSize
+        return Size(width: ceil(fitting.width), height: ceil(fitting.height))
+    }
+
+    /// One off-screen label, reused for every measurement (layout is main-actor).
+    private static let ruler: NSTextField = {
+        let label = NSTextField(labelWithString: "")
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        return label
+    }()
 }
 
 // MARK: - Icon
@@ -130,6 +155,11 @@ public struct IconComponent: Component {
         imageView.symbolConfiguration = NSImage.SymbolConfiguration(
             pointSize: size, weight: nsFontWeight(node.style.fontWeight))
         imageView.contentTintColor = node.style.color.flatMap(CSSColor.parse) ?? .labelColor
+    }
+
+    public func intrinsicSize(_ node: ShadowNode, maxWidth: Double) -> Size? {
+        let side = (node.style.fontSize ?? 15) + 6
+        return Size(width: side, height: side)
     }
 }
 
@@ -185,6 +215,22 @@ public struct ButtonComponent: Component {
         }
         button.bind(handlerId: node.handlerId(for: "onClick"), executor: context.executeHandler)
     }
+
+    /// Title plus the button's own chrome. Never wrapped: a button grows to fit
+    /// its label, it doesn't reflow it.
+    public func intrinsicSize(_ node: ShadowNode, maxWidth: Double) -> Size? {
+        let title = node.props["title"]?.stringValue ?? node.renderedText
+        let label = measureText(
+            title.isEmpty ? "Button" : title,
+            font: NSFont.systemFont(ofSize: 13.5, weight: .semibold),
+            maxWidth: .infinity)
+        let icon: Double = node.props["icon"] == nil ? 0 : Self.iconWidth
+        return Size(width: label.width + icon + Self.horizontalPadding, height: Self.height)
+    }
+
+    private static let height: Double = 32
+    private static let horizontalPadding: Double = 28
+    private static let iconWidth: Double = 22
 
     private func symbolImage(_ name: String?, template: Bool) -> NSImage? {
         guard let name, let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
@@ -294,6 +340,13 @@ public struct TextInputComponent: Component {
         field.setValueFromHost(value.isEmpty ? defaultValue : value)
         field.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
         field.bind(handlerId: node.handlerId(for: "onChange"), executor: context.executeHandler)
+    }
+
+    /// A field has a fixed height and no natural width — in a stretch-aligned
+    /// column it fills the row, and this width is only the fallback when nothing
+    /// stretches it.
+    public func intrinsicSize(_ node: ShadowNode, maxWidth: Double) -> Size? {
+        Size(width: 200, height: 34)
     }
 }
 

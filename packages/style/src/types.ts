@@ -48,10 +48,12 @@ export interface ResolvedStyle {
   paddingRight?: number;
   paddingBottom?: number;
   paddingLeft?: number;
-  marginTop?: number;
-  marginRight?: number;
-  marginBottom?: number;
-  marginLeft?: number;
+  // Margins take a Dimension, not a plain number: `mx-auto` (auto margins) is
+  // how Tailwind centers a fixed-width box, and Yoga implements it natively.
+  marginTop?: Dimension;
+  marginRight?: Dimension;
+  marginBottom?: Dimension;
+  marginLeft?: Dimension;
   // Layout — sizing
   width?: Dimension;
   height?: Dimension;
@@ -89,7 +91,7 @@ export interface StyleInput extends ResolvedStyle {
   padding?: number;
   paddingHorizontal?: number;
   paddingVertical?: number;
-  margin?: number;
-  marginHorizontal?: number;
-  marginVertical?: number;
+  margin?: Dimension;
+  marginHorizontal?: Dimension;
+  marginVertical?: Dimension;
 }

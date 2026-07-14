@@ -6,6 +6,24 @@ import yoga
 /// Style IR, runs flexbox layout, and writes the computed (parent-relative)
 /// frames back into each `ShadowNode.layout`. All Yoga C calls are confined to
 /// this file so the rest of the framework stays engine-agnostic.
+/// Yoga's measure callback is a bare C function pointer — no captures — so the
+/// node and its measurer travel through the Yoga node's `void *` context.
+///
+/// Layout is driven from the main actor (`UniviewHost`), and Yoga calls this
+/// synchronously inside `YGNodeCalculateLayout`, so we are still on it here.
+private let ygMeasure: YGMeasureFunc = { ygNode, width, widthMode, _, _ in
+    guard let context = YGNodeGetContext(ygNode) else { return YGSize(width: 0, height: 0) }
+    let box = Unmanaged<YogaLayoutEngine.MeasureBox>.fromOpaque(context).takeUnretainedValue()
+
+    let maxWidth: Double =
+        (widthMode == .undefined || width.isNaN) ? .infinity : Double(width)
+    let size = MainActor.assumeIsolated { box.measurer.measure(box.node, maxWidth: maxWidth) }
+
+    guard let size else { return YGSize(width: 0, height: 0) }
+    return YGSize(width: Float(size.width), height: Float(size.height))
+}
+
+@MainActor
 public final class YogaLayoutEngine: LayoutEngine {
     /// Yoga's node allocation and default-config state are process-global and not
     /// thread-safe. Real hosts drive layout from the main actor, but tests (and
@@ -13,11 +31,35 @@ public final class YogaLayoutEngine: LayoutEngine {
     /// corrupts Yoga's heap. Serialize every Yoga interaction through one lock.
     private static let lock = NSLock()
 
+    public var measurer: NodeMeasurer?
+
+    /// Keeps each measured node reachable from Yoga's `void *` context for the
+    /// duration of one `calculate` — Yoga's C callback can't capture anything.
+    ///
+    /// `@unchecked Sendable` because it crosses a C function pointer, which the
+    /// compiler can't see through. It is safe: boxes are created, read, and
+    /// dropped inside a single `calculate`, which is main-actor-only, and Yoga
+    /// invokes the callback synchronously within it.
+    fileprivate final class MeasureBox: @unchecked Sendable {
+        let node: ShadowNode
+        let measurer: NodeMeasurer
+
+        init(node: ShadowNode, measurer: NodeMeasurer) {
+            self.node = node
+            self.measurer = measurer
+        }
+    }
+
+    private var boxes: [MeasureBox] = []
+
     public init() {}
 
     public func calculate(root: ShadowNode, available: Size) {
         Self.lock.lock()
-        defer { Self.lock.unlock() }
+        defer {
+            boxes.removeAll()
+            Self.lock.unlock()
+        }
         let ygRoot = build(root)
         YGNodeCalculateLayout(ygRoot, Float(available.width), Float(available.height), .LTR)
         readBack(root, from: ygRoot)
@@ -29,10 +71,27 @@ public final class YogaLayoutEngine: LayoutEngine {
     private func build(_ node: ShadowNode) -> YGNodeRef {
         let yg = YGNodeNew()!  // never null in practice
         apply(node.style, to: yg)
-        var index = 0
-        for child in node.children where !child.isTextNode {
-            YGNodeInsertChild(yg, build(child), Int(index))
-            index += 1
+
+        // A component that draws its own content (Text, Button) owns its element
+        // children too — they're inline, not boxes. Laying them out separately
+        // would reserve space for views the mounter never creates.
+        let contentLeaf = measurer?.isContentLeaf(node) ?? false
+        if !contentLeaf {
+            var index = 0
+            for child in node.children where !child.isTextNode {
+                YGNodeInsertChild(yg, build(child), Int(index))
+                index += 1
+            }
+            if index > 0 { return yg }
+        }
+
+        // A leaf: its size comes from its content, which only a measure function
+        // can supply. Yoga rejects measure functions on nodes that have children.
+        if let measurer {
+            let box = MeasureBox(node: node, measurer: measurer)
+            boxes.append(box)
+            YGNodeSetContext(yg, Unmanaged.passUnretained(box).toOpaque())
+            YGNodeSetMeasureFunc(yg, ygMeasure)
         }
         return yg
     }
@@ -74,10 +133,10 @@ public final class YogaLayoutEngine: LayoutEngine {
         applyEdge(style.paddingRight, .right) { YGNodeStyleSetPadding(yg, $0, $1) }
         applyEdge(style.paddingBottom, .bottom) { YGNodeStyleSetPadding(yg, $0, $1) }
         applyEdge(style.paddingLeft, .left) { YGNodeStyleSetPadding(yg, $0, $1) }
-        applyEdge(style.marginTop, .top) { YGNodeStyleSetMargin(yg, $0, $1) }
-        applyEdge(style.marginRight, .right) { YGNodeStyleSetMargin(yg, $0, $1) }
-        applyEdge(style.marginBottom, .bottom) { YGNodeStyleSetMargin(yg, $0, $1) }
-        applyEdge(style.marginLeft, .left) { YGNodeStyleSetMargin(yg, $0, $1) }
+        applyMargin(style.marginTop, .top, yg)
+        applyMargin(style.marginRight, .right, yg)
+        applyMargin(style.marginBottom, .bottom, yg)
+        applyMargin(style.marginLeft, .left, yg)
 
         applyDimension(
             style.width,
@@ -121,6 +180,17 @@ public final class YogaLayoutEngine: LayoutEngine {
 
     private func applyEdge(_ value: Double?, _ edge: YGEdge, _ set: (YGEdge, Float) -> Void) {
         if let value { set(edge, Float(value)) }
+    }
+
+    /// An `auto` margin absorbs the free space on that edge — two of them center
+    /// the box, which is what `mx-auto` means.
+    private func applyMargin(_ value: StyleDimension?, _ edge: YGEdge, _ yg: YGNodeRef) {
+        switch value {
+        case .points(let points): YGNodeStyleSetMargin(yg, edge, Float(points))
+        case .percent(let percent): YGNodeStyleSetMarginPercent(yg, edge, Float(percent))
+        case .auto: YGNodeStyleSetMarginAuto(yg, edge)
+        case .none: break
+        }
     }
 
     private func applyDimension(

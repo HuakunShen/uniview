@@ -24,6 +24,8 @@ public final class UniviewHost {
         self.mounter = Mounter(registry: registry, executeHandler: executeHandler)
         self.layoutEngine = layoutEngine
         self.containerSize = containerSize
+        // Leaves size to their content, and the components themselves say how.
+        layoutEngine.measurer = ComponentMeasurer(registry: registry)
     }
 
     /// The current root native view (nil before the first non-empty commit).

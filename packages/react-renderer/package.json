@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@uniview/protocol": "workspace:*",
+    "@uniview/style": "workspace:*",
     "react-reconciler": "catalog:"
   },
   "peerDependencies": {

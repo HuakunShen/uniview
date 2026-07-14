@@ -82,6 +82,25 @@ public var univiewBrandGradient: [CGColor] {
     [univiewBrandColor.cgColor, univiewBrandViolet.cgColor]
 }
 
+/// The font a Style IR describes.
+func nsFont(for style: StyleIR, defaultSize: Double = Double(NSFont.systemFontSize)) -> NSFont {
+    NSFont.systemFont(
+        ofSize: CGFloat(style.fontSize ?? defaultSize),
+        weight: nsFontWeight(style.fontWeight))
+}
+
+/// Measures a run of text, wrapping it at `maxWidth` (which may be `.infinity`
+/// when the layout engine hasn't constrained the node yet). This is what makes a
+/// text node have a size at all: nothing in the Style IR implies one.
+func measureText(_ text: String, font: NSFont, maxWidth: Double) -> Size {
+    guard !text.isEmpty else { return .zero }
+    let bound = maxWidth.isFinite ? CGFloat(maxWidth) : CGFloat.greatestFiniteMagnitude
+    let rect = NSAttributedString(string: text, attributes: [.font: font]).boundingRect(
+        with: NSSize(width: bound, height: .greatestFiniteMagnitude),
+        options: [.usesLineFragmentOrigin, .usesFontLeading])
+    return Size(width: ceil(rect.width), height: ceil(rect.height))
+}
+
 /// Maps the Style IR font weight to an AppKit `NSFont.Weight`.
 func nsFontWeight(_ weight: FontWeight?) -> NSFont.Weight {
     switch weight {

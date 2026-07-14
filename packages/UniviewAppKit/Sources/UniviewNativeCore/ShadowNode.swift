@@ -77,7 +77,7 @@ public final class ShadowNode {
     }
 
     /// Recursively build a shadow node from a serialized `UINode`, decoding
-    /// the Style IR from `props["style"]` (absent/invalid → empty style).
+    /// the Style IR from the node's props (absent/invalid → empty style).
     public static func from(_ node: UINode) -> ShadowNode {
         ShadowNode(
             id: node.id,
@@ -89,8 +89,14 @@ public final class ShadowNode {
         )
     }
 
+    /// `_style` is the Style IR a plugin's renderer resolved from its Tailwind
+    /// classes and style object; `style` is raw IR, for trees authored natively.
+    /// Web hosts keep reading the plugin's `className` / `style` — the same tree
+    /// serves both, which is why the IR gets its own key instead of overwriting
+    /// `style` (there it would mean "a CSS object").
     static func resolveStyle(from props: [String: JSONValue]) -> StyleIR {
-        guard let raw = props["style"], let style = try? raw.decode(StyleIR.self) else {
+        let raw = props["_style"] ?? props["style"]
+        guard let raw, let style = try? raw.decode(StyleIR.self) else {
             return StyleIR()
         }
         return style

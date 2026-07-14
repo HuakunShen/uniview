@@ -68,4 +68,21 @@ import Testing
         )
         #expect(shadow.renderedText == "Hello world")
     }
+
+    /// A plugin's tree serves web and native hosts at once: `className` / `style`
+    /// stay as the author wrote them (the web hosts read those), and the plugin's
+    /// renderer adds the resolved Style IR as `_style` for hosts with no CSS
+    /// engine. When both are present, the IR is the one that means anything here.
+    @Test func styleIRPropWinsOverTheAuthoredStyleProp() {
+        let shadow = ShadowNode.from(
+            UINode(
+                id: "v", type: "View",
+                props: [
+                    "className": .string("flex-row"),
+                    "style": .object(["padding": .string("20px")]),  // a CSS object
+                    "_style": .object(["flexDirection": .string("row")]),  // the IR
+                ]))
+
+        #expect(shadow.style.flexDirection == .row)
+    }
 }

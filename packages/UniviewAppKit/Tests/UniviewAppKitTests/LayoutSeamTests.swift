@@ -6,8 +6,16 @@ import Testing
 
 /// A trivial layout engine that stacks children vertically — proves the
 /// LayoutEngine → Mounter frame-application seam independently of Yoga.
-private struct StackLayout: LayoutEngine {
+@MainActor
+private final class StackLayout: LayoutEngine {
     let rowHeight: Double
+    /// Sizes everything explicitly, so it never needs to measure a leaf.
+    var measurer: NodeMeasurer?
+
+    init(rowHeight: Double) {
+        self.rowHeight = rowHeight
+    }
+
     func calculate(root: ShadowNode, available: Size) {
         root.layout = LayoutRect(x: 0, y: 0, width: available.width, height: available.height)
         var y = 0.0
