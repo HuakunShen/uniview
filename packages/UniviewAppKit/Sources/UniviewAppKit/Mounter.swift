@@ -28,6 +28,23 @@ public final class Mounter {
     /// The mounted view for a node id, if currently mounted.
     public func view(for id: String) -> NSView? { views[id] }
 
+    /// Apply computed layout: set each mounted view's frame from its node's
+    /// `layout` rect (parent-relative, so it maps straight onto the NSView
+    /// frame). Run after the layout engine has populated the tree.
+    public func applyLayout(_ tree: ShadowTree) {
+        if let root = tree.root { applyLayout(node: root) }
+    }
+
+    private func applyLayout(node: ShadowNode) {
+        if let view = views[node.id] {
+            let rect = node.layout
+            view.frame = NSRect(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
+        }
+        for child in node.children where !child.isTextNode {
+            applyLayout(node: child)
+        }
+    }
+
     /// Sync the `NSView` tree to the current shadow tree; returns the root view.
     @discardableResult
     public func reconcile(_ tree: ShadowTree) -> NSView? {
