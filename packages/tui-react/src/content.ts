@@ -54,9 +54,9 @@ function toElement(node: RenderNode, key: number): ReactElement {
   );
 }
 
-/** Render a content {@link RenderNode} as a React element. */
-export function renderNodeToElement(node: RenderNode): ReactElement {
-  return toElement(node, 0);
+/** Render a content {@link RenderNode} as a React element (with an optional list key). */
+export function renderNodeToElement(node: RenderNode, key = 0): ReactElement {
+  return toElement(node, key);
 }
 
 export interface MarkdownProps extends RenderMarkdownOptions {

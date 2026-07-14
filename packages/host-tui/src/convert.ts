@@ -26,6 +26,10 @@ const TEXT_TYPES = new Set([
 const STYLE_KEYS: readonly (keyof TuiStyle)[] = [
   "display",
   "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
   "flexDirection",
   "flexGrow",
   "flexShrink",
