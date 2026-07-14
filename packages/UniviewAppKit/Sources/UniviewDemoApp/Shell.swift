@@ -169,17 +169,28 @@ struct SidebarStyle {
     var borderColor: NSColor?
     var borderWidth: CGFloat
     var width: CGFloat
+    /// Margin between the sidebar box and the window edges (0 = edge-to-edge).
+    var inset: CGFloat
+    /// Space reserved above the nav rows for the (possibly repositioned) traffic lights.
+    var topContentInset: CGFloat
+    /// Where to move the first traffic light (from the window's top-left) so an
+    /// inset box can wrap them with padding; `nil` keeps the OS default corner.
+    var trafficLightOrigin: CGPoint?
 
-    /// A floating glass panel inset from the window edges (macOS-26-style).
+    /// A floating glass panel inset from the window edges that WRAPS the traffic
+    /// lights — they are nudged down+right to sit inside its top padding.
     static let floating = SidebarStyle(
-        placement: .floating, material: .hudWindow, cornerRadius: 14,
-        // A whisper-thin edge, not a bright hairline.
-        borderColor: NSColor.white.withAlphaComponent(0.07), borderWidth: 1, width: 214)
+        placement: .floating, material: .hudWindow, cornerRadius: 13,
+        borderColor: NSColor.white.withAlphaComponent(0.07), borderWidth: 1,
+        width: 214, inset: 10, topContentInset: 50,
+        trafficLightOrigin: CGPoint(x: 20, y: 18))
 
-    /// A full-height sidebar with the traffic lights inline (Music/Finder-style).
+    /// A full-height sidebar with the traffic lights inline at the default corner
+    /// (Music/Finder-style).
     static let fullHeight = SidebarStyle(
         placement: .fullHeight, material: .hudWindow, cornerRadius: 0,
-        borderColor: nil, borderWidth: 0, width: 240)
+        borderColor: nil, borderWidth: 0,
+        width: 240, inset: 0, topContentInset: 40, trafficLightOrigin: nil)
 }
 
 @MainActor
@@ -231,11 +242,10 @@ final class SidebarViewController: NSViewController {
 
         root.addSubview(stack)
         root.addSubview(footer)
-        // Anchor to the safe area — it resolves to the panel's own top when the
-        // sidebar floats (below the title bar) and to just under the inline
-        // traffic lights when it runs full-height. One anchor covers both styles.
+        // `topContentInset` reserves room above the rows for the traffic lights
+        // (which the window nudges into this panel's top padding when floating).
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor, constant: 8),
+            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: style.topContentInset),
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
@@ -432,7 +442,6 @@ final class RootViewController: NSViewController {
         root.addSubview(contentView)
         root.addSubview(sidebarView)
 
-        let safe = root.safeAreaLayoutGuide
         var constraints = [
             ambience.topAnchor.constraint(equalTo: root.topAnchor),
             ambience.leadingAnchor.constraint(equalTo: root.leadingAnchor),
@@ -446,13 +455,14 @@ final class RootViewController: NSViewController {
 
         switch sidebarStyle.placement {
         case .floating:
-            // Inset on all sides so the shared ambience shows around the panel.
+            // Inset on all sides so the shared ambience shows around the box. The
+            // box starts near the window top so it wraps the repositioned lights.
+            let m = sidebarStyle.inset
             constraints += [
-                sidebarView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
-                sidebarView.topAnchor.constraint(equalTo: safe.topAnchor, constant: 6),
-                sidebarView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -12),
-                contentView.leadingAnchor.constraint(
-                    equalTo: sidebarView.trailingAnchor, constant: 10),
+                sidebarView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: m),
+                sidebarView.topAnchor.constraint(equalTo: root.topAnchor, constant: m),
+                sidebarView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -m),
+                contentView.leadingAnchor.constraint(equalTo: sidebarView.trailingAnchor, constant: m),
             ]
         case .fullHeight:
             // Edge-to-edge, running to the window top with the traffic lights
