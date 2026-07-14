@@ -48,6 +48,26 @@ function isTextLeaf(node: RenderNode): boolean {
   return node.text !== undefined && (node.children?.length ?? 0) === 0;
 }
 
+/** The background already painted at a cell (the box fill under the text), if any. */
+function backgroundAt(
+  buffer: CellBuffer,
+  styles: StyleTable,
+  x: number,
+  y: number,
+): Color | undefined {
+  if (x < 0 || y < 0 || x >= buffer.width || y >= buffer.height) return undefined;
+  return styles.get(buffer.cellAt(x, y).styleId).bg;
+}
+
+/**
+ * Text has a *transparent* background by default (like the web): a run with no
+ * `bg` should keep whatever fill is underneath rather than punching a hole in
+ * it. Merge the inherited background only when the run declares none.
+ */
+function withBackground(style: CellStyle, inherited: Color | undefined): CellStyle {
+  return style.bg === undefined && inherited !== undefined ? { ...style, bg: inherited } : style;
+}
+
 function isSpansLeaf(node: RenderNode): boolean {
   return node.spans !== undefined && (node.children?.length ?? 0) === 0;
 }
@@ -159,8 +179,9 @@ function paintNode(
   }
 
   if (isTextLeaf(node)) {
-    const styleId = styles.intern(node.textStyle ?? {});
     if (box.y >= boxClip.y && box.y < boxClip.y + boxClip.height) {
+      const inherited = backgroundAt(buffer, styles, box.x, box.y);
+      const styleId = styles.intern(withBackground(node.textStyle ?? {}, inherited));
       buffer.writeText(
         box.x,
         box.y,
@@ -178,10 +199,11 @@ function paintNode(
     const inRow = box.y >= boxClip.y && box.y < boxClip.y + boxClip.height;
     if (inRow) {
       const clipRight = boxClip.x + boxClip.width;
+      const inherited = backgroundAt(buffer, styles, box.x, box.y);
       let x = box.x;
       for (const span of node.spans ?? []) {
         if (x >= clipRight) break;
-        const styleId = styles.intern(span.style ?? {});
+        const styleId = styles.intern(withBackground(span.style ?? {}, inherited));
         buffer.writeText(x, box.y, span.text, styleId, ownerId, undefined, clipRight);
         x += stringCellWidth(span.text);
       }

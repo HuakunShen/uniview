@@ -8,14 +8,12 @@ import type { GitWorkspaceModel } from "./model";
  * back a Web or native view. Rendered to a terminal via @uniview/tui-react.
  */
 function Button({ name, onClick }: { name: string; onClick: () => void }): ReactElement {
-  // A button hugs its label and shows blue behind the text:
-  //  - alignSelf="start" stops a column's default align-items: stretch from
-  //    bleeding the fill across the whole row.
-  //  - the label carries backgroundColor too, because text cells overwrite the
-  //    box fill with their own style (no background inheritance in the renderer).
+  // A button hugs its label and shows blue behind it. alignSelf="start" stops a
+  // column's default align-items: stretch from bleeding the fill across the
+  // whole row; the label's transparent background composites over the box fill.
   return (
     <Box name={name} onClick={onClick} backgroundColor="blue" alignSelf="start">
-      <Text color="white" backgroundColor="blue">{`[ ${name} ]`}</Text>
+      <Text color="white">{`[ ${name} ]`}</Text>
     </Box>
   );
 }

@@ -100,6 +100,18 @@ describe("opencode demo — mouse", () => {
     expect(screen(t)).not.toBe(before);
   });
 
+  it("fills the active tab and file row uniformly (text bg composites over the fill)", async () => {
+    const t = boot();
+    t.send(text("2")); // Code page: greet.ts is the active file
+    await tick();
+    const f = t.surface.cells()!;
+    const bgAt = (x: number, y: number) => JSON.stringify(f.styles[f.cells[y]![x]!.styleId]?.bg ?? null);
+    // Active file row (row 1), across the whole 16-col sidebar incl. under the label
+    const sidebar = [0, 2, 5, 8, 12, 15].map((x) => bgAt(x, 1));
+    expect(new Set(sidebar).size).toBe(1); // one uniform background, no holes
+    expect(sidebar[0]).not.toBe(JSON.stringify(null)); // and it IS a color
+  });
+
   it("highlights a file row on hover", async () => {
     const t = boot();
     t.send(text("2"));
