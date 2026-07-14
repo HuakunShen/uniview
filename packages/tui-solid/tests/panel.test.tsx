@@ -69,6 +69,40 @@ describe("Panel", () => {
     expect(lines[1]!.slice(1, 3)).toBe("ok");
   });
 
+  // Pins the unfocused `borderColor` passthrough. Without this, dropping
+  // `borderColor` from the resolved color entirely still passed the suite.
+  it("uses borderColor when not focused, and focusedColor when focused", async () => {
+    const [focused, setFocused] = createSignal(false);
+    const { surface, styles } = mount(
+      () => (
+        <Panel title="Log" borderColor="red" focusedColor="magenta" focused={focused()} width={12} height={3} />
+      ),
+      12,
+      3,
+    );
+    await tick();
+    const fgAt00 = () => styles.get(surface.cells()!.cells[0]![0]!.styleId).fg ?? null;
+    expect(fgAt00()).toBe("red"); // unfocused → borderColor
+
+    setFocused(true);
+    await tick();
+    expect(fgAt00()).toBe("magenta"); // focused → focusedColor (not the "green" default)
+
+    // Un-focusing must restore borderColor, not strand the focused color.
+    setFocused(false);
+    await tick();
+    expect(fgAt00()).toBe("red");
+  });
+
+  // Pins the `"rounded"` default: a different default would still draw a border
+  // and render the title, so only the corner glyph itself discriminates.
+  it("defaults the border style to rounded", async () => {
+    const { surface } = mount(() => <Panel title="B" width={10} height={3} />, 10, 3);
+    await tick();
+    const lines = surface.text({ trimRight: false }).split("\n");
+    expect(lines[0]![0]).toBe("╭"); // rounded corner, not "┌" (single)
+  });
+
   it("tracks a focused signal without destructuring props", async () => {
     const [focused, setFocused] = createSignal(false);
     const { surface, styles } = mount(

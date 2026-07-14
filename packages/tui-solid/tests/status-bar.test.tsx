@@ -50,6 +50,20 @@ describe("StatusBar", () => {
     expect(surface.text({ trimRight: true })).toContain("Push: P • Pull: p");
   });
 
+  // Pins the `{...rest}` passthrough: without it the box would not take the
+  // backgroundColor, and no other StatusBar test passes a rest prop.
+  it("passes style props through to the row box", async () => {
+    const { surface, styles } = mount(
+      () => <StatusBar backgroundColor="blue" width={10} items={[{ label: "Q", keyHint: "q" }]} />,
+      10,
+      1,
+    );
+    await tick();
+    const frame = surface.cells()!;
+    expect(styles.get(frame.cells[0]![0]!.styleId).bg).toBe("blue");
+    expect(styles.get(frame.cells[0]![9]!.styleId).bg).toBe("blue"); // full width honored
+  });
+
   it("re-renders when the items signal changes (props not destructured)", async () => {
     const [items, setItems] = createSignal<readonly StatusItem[]>([
       { label: "Commit", keyHint: "c" },
