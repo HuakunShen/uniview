@@ -52,6 +52,7 @@ export type {
   CodeProps,
   DiffProps,
 } from "./content";
+export { nextFocus, useFocusList } from "./focus";
 
 export interface TuiReactRootOptions {
   surface: CellSurface;
