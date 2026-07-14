@@ -6,6 +6,11 @@ export {
   defaultWidthCalculator,
 } from "./text/graphemes";
 export type { CellWidth, WidthCalculator } from "./text/graphemes";
+export {
+  styledLineWidth,
+  styledLineText,
+} from "./text/styled-text";
+export type { StyledSpan, StyledLine } from "./text/styled-text";
 
 // Cell buffer
 export { CellBuffer, CellFlags } from "./buffer/cell-buffer";
@@ -51,6 +56,21 @@ export { resolveColorCss, NAMED_HEX } from "./style/palette";
 export { defaultTheme, themeSpacing } from "./theme/theme";
 export type { TuiTheme, ThemeColors } from "./theme/theme";
 export { nearestNamedColor, rgbToAnsi256 } from "./theme/color-depth";
+
+// Syntax theme (semantic scope → color)
+export {
+  CORE_SYNTAX_SCOPES,
+  defaultSyntaxTheme,
+  githubLightTheme,
+  styleForScope,
+  syntaxThemes,
+  tokyoNightTheme,
+} from "./theme/syntax-theme";
+export type { SyntaxScope, SyntaxTheme } from "./theme/syntax-theme";
+
+// Styled-lines → render tree bridge
+export { styledLinesToRenderNode } from "./content/styled-render";
+export type { StyledLinesOptions } from "./content/styled-render";
 
 // ANSI encoding
 export {

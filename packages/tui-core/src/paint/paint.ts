@@ -6,6 +6,7 @@ import {
 } from "../layout/layout";
 import { StyleTable, type CellStyle, type Color } from "../style/style-table";
 import { stringCellWidth } from "../text/graphemes";
+import { styledLineWidth, type StyledSpan } from "../text/styled-text";
 import type { TuiStyle } from "../style/tui-style";
 import type { Size } from "../surface/types";
 import { borderGlyphs } from "./border";
@@ -22,6 +23,8 @@ export interface RenderNode {
   text?: string;
   /** Style applied to `text` glyphs. */
   textStyle?: CellStyle;
+  /** Rich-text leaf: consecutive styled runs painted on one line. */
+  spans?: StyledSpan[];
   /** Fill color for the node's box region. */
   background?: Color;
   /** Style (e.g. color) applied to border glyphs. */
@@ -45,11 +48,23 @@ function isTextLeaf(node: RenderNode): boolean {
   return node.text !== undefined && (node.children?.length ?? 0) === 0;
 }
 
+function isSpansLeaf(node: RenderNode): boolean {
+  return node.spans !== undefined && (node.children?.length ?? 0) === 0;
+}
+
 /** Build the layout mirror of a render tree, measuring text leaves. */
 function toLayoutInput(node: RenderNode): LayoutInput {
   if (isTextLeaf(node)) {
     const text = node.text ?? "";
     const width = stringCellWidth(text);
+    return {
+      id: node.id,
+      style: node.style,
+      measure: () => ({ width, height: 1 }),
+    };
+  }
+  if (isSpansLeaf(node)) {
+    const width = styledLineWidth(node.spans ?? []);
     return {
       id: node.id,
       style: node.style,
@@ -155,6 +170,21 @@ function paintNode(
         undefined,
         boxClip.x + boxClip.width,
       );
+    }
+    return;
+  }
+
+  if (isSpansLeaf(node)) {
+    const inRow = box.y >= boxClip.y && box.y < boxClip.y + boxClip.height;
+    if (inRow) {
+      const clipRight = boxClip.x + boxClip.width;
+      let x = box.x;
+      for (const span of node.spans ?? []) {
+        if (x >= clipRight) break;
+        const styleId = styles.intern(span.style ?? {});
+        buffer.writeText(x, box.y, span.text, styleId, ownerId, undefined, clipRight);
+        x += stringCellWidth(span.text);
+      }
     }
     return;
   }

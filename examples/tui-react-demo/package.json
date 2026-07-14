@@ -6,7 +6,8 @@
   "description": "A React counter rendered to the terminal via @uniview/tui-react",
   "scripts": {
     "dev": "tsx src/index.tsx",
-    "start": "tsx src/index.tsx"
+    "start": "tsx src/index.tsx",
+    "check-types": "tsc --noEmit"
   },
   "dependencies": {
     "@uniview/tui-core": "workspace:*",
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "typescript": "^5.9.3"
   }
 }
