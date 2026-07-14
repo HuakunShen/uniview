@@ -6,5 +6,13 @@ export type { HighlightOptions } from "./highlight";
 export { renderCode } from "./code";
 export type { RenderCodeOptions } from "./code";
 
+// Markdown → paintable render node
+export { renderMarkdown } from "./markdown";
+export type { RenderMarkdownOptions } from "./markdown";
+
+// Styled-span word wrapping
+export { wrapStyledSpans } from "./wrap";
+export type { WrapOptions } from "./wrap";
+
 // Filetype detection for file preview
 export { detectLanguage } from "./filetype";
