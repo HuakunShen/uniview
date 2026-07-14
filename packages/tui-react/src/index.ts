@@ -19,6 +19,8 @@ export { VirtualList } from "./virtual-list";
 export type { VirtualListProps } from "./virtual-list";
 export { Select } from "./select";
 export type { SelectProps } from "./select";
+export { Panel } from "./panel";
+export type { PanelProps } from "./panel";
 // First-class JSX components for the host primitives: <Box>/<Text>/<RichText>
 export { Box, Text, RichText } from "./primitives";
 export type {
