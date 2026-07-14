@@ -9,7 +9,7 @@ import {
   type JSONValue,
   type UINode,
 } from "@uniview/protocol";
-import type { CellStyle, RenderNode, TuiStyle } from "@uniview/tui-core";
+import type { CellStyle, RenderNode, StyledSpan, TuiStyle } from "@uniview/tui-core";
 
 /** Element types treated as inline text (their text children are flattened). */
 const TEXT_TYPES = new Set([
@@ -77,6 +77,24 @@ function propsToTextStyle(props: Record<string, JSONValue>): CellStyle {
   return style as CellStyle;
 }
 
+/** Coerce a JSON `spans` prop into {@link StyledSpan}s, dropping malformed entries. */
+function parseSpans(value: JSONValue | undefined): StyledSpan[] {
+  if (!Array.isArray(value)) return [];
+  const spans: StyledSpan[] = [];
+  for (const item of value) {
+    if (item === null || typeof item !== "object" || Array.isArray(item)) continue;
+    const record = item as Record<string, JSONValue>;
+    if (typeof record.text !== "string") continue;
+    const span: StyledSpan = { text: record.text };
+    const style = record.style;
+    if (style !== null && typeof style === "object" && !Array.isArray(style)) {
+      span.style = style as CellStyle;
+    }
+    spans.push(span);
+  }
+  return spans;
+}
+
 function joinText(node: UINode): string {
   let text = "";
   for (const child of node.children) {
@@ -97,6 +115,19 @@ export function uinodeToRenderNode(node: UINode | string): RenderNode | null {
   if (node.type === TEXT_NODE_TYPE) return { type: "text", text: node.text ?? "" };
 
   const style = propsToStyle(node.props);
+
+  if (node.type === "richtext") {
+    const rendered: RenderNode = {
+      type: "richtext",
+      id: node.id,
+      style,
+      spans: parseSpans(node.props.spans),
+    };
+    if (typeof node.props.backgroundColor === "string") {
+      rendered.background = node.props.backgroundColor;
+    }
+    return rendered;
+  }
 
   if (TEXT_TYPES.has(node.type)) {
     return {

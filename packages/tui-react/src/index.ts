@@ -19,6 +19,13 @@ export { VirtualList } from "./virtual-list";
 export type { VirtualListProps } from "./virtual-list";
 export { Select } from "./select";
 export type { SelectProps } from "./select";
+export { Markdown, StreamingMarkdown, Code, Diff, renderNodeToElement } from "./content";
+export type {
+  MarkdownProps,
+  StreamingMarkdownProps,
+  CodeProps,
+  DiffProps,
+} from "./content";
 
 export interface TuiReactRootOptions {
   surface: CellSurface;

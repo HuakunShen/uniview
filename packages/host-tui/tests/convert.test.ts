@@ -101,3 +101,49 @@ describe("extractHandlers", () => {
     expect(handlers.get("root")).toBeUndefined();
   });
 });
+
+describe("uinodeToRenderNode — richtext", () => {
+  it("maps a richtext node's spans prop to RenderNode.spans", () => {
+    const node: UINode = {
+      id: "line-1",
+      type: "richtext",
+      props: {
+        spans: [
+          { text: "const", style: { fg: "blue", bold: true } },
+          { text: " x", style: {} },
+        ],
+      },
+      children: [],
+    };
+    expect(uinodeToRenderNode(node)).toEqual({
+      type: "richtext",
+      id: "line-1",
+      style: {},
+      spans: [
+        { text: "const", style: { fg: "blue", bold: true } },
+        { text: " x", style: {} },
+      ],
+    });
+  });
+
+  it("passes a background prop through and defaults empty spans", () => {
+    const node: UINode = {
+      id: "hl",
+      type: "richtext",
+      props: { backgroundColor: "red" },
+      children: [],
+    };
+    const rendered = uinodeToRenderNode(node);
+    expect(rendered).toMatchObject({ type: "richtext", spans: [], background: "red" });
+  });
+
+  it("ignores a malformed spans prop (not an array)", () => {
+    const node: UINode = {
+      id: "bad",
+      type: "richtext",
+      props: { spans: "oops" },
+      children: [],
+    };
+    expect(uinodeToRenderNode(node)).toMatchObject({ type: "richtext", spans: [] });
+  });
+});

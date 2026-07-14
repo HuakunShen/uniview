@@ -27,6 +27,7 @@
   "dependencies": {
     "@uniview/host-tui": "workspace:*",
     "@uniview/react-renderer": "workspace:*",
+    "@uniview/tui-content": "workspace:*",
     "@uniview/tui-core": "workspace:*"
   },
   "peerDependencies": {

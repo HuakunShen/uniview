@@ -25,5 +25,9 @@ export type {
 export { wrapStyledSpans } from "./wrap";
 export type { WrapOptions } from "./wrap";
 
+// Streaming: split completed blocks from the in-progress tail
+export { splitStableMarkdown } from "./streaming";
+export type { StreamingSplit } from "./streaming";
+
 // Filetype detection for file preview
 export { detectLanguage } from "./filetype";
