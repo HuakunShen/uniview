@@ -558,9 +558,6 @@ importers:
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
 
   examples/tui-react-demo:
     dependencies:
@@ -583,6 +580,9 @@ importers:
       tsx:
         specifier: ^4.19.0
         version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/host-sdk:
     dependencies:
@@ -807,6 +807,31 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
+      tsdown:
+        specifier: 0.22.2
+        version: 0.22.2(tsx@4.21.0)(typescript@5.9.3)(unrun@0.2.27)(vue-tsc@3.2.4(typescript@5.9.3))
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
+
+  packages/tui-agent:
+    dependencies:
+      '@uniview/host-tui':
+        specifier: workspace:*
+        version: link:../host-tui
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      '@uniview/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@uniview/tui-core':
+        specifier: workspace:*
+        version: link:../tui-core
       tsdown:
         specifier: 0.22.2
         version: 0.22.2(tsx@4.21.0)(typescript@5.9.3)(unrun@0.2.27)(vue-tsc@3.2.4(typescript@5.9.3))
