@@ -7,6 +7,23 @@ import { tailwindPalette } from "./palette";
 export interface Theme {
   /** Named color tokens → CSS/hex color strings. */
   colors: Record<string, string>;
+  /**
+   * Color tokens that stay **symbolic** in the Style IR instead of being frozen
+   * to a hex: `bg-card` travels as `"card"`, and the native host maps it onto an
+   * appearance-adaptive system color (`controlBackgroundColor`, `labelColor`, …).
+   *
+   * This is what "native" actually buys you. shadcn swaps a CSS variable and the
+   * cascade re-resolves; natively there is no cascade, so a hex resolved on the
+   * plugin side is a hex forever — it can't follow the system flipping to dark,
+   * and it can't be *different per window* the way `<Window appearance="light">`
+   * needs it to be. Keeping the name lets the OS answer the question, per view,
+   * at draw time, with no re-render and no round trip.
+   *
+   * Their `colors` entry is still the value web hosts and TS-side resolution use,
+   * so a theme with `nativeTokens: new Set()` resolves everything to hex — that's
+   * the escape hatch for a fully custom, TS-owned palette.
+   */
+  nativeTokens: Set<string>;
   /** Spacing scale: token number → px (Tailwind-like: n → n*4). */
   spacing: (n: number) => number;
   /** Named border radii → px. Must include `default`. */
@@ -17,22 +34,35 @@ export interface Theme {
   sizes: Record<string, number>;
 }
 
+/**
+ * The semantic vocabulary — shadcn's token names, mapped onto colors the OS owns.
+ * Every one of these has a native counterpart the host resolves per view; the hex
+ * here is what a web host (or a TS-resolving theme) uses.
+ */
+const SEMANTIC_COLORS: Record<string, string> = {
+  background: "#ffffff",
+  foreground: "#111111",
+  primary: "#0a84ff",
+  "primary-foreground": "#ffffff",
+  secondary: "#5856d6",
+  muted: "#f2f2f7",
+  "muted-foreground": "#6b7280",
+  border: "#d1d5db",
+  card: "#ffffff",
+  destructive: "#ff3b30",
+};
+
 export const defaultTheme: Theme = {
   colors: {
     // The full Tailwind palette (`zinc-400`, `emerald-500/…`) …
     ...tailwindPalette,
     // … plus semantic tokens, which override any palette name they collide with.
-    background: "#ffffff",
-    foreground: "#111111",
-    primary: "#0a84ff",
-    "primary-foreground": "#ffffff",
-    secondary: "#5856d6",
-    muted: "#f2f2f7",
-    "muted-foreground": "#6b7280",
-    border: "#d1d5db",
-    card: "#ffffff",
-    destructive: "#ff3b30",
+    ...SEMANTIC_COLORS,
   },
+  // …and those semantic tokens — and *only* those — are handed to the host by
+  // name. `bg-emerald-500` is a literal: an author who writes it wants that green
+  // in both appearances, which is what it means in Tailwind too.
+  nativeTokens: new Set(Object.keys(SEMANTIC_COLORS)),
   spacing: (n) => n * 4,
   radii: {
     none: 0,
@@ -70,8 +100,20 @@ export const defaultTheme: Theme = {
   },
 };
 
+/**
+ * The TS-resolved escape hatch: same tokens, but every one of them freezes to a
+ * hex. Use these when you want a palette the OS has no opinion about — a custom
+ * brand theme, a web host, or a plugin that swaps themes itself from
+ * `useColorScheme()`. Nothing here follows the system appearance on its own.
+ */
+export const lightTheme: Theme = {
+  ...defaultTheme,
+  nativeTokens: new Set(),
+};
+
 export const darkTheme: Theme = {
   ...defaultTheme,
+  nativeTokens: new Set(),
   colors: {
     ...defaultTheme.colors,
     background: "#1e1e1e",

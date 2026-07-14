@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
+  darkTheme,
   defaultTheme,
+  lightTheme,
   normalizeStyleInput,
   resolveClassName,
   resolveStyle,
@@ -122,7 +124,10 @@ describe("resolveClassName — color", () => {
   });
 
   test("semantic theme tokens win over palette names", () => {
-    expect(resolveClassName("bg-primary")).toMatchObject({
+    // `primary` is a *native* token by default, so it survives as a name —
+    // see the "semantic tokens stay symbolic" suite below.
+    expect(resolveClassName("bg-primary")).toMatchObject({ backgroundColor: "primary" });
+    expect(resolveClassName("bg-primary", lightTheme)).toMatchObject({
       backgroundColor: defaultTheme.colors.primary,
     });
   });
@@ -253,7 +258,7 @@ describe("resolveStyle", () => {
       style: { flexDirection: "column" },
     });
     expect(r.flexDirection).toBe("column");
-    expect(r.backgroundColor).toBe("#0a84ff");
+    expect(r.backgroundColor).toBe("primary");
   });
 
   test("empty input resolves to an empty style", () => {
@@ -269,5 +274,42 @@ describe("resolveStyle", () => {
     const second = resolveStyle({ className: "flex-row" });
     expect(first.flexDirection).toBe("column");
     expect(second.flexDirection).toBe("row");
+  });
+});
+
+describe("semantic tokens stay symbolic so the host can keep them alive", () => {
+  test("hands the native host a name, not a frozen hex", () => {
+    expect(resolveClassName("bg-card text-foreground border-border")).toMatchObject({
+      backgroundColor: "card",
+      color: "foreground",
+      borderColor: "border",
+    });
+  });
+
+  test("carries alpha through on the name (a name has no hex to fold it into)", () => {
+    expect(resolveClassName("bg-card/50")).toMatchObject({ backgroundColor: "card/50" });
+  });
+
+  test("leaves palette colors literal — bg-emerald-500 means that green, in both appearances", () => {
+    expect(resolveClassName("bg-emerald-500")).toMatchObject({
+      backgroundColor: "#00bc7d",
+    });
+  });
+
+  test("a theme with no nativeTokens resolves everything in TS (the escape hatch)", () => {
+    expect(resolveClassName("bg-card text-foreground", lightTheme)).toMatchObject({
+      backgroundColor: "#ffffff",
+      color: "#111111",
+    });
+    expect(resolveClassName("bg-card text-foreground", darkTheme)).toMatchObject({
+      backgroundColor: "#2c2c2e",
+      color: "#f5f5f7",
+    });
+  });
+
+  test("still folds alpha into a hex on the TS-resolving path", () => {
+    expect(resolveClassName("bg-card/50", darkTheme)).toMatchObject({
+      backgroundColor: "#2c2c2e80",
+    });
   });
 });

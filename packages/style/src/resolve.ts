@@ -146,17 +146,26 @@ function alphaByte(fraction: number): string {
 }
 
 /**
- * A color argument, with Tailwind's optional `/N` alpha suffix. Alpha is folded
- * into an 8-digit `#rrggbbaa` hex — the form native color parsers already take,
- * so no host needs an `rgba()` parser.
+ * A color argument, with Tailwind's optional `/N` alpha suffix.
+ *
+ * A token in `theme.nativeTokens` keeps its NAME (`card`, `card/50`): the native
+ * host owns what it looks like, so that it can keep looking right when the
+ * appearance changes. Everything else resolves to a literal, and its alpha folds
+ * into an 8-digit `#rrggbbaa` — the form native color parsers already take, so no
+ * host needs an `rgba()` parser.
  */
 function parseColor(token: string, theme: Theme): string | undefined {
   const slash = token.lastIndexOf("/");
-  if (slash === -1) return theme.colors[token];
+  const name = slash === -1 ? token : token.slice(0, slash);
 
-  const base = theme.colors[token.slice(0, slash)];
+  if (theme.nativeTokens.has(name)) return token;
+
+  const base = theme.colors[name];
+  if (base === undefined) return undefined;
+  if (slash === -1) return base;
+
   const percent = Number(token.slice(slash + 1));
-  if (base === undefined || Number.isNaN(percent)) return undefined;
+  if (Number.isNaN(percent)) return undefined;
   // Only a 6-digit hex can take an alpha byte; anything else is returned as-is.
   if (!/^#[0-9a-f]{6}$/i.test(base)) return base;
   return base + alphaByte(percent / 100);

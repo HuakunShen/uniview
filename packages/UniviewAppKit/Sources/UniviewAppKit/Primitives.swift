@@ -32,34 +32,47 @@ public struct ViewComponent: Component {
 
     public func update(_ view: NSView, node: ShadowNode, context: MountContext) {
         view.wantsLayer = true
-        guard let layer = view.layer else { return }
         let style = node.style
         let radius = CGFloat(style.borderRadius ?? 0)
         let wantsShadow = style.shadow != nil
+        let isGradient = view is GradientView
+        let isMaterial = view is NSVisualEffectView
 
-        if let gradientView = view as? GradientView {
-            let colors = (style.backgroundGradient ?? []).compactMap { CSSColor.parse($0)?.cgColor }
-            gradientView.setGradientColors(colors)
-        } else if !(view is NSVisualEffectView) {
-            // Vibrancy views draw their own background; don't overpaint it.
-            layer.backgroundColor = style.backgroundColor.flatMap(CSSColor.parse)?.cgColor
+        // Every `.cgColor` below is resolved against whatever appearance is current
+        // when this closure runs — so it is stored, not just run, and re-run on
+        // every appearance change. See `AppearanceSensitive`.
+        let paint: (CALayer) -> Void = { [weak view] layer in
+            if let gradientView = view as? GradientView {
+                let colors = (style.backgroundGradient ?? [])
+                    .compactMap { CSSColor.parse($0)?.cgColor }
+                gradientView.setGradientColors(colors)
+            } else if !isMaterial {
+                // Vibrancy views draw their own background; don't overpaint it.
+                layer.backgroundColor = style.backgroundColor.flatMap(CSSColor.parse)?.cgColor
+            }
+
+            layer.cornerRadius = radius
+            // Clipping to a rounded rect would eat a drop shadow, and `GradientView`
+            // clips its own gradient sublayer — so only mask plain rounded fills.
+            layer.masksToBounds = radius > 0 && !wantsShadow && !isGradient
+            layer.borderWidth = CGFloat(style.borderWidth ?? 0)
+            layer.borderColor = style.borderColor.flatMap(CSSColor.parse)?.cgColor
+
+            if let shadow = style.shadow {
+                let color = CSSColor.parse(shadow) ?? univiewBrandColor
+                layer.shadowColor = color.cgColor
+                layer.shadowOpacity = 0.26
+                layer.shadowRadius = 16
+                layer.shadowOffset = CGSize(width: 0, height: 8)
+            } else {
+                layer.shadowOpacity = 0
+            }
         }
 
-        layer.cornerRadius = radius
-        // Clipping to a rounded rect would eat a drop shadow, and `GradientView`
-        // clips its own gradient sublayer — so only mask plain rounded fills.
-        layer.masksToBounds = radius > 0 && !wantsShadow && !(view is GradientView)
-        layer.borderWidth = CGFloat(style.borderWidth ?? 0)
-        layer.borderColor = style.borderColor.flatMap(CSSColor.parse)?.cgColor
-
-        if let shadow = style.shadow {
-            let color = CSSColor.parse(shadow) ?? univiewBrandColor
-            layer.shadowColor = color.cgColor
-            layer.shadowOpacity = 0.26
-            layer.shadowRadius = 16
-            layer.shadowOffset = CGSize(width: 0, height: 8)
-        } else {
-            layer.shadowOpacity = 0
+        if let sensitive = view as? any AppearanceSensitive {
+            sensitive.setRepaint(paint)
+        } else if let layer = view.layer {
+            view.effectiveAppearance.performAsCurrentDrawingAppearance { paint(layer) }
         }
         view.alphaValue = CGFloat(style.opacity ?? 1)
     }
