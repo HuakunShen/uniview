@@ -54,6 +54,16 @@ export type {
 } from "./content";
 export { nextFocus, useFocusList } from "./focus";
 
+export { BarChart, Histogram, Sparkline, Gauge, LineChart, Scatter } from "./charts";
+export type {
+  BarChartProps,
+  HistogramProps,
+  SparklineProps,
+  GaugeProps,
+  LineChartProps,
+  ScatterProps,
+} from "./charts";
+
 export interface TuiReactRootOptions {
   surface: CellSurface;
   size: Size;
