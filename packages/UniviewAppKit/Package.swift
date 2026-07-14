@@ -50,5 +50,10 @@ let package = Package(
             name: "UniviewYogaTests",
             dependencies: ["UniviewYoga"]
         ),
+        // Thin demo — imports UniviewAppKit + UniviewYoga, no framework logic.
+        .executableTarget(
+            name: "UniviewDemoApp",
+            dependencies: ["UniviewAppKit", "UniviewYoga"]
+        ),
     ]
 )
