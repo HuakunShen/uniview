@@ -1,36 +1,35 @@
-import { createElement as h, useState } from "react";
-import {
-  AnsiCellSurface,
-  StyleTable,
-  TerminalDriver,
-} from "@uniview/tui-core";
-import { createTuiReactRoot } from "@uniview/tui-react";
+import { useState } from "react";
+import { AnsiCellSurface, StyleTable, TerminalDriver } from "@uniview/tui-core";
+import { Box, createTuiReactRoot, Text } from "@uniview/tui-react";
 
 /**
- * A React counter running in the terminal via @uniview/tui-react.
+ * A React counter running in the terminal via @uniview/tui-react — authored in
+ * plain JSX with the ink-style <Box>/<Text> components.
  *
  *   pnpm --filter @uniview/tui-react-demo dev
  *   click [ Increment ] or focus it with Tab and press Enter; q / Ctrl-C quits.
  */
 function App() {
   const [count, setCount] = useState(0);
-  return h(
-    "box",
-    { flexDirection: "column", padding: 1, border: "rounded", width: 40 },
-    h("text", { color: "cyan", bold: true }, "React on tui-core"),
-    h("text", null, ""),
-    h("text", { bold: true }, `Count: ${count}`),
-    h("text", null, ""),
-    h(
-      "box",
-      {
-        onClick: () => setCount((c) => c + 1),
-        backgroundColor: "blue",
-        padding: { left: 1, right: 1 },
-      },
-      h("text", { color: "white" }, "Increment"),
-    ),
-    h("text", { color: "gray", dim: true }, "Tab+Enter or click · q quits"),
+  return (
+    <Box flexDirection="column" padding={1} border="rounded" width={40}>
+      <Text color="cyan" bold>
+        React on tui-core
+      </Text>
+      <Text> </Text>
+      <Text bold>{`Count: ${count}`}</Text>
+      <Text> </Text>
+      <Box
+        onClick={() => setCount((c) => c + 1)}
+        backgroundColor="blue"
+        padding={{ left: 1, right: 1 }}
+      >
+        <Text color="white">Increment</Text>
+      </Box>
+      <Text color="gray" dim>
+        Tab+Enter or click · q quits
+      </Text>
+    </Box>
   );
 }
 
@@ -67,6 +66,6 @@ const driver = new TerminalDriver({
 });
 
 driver.start();
-root.render(h(App));
+root.render(<App />);
 
 process.stdin.on?.("end", quit);

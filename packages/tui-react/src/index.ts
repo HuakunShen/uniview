@@ -19,6 +19,19 @@ export { VirtualList } from "./virtual-list";
 export type { VirtualListProps } from "./virtual-list";
 export { Select } from "./select";
 export type { SelectProps } from "./select";
+// First-class JSX components for the host primitives: <Box>/<Text>/<RichText>
+export { Box, Text, RichText } from "./primitives";
+export type {
+  BoxProps,
+  TextProps,
+  RichTextProps,
+  TuiCommonProps,
+  TuiEventHandlers,
+  TuiKeyEvent,
+  TuiWheelEvent,
+  TuiPointerEvent,
+} from "./primitives";
+
 export { ScrollView, Hoverable, CommandPalette, filterCommands, clampScroll } from "./interactive";
 export type {
   ScrollViewProps,
