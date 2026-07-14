@@ -190,10 +190,21 @@ function paintNode(
   }
 
   const children = node.children ?? [];
+  // In-flow children first, then absolute children (overlays) by zIndex — so
+  // dialogs / command palettes paint on top of the content behind them.
   children.forEach((child, i) => {
+    if (child.style?.position === "absolute") return;
     const childLayout = layout.children[i];
     if (childLayout) paintNode(child, childLayout, buffer, styles, owners, boxClip);
   });
+  const absolute = children
+    .map((child, i) => ({ child, i }))
+    .filter((c) => c.child.style?.position === "absolute")
+    .sort((a, b) => (a.child.style?.zIndex ?? 0) - (b.child.style?.zIndex ?? 0));
+  for (const { child, i } of absolute) {
+    const childLayout = layout.children[i];
+    if (childLayout) paintNode(child, childLayout, buffer, styles, owners, boxClip);
+  }
 }
 
 /**

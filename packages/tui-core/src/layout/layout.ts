@@ -43,6 +43,45 @@ function isHorizontal(style: TuiStyle): boolean {
   return dir === "row" || dir === "row-reverse";
 }
 
+function isAbsolute(node: LayoutInput): boolean {
+  return node.style?.position === "absolute";
+}
+
+/** Resolve the box of an absolutely-positioned child within its parent's inner area. */
+function absoluteBox(node: LayoutInput, inner: LayoutBox): LayoutBox {
+  const style = node.style ?? EMPTY_STYLE;
+  const left = resolveDimension(style.left, inner.width);
+  const right = resolveDimension(style.right, inner.width);
+  const top = resolveDimension(style.top, inner.height);
+  const bottom = resolveDimension(style.bottom, inner.height);
+
+  const intrinsic = intrinsicSize(node, { width: inner.width, height: inner.height });
+  let width = resolveDimension(style.width, inner.width);
+  if (width === undefined) {
+    width = left !== undefined && right !== undefined ? inner.width - left - right : intrinsic.width;
+  }
+  let height = resolveDimension(style.height, inner.height);
+  if (height === undefined) {
+    height =
+      top !== undefined && bottom !== undefined ? inner.height - top - bottom : intrinsic.height;
+  }
+
+  const x =
+    left !== undefined
+      ? inner.x + left
+      : right !== undefined
+        ? inner.x + inner.width - width - right
+        : inner.x;
+  const y =
+    top !== undefined
+      ? inner.y + top
+      : bottom !== undefined
+        ? inner.y + inner.height - height - bottom
+        : inner.y;
+
+  return { x, y, width: Math.max(0, width), height: Math.max(0, height) };
+}
+
 function mainGap(style: TuiStyle, horizontal: boolean): number {
   if (horizontal) return style.columnGap ?? style.gap ?? 0;
   return style.rowGap ?? style.gap ?? 0;
@@ -116,13 +155,16 @@ function contentSize(node: LayoutInput, inner: Size): Size {
 
   let main = 0;
   let cross = 0;
-  children.forEach((child, i) => {
+  let count = 0;
+  children.forEach((child) => {
+    if (isAbsolute(child)) return; // out of flow — no contribution to content size
     const size = intrinsicSize(child, inner);
     const childMain = horizontal ? size.width : size.height;
     const childCross = horizontal ? size.height : size.width;
-    if (i > 0) main += gap;
+    if (count > 0) main += gap;
     main += childMain;
     cross = Math.max(cross, childCross);
+    count += 1;
   });
 
   return horizontal ? { width: main, height: cross } : { width: cross, height: main };
@@ -145,18 +187,25 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
     height: box.height - border.top - border.bottom - pad.top - pad.bottom,
   };
 
+  // Absolute children are laid out independently and don't affect the flow.
+  const flowIndices: number[] = [];
+  children.forEach((c, i) => {
+    if (!isAbsolute(c)) flowIndices.push(i);
+  });
+  const flow = flowIndices.map((i) => children[i]!);
+
   const horizontal = isHorizontal(style);
   const gap = mainGap(style, horizontal);
   const mainSize = horizontal ? inner.width : inner.height;
   const crossSize = horizontal ? inner.height : inner.width;
 
-  const sizes = children.map((c) =>
+  const sizes = flow.map((c) =>
     intrinsicSize(c, { width: inner.width, height: inner.height }),
   );
   const mains = sizes.map((s) => (horizontal ? s.width : s.height));
-  const grows = children.map((c) => c.style?.flexGrow ?? 0);
+  const grows = flow.map((c) => c.style?.flexGrow ?? 0);
   const totalGrow = grows.reduce((a, b) => a + b, 0);
-  const totalGap = gap * Math.max(0, children.length - 1);
+  const totalGap = gap * Math.max(0, flow.length - 1);
 
   // Distribute free main-axis space to flex-grow children.
   const used = mains.reduce((a, b) => a + b, 0) + totalGap;
@@ -164,14 +213,14 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
   if (totalGrow > 0 && free > 0) {
     const per = free / totalGrow;
     let remaining = free;
-    children.forEach((_, i) => {
+    flow.forEach((_, i) => {
       if (grows[i]! > 0) {
         const add = Math.round(per * grows[i]!);
         mains[i]! += add;
         remaining -= add;
       }
     });
-    for (let i = children.length - 1; i >= 0 && remaining !== 0; i -= 1) {
+    for (let i = flow.length - 1; i >= 0 && remaining !== 0; i -= 1) {
       if (grows[i]! > 0) {
         mains[i]! += remaining;
         remaining = 0;
@@ -188,20 +237,20 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
   if (leftover > 0) {
     if (justify === "center") mainStart += Math.floor(leftover / 2);
     else if (justify === "end") mainStart += leftover;
-    else if (justify === "space-between" && children.length > 1) {
-      betweenGap = gap + leftover / (children.length - 1);
-    } else if (justify === "space-around" && children.length > 0) {
-      const around = leftover / children.length;
+    else if (justify === "space-between" && flow.length > 1) {
+      betweenGap = gap + leftover / (flow.length - 1);
+    } else if (justify === "space-around" && flow.length > 0) {
+      const around = leftover / flow.length;
       mainStart += Math.floor(around / 2);
       betweenGap = gap + around;
     }
   }
 
-  const results: LayoutResult[] = [];
+  const results: LayoutResult[] = new Array(children.length);
   let cursor = mainStart;
-  children.forEach((child, i) => {
-    const childMain = mains[i]!;
-    let childCross = horizontal ? sizes[i]!.height : sizes[i]!.width;
+  flow.forEach((child, k) => {
+    const childMain = mains[k]!;
+    let childCross = horizontal ? sizes[k]!.height : sizes[k]!.width;
 
     const selfAlign = child.style?.alignSelf;
     const align =
@@ -215,8 +264,13 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
       ? { x: Math.round(cursor), y: Math.round(crossStart), width: childMain, height: childCross }
       : { x: Math.round(crossStart), y: Math.round(cursor), width: childCross, height: childMain };
 
-    results.push(arrange(child, childBox));
+    results[flowIndices[k]!] = arrange(child, childBox);
     cursor += childMain + betweenGap;
+  });
+
+  // Absolute children: positioned by their insets, out of flow.
+  children.forEach((child, i) => {
+    if (isAbsolute(child)) results[i] = arrange(child, absoluteBox(child, inner));
   });
 
   return { input: node, box, children: results };

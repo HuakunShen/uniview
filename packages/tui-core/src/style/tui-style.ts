@@ -34,6 +34,12 @@ export interface TuiStyle {
   display?: "flex" | "none";
   position?: "relative" | "absolute";
 
+  /** Insets for `position: "absolute"` children (cells or percent of parent). */
+  top?: Dimension;
+  right?: Dimension;
+  bottom?: Dimension;
+  left?: Dimension;
+
   flexDirection?: FlexDirection;
   flexGrow?: number;
   flexShrink?: number;
