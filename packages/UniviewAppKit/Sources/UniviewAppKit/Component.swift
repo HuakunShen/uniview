@@ -56,6 +56,10 @@ public final class ComponentMeasurer: NodeMeasurer {
         self.registry = registry
     }
 
+    public func isExcludedFromLayout(_ node: ShadowNode) -> Bool {
+        registry.isSurface(node.type)
+    }
+
     public func isContentLeaf(_ node: ShadowNode) -> Bool {
         !registry.component(for: node.type).mountsChildren
     }

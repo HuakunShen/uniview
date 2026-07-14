@@ -15,6 +15,9 @@ public final class Mounter {
     private var views: [String: NSView] = [:]
     private var types: [String: String] = [:]
     private var visited: Set<String> = []
+    /// Surface-backed nodes currently applied (menu bars, window chrome), kept so
+    /// they can be torn down when the node leaves the tree.
+    private var mountedSurfaces: [String: NativeSurface] = [:]
     public private(set) var rootView: NSView?
 
     public init(
@@ -62,6 +65,7 @@ public final class Mounter {
             rootView = nil
             views.removeAll()
             types.removeAll()
+            tearDownSurfaces(keeping: [])
             return nil
         }
         let view = reconcile(node: root)
@@ -72,7 +76,23 @@ public final class Mounter {
             views[id] = nil
             types[id] = nil
         }
+        tearDownSurfaces(keeping: visited)
         return view
+    }
+
+    private func tearDownSurfaces(keeping alive: Set<String>) {
+        for (id, surface) in mountedSurfaces where !alive.contains(id) {
+            surface.teardown()
+            mountedSurfaces[id] = nil
+        }
+    }
+
+    /// A surface node is native but not a view: hand it the subtree and do not
+    /// descend. It gets no `NSView` and no frame — the layout engine skips it too.
+    private func apply(surface: NativeSurface, to node: ShadowNode) {
+        visited.insert(node.id)
+        mountedSurfaces[node.id] = surface
+        surface.apply(node, context: context)
     }
 
     private func reconcile(node: ShadowNode) -> NSView {
@@ -98,7 +118,16 @@ public final class Mounter {
 
     private func reconcileChildren(of node: ShadowNode, in parent: NSView) {
         // #text children are folded into the parent's renderedText, not mounted.
-        let elementChildren = node.children.filter { !$0.isTextNode }
+        // Surface children (a `<Menu>`) are native but not views: they are applied
+        // elsewhere and contribute no subview here.
+        var elementChildren: [ShadowNode] = []
+        for child in node.children where !child.isTextNode {
+            if let surface = registry.surface(for: child.type) {
+                apply(surface: surface, to: child)
+            } else {
+                elementChildren.append(child)
+            }
+        }
         let desired = elementChildren.map { reconcile(node: $0) }
         let desiredIdentifiers = Set(desired.map(ObjectIdentifier.init))
 

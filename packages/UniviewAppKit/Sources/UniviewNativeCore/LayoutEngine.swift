@@ -23,6 +23,11 @@ public struct Size: Equatable, Sendable {
 /// where size comes from the content, is unreadable without one.
 @MainActor
 public protocol NodeMeasurer: AnyObject {
+    /// True when the node is native but not a view — a menu bar, a window's
+    /// chrome. It has no box: it must not appear in the layout at all, or a
+    /// `<Menu>` written inside a `<div>` would reserve an empty row in it.
+    func isExcludedFromLayout(_ node: ShadowNode) -> Bool
+
     /// True when the node draws its own content and its element children are not
     /// laid out as independent boxes — a `Text` with inline `span`s, a `Button`.
     /// Such a node is a layout leaf even though the tree gives it children.

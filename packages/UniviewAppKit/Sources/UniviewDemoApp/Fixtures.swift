@@ -13,6 +13,8 @@ func demoSections() -> [DemoSection] {
         // Everything below it is a Swift-authored fixture — useful for exercising
         // primitives, but NOT proof that the framework works end to end.
         DemoSection(title: "Live React", symbol: "bolt", source: .plugin(id: "simple-demo")),
+        // The menu bar itself, authored in React and running in Node.
+        DemoSection(title: "React Menus", symbol: "menubar.rectangle", source: .plugin(id: "menu-demo")),
         DemoSection(title: "Home", symbol: "house", source: .fixture(homeTree)),
         DemoSection(
             title: "Components", symbol: "square.grid.2x2", source: .fixture(componentsTree)),

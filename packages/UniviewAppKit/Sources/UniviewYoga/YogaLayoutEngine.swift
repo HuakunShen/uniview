@@ -77,12 +77,11 @@ public final class YogaLayoutEngine: LayoutEngine {
         // would reserve space for views the mounter never creates.
         let contentLeaf = measurer?.isContentLeaf(node) ?? false
         if !contentLeaf {
-            var index = 0
-            for child in node.children where !child.isTextNode {
+            let children = layoutChildren(of: node)
+            for (index, child) in children.enumerated() {
                 YGNodeInsertChild(yg, build(child), Int(index))
-                index += 1
             }
-            if index > 0 { return yg }
+            if !children.isEmpty { return yg }
         }
 
         // A leaf: its size comes from its content, which only a measure function
@@ -96,6 +95,16 @@ public final class YogaLayoutEngine: LayoutEngine {
         return yg
     }
 
+    /// The children that are boxes: not folded-in text, and not a surface (a
+    /// `<Menu>` is native but has no geometry). `build` and `readBack` MUST agree
+    /// on this list — they address Yoga's children positionally, so a node
+    /// skipped in one and not the other silently shifts every frame after it.
+    private func layoutChildren(of node: ShadowNode) -> [ShadowNode] {
+        node.children.filter { child in
+            !child.isTextNode && measurer?.isExcludedFromLayout(child) != true
+        }
+    }
+
     private func readBack(_ node: ShadowNode, from yg: YGNodeRef) {
         node.layout = LayoutRect(
             x: Double(YGNodeLayoutGetLeft(yg)),
@@ -103,12 +112,10 @@ public final class YogaLayoutEngine: LayoutEngine {
             width: Double(YGNodeLayoutGetWidth(yg)),
             height: Double(YGNodeLayoutGetHeight(yg))
         )
-        var index = 0
-        for child in node.children where !child.isTextNode {
+        for (index, child) in layoutChildren(of: node).enumerated() {
             if let childYG = YGNodeGetChild(yg, Int(index)) {
                 readBack(child, from: childYG)
             }
-            index += 1
         }
     }
 

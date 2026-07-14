@@ -305,7 +305,16 @@ final class ContentViewController: NSViewController {
 
     init() {
         let router = self.router
+        let registry = ComponentRegistry.standard()
+        // `<Menu>` is native but not a view: the plugin's React tree owns the
+        // menu bar. When a plugin stops rendering one, fall back to the app's own
+        // menu — the app must never be left without ⌘Q.
+        registry.registerSurface(
+            "Menu",
+            MenuSurface(restore: { UniviewMainMenu.standard(appName: "Uniview Desktop") }))
+
         host = UniviewHost(
+            registry: registry,
             layoutEngine: YogaLayoutEngine(),
             containerSize: .zero,
             executeHandler: { id, args in router.execute(id, args) })

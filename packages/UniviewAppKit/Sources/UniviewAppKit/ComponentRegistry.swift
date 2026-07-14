@@ -7,10 +7,27 @@ import UniviewNativeCore
 @MainActor
 public final class ComponentRegistry {
     private var components: [String: Component] = [:]
+    private var surfaces: [String: NativeSurface] = [:]
     private let fallback: Component
 
     public init(fallback: Component = UnknownComponent()) {
         self.fallback = fallback
+    }
+
+    /// Register a node type that is native but *not a view* — a menu bar, a
+    /// window, a notification. The mounter hands the whole subtree to the
+    /// surface instead of building views, and the layout engine skips it.
+    public func registerSurface(_ type: String, _ surface: NativeSurface) {
+        surfaces[type] = surface
+    }
+
+    public func surface(for type: String) -> NativeSurface? {
+        surfaces[type]
+    }
+
+    /// True when this node type renders somewhere other than the view tree.
+    public func isSurface(_ type: String) -> Bool {
+        surfaces[type] != nil
     }
 
     public func register(_ type: String, _ component: Component) {

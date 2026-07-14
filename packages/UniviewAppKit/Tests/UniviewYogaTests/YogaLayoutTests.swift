@@ -104,6 +104,7 @@ import Testing
     /// states no widths or heights at all. The measurer is what gives it size.
     @Test func aContentLeafSizesTheContainerAroundIt() {
         final class FixedMeasurer: NodeMeasurer {
+            func isExcludedFromLayout(_ node: ShadowNode) -> Bool { false }
             func isContentLeaf(_ node: ShadowNode) -> Bool { node.type == "Text" }
             func measure(_ node: ShadowNode, maxWidth: Double) -> Size? {
                 node.type == "Text" ? Size(width: 120, height: 17) : nil

@@ -4,6 +4,9 @@ export type { ButtonProps } from "./components/Button";
 export { Input } from "./components/Input";
 export type { InputProps } from "./components/Input";
 
+export { Menu, MenuItem, MenuSeparator } from "./components/Menu";
+export type { MenuItemProps, MenuProps, MenuRole } from "./components/Menu";
+
 export { Switch } from "./components/Switch";
 export type { SwitchProps } from "./components/Switch";
 
