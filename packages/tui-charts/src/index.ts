@@ -8,4 +8,5 @@ export { renderGauge } from "./gauge";
 export type { GaugeOptions } from "./gauge";
 export { renderLineChart } from "./line";
 export type { LineSeries, PlotOptions } from "./line";
+export { renderScatter } from "./scatter";
 export { dataToPixel } from "./axis";
