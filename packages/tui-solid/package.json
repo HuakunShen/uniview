@@ -26,6 +26,7 @@
   "dependencies": {
     "@uniview/host-tui": "workspace:*",
     "@uniview/solid-renderer": "workspace:*",
+    "@uniview/tui-charts": "workspace:*",
     "@uniview/tui-core": "workspace:*"
   },
   "peerDependencies": {

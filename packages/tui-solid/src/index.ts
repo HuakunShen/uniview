@@ -17,6 +17,15 @@ import type {
   TuiInputEvent,
 } from "@uniview/tui-core";
 
+export { BarChart, Gauge, Histogram, LineChart, Scatter, Sparkline } from "./charts";
+export type {
+  BarChartProps,
+  GaugeProps,
+  HistogramProps,
+  LineChartProps,
+  ScatterProps,
+  SparklineProps,
+} from "./charts";
 export { renderNodeToElement } from "./content";
 export { createFocusList, nextFocus } from "./focus";
 export type { FocusList } from "./focus";
