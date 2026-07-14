@@ -13,7 +13,9 @@ public final class Mounter {
     private let registry: ComponentRegistry
     private let context: MountContext
     private var views: [String: NSView] = [:]
-    private var types: [String: String] = [:]
+    /// The *kind* of view mounted for each node — not its type. See
+    /// `Component.viewKind(for:)`.
+    private var kinds: [String: String] = [:]
     private var visited: Set<String> = []
     /// Surface-backed nodes currently applied (menu bars, window chrome), kept so
     /// they can be torn down when the node leaves the tree.
@@ -54,6 +56,11 @@ public final class Mounter {
         for child in node.children where !child.isTextNode {
             applyLayout(node: child)
         }
+        // AFTER the children: a scroll view sizes its document from how big the
+        // content turned out, and that isn't known until they have frames.
+        if let view = views[node.id] {
+            registry.component(for: node.type).didApplyLayout(view, node: node)
+        }
     }
 
     /// Sync the `NSView` tree to the current shadow tree; returns the root view.
@@ -64,7 +71,7 @@ public final class Mounter {
             rootView?.removeFromSuperview()
             rootView = nil
             views.removeAll()
-            types.removeAll()
+            kinds.removeAll()
             tearDownSurfaces(keeping: [])
             return nil
         }
@@ -74,7 +81,7 @@ public final class Mounter {
         for (id, staleView) in views where !visited.contains(id) {
             staleView.removeFromSuperview()
             views[id] = nil
-            types[id] = nil
+            kinds[id] = nil
         }
         tearDownSurfaces(keeping: visited)
         return view
@@ -98,20 +105,23 @@ public final class Mounter {
     private func reconcile(node: ShadowNode) -> NSView {
         visited.insert(node.id)
         let component = registry.component(for: node.type)
+        let kind = component.viewKind(for: node)
 
         let view: NSView
-        if let existing = views[node.id], types[node.id] == node.type {
+        if let existing = views[node.id], kinds[node.id] == kind {
             view = existing  // reuse — surgical update, no teardown
         } else {
             views[node.id]?.removeFromSuperview()
             view = component.makeView(for: node)
             views[node.id] = view
-            types[node.id] = node.type
+            kinds[node.id] = kind
         }
         component.update(view, node: node, context: context)
 
         if component.mountsChildren {
-            reconcileChildren(of: node, in: view)
+            // Not necessarily the view itself: a scroll view's children belong to
+            // its document view.
+            reconcileChildren(of: node, in: component.contentView(of: view))
         }
         return view
     }

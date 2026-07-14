@@ -38,11 +38,32 @@ public protocol Component {
     /// to the layout engine through `NodeMeasurer`. `maxWidth` may be
     /// `.infinity`. Containers have no intrinsic size and return nil (default).
     func intrinsicSize(_ node: ShadowNode, maxWidth: Double) -> Size?
+
+    /// Which *kind* of view `makeView` would produce for this node.
+    ///
+    /// One node type can back several kinds of view — a `View` is a plain layer, a
+    /// vibrancy view, a gradient, or a scroll view depending on its style. The
+    /// mounter recreates the view when this changes; keying reuse on the node's
+    /// *type* alone meant a `<div>` that grew a `material` prop kept its old plain
+    /// view forever and the prop looked dead. Defaults to the node type.
+    func viewKind(for node: ShadowNode) -> String
+
+    /// The view children are mounted into. A scroll view mounts them into its
+    /// document view, not into itself. Defaults to the view.
+    func contentView(of view: NSView) -> NSView
+
+    /// Called once the layout pass has set this node's frame and its children's.
+    /// A scroll view sizes its document here — how big the content turned out is
+    /// not known until then, and nothing else in the pipeline knows it at all.
+    func didApplyLayout(_ view: NSView, node: ShadowNode)
 }
 
 extension Component {
     public var mountsChildren: Bool { true }
     public func intrinsicSize(_ node: ShadowNode, maxWidth: Double) -> Size? { nil }
+    public func viewKind(for node: ShadowNode) -> String { node.type }
+    public func contentView(of view: NSView) -> NSView { view }
+    public func didApplyLayout(_ view: NSView, node: ShadowNode) {}
 }
 
 /// The `NodeMeasurer` the host installs on the layout engine. It answers from the

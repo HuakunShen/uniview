@@ -241,6 +241,21 @@ export default function MenuDemo() {
         </p>
       </div>
 
+      {/* A real NSScrollView. 40 rows in a 160pt box — the content is taller than
+          the window, which until now simply had nowhere to go. */}
+      <div className="h-[160px] overflow-scroll rounded-lg border border-border bg-card">
+        <div className="flex-col p-2 gap-1">
+          {Array.from({ length: 40 }, (_, i) => (
+            <div
+              key={i}
+              className="flex items-center px-3 h-8 rounded-md hover:bg-emerald-500 dark:hover:bg-violet-500"
+            >
+              <p className="text-sm text-foreground">Row {i + 1} — scroll me, hover me</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-1">
         {log.map((line, i) => (
           <p key={i} className="text-xs text-muted-foreground">

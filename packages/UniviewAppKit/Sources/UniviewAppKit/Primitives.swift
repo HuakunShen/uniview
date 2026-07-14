@@ -9,7 +9,45 @@ import UniviewNativeCore
 public struct ViewComponent: Component {
     public init() {}
 
+    /// One `View` node backs four different kinds of AppKit view. The mounter
+    /// recreates the view when this changes — reuse keyed on the node *type*
+    /// alone meant a `<div>` that grew a `material` or `overflow-scroll` kept its
+    /// old plain view forever, and the prop looked dead.
+    public func viewKind(for node: ShadowNode) -> String {
+        if let material = node.props["material"]?.stringValue, !material.isEmpty {
+            return "View.material"
+        }
+        if node.style.overflow == .scroll { return "View.scroll" }
+        if node.style.backgroundGradient != nil { return "View.gradient" }
+        return "View"
+    }
+
+    /// A scroll view's children belong to its document, not to itself.
+    public func contentView(of view: NSView) -> NSView {
+        (view as? ScrollView)?.content ?? view
+    }
+
+    /// The content's size is only known once its children have frames.
+    public func didApplyLayout(_ view: NSView, node: ShadowNode) {
+        guard let scroll = view as? ScrollView else { return }
+        var width = 0.0
+        var height = 0.0
+        for child in node.children where !child.isTextNode {
+            width = max(width, child.layout.x + child.layout.width)
+            height = max(height, child.layout.y + child.layout.height)
+        }
+        // Yoga's child positions already include the leading padding; the trailing
+        // edge is ours to add, or the last row would sit flush against the bottom.
+        width += node.style.paddingRight ?? 0
+        height += node.style.paddingBottom ?? 0
+        scroll.sizeDocument(to: NSSize(width: width, height: height))
+    }
+
     public func makeView(for node: ShadowNode) -> NSView {
+        // `overflow-scroll` is a real NSScrollView, not a clipped box.
+        if node.style.overflow == .scroll {
+            return ScrollView()
+        }
         // A `material` prop turns the container into native vibrancy/glass.
         if let material = node.props["material"]?.stringValue, !material.isEmpty {
             let effect = MaterialView()

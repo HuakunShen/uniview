@@ -376,3 +376,90 @@ func nsTextAlignment(_ align: TextAlign?) -> NSTextAlignment {
     case .left, .none: return .left
     }
 }
+
+/// The view an `overflow-scroll` box becomes.
+///
+/// A scroll view is not a styled box with a scrollbar bolted on: it has a *clip*
+/// view and a *document* view, and the children belong to the document. So the
+/// mounter is told to put them there (`Component.contentView(of:)`), and the
+/// document is resized once layout knows how big the content actually got
+/// (`Component.didApplyLayout`) — nothing earlier in the pipeline knows that.
+public final class ScrollView: NSScrollView, StyleStateView {
+    public var repaint: ((CALayer, Set<String>) -> Void)?
+    public var isHovered = false {
+        didSet { if isHovered != oldValue { repaintNow() } }
+    }
+    public var isPressed = false {
+        didSet { if isPressed != oldValue { repaintNow() } }
+    }
+
+    /// Top-left origin, like every other box in the tree — otherwise the content
+    /// would start at the bottom and scroll the wrong way.
+    public let content = FlippedView()
+
+    public override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        // The box's own background is painted by the Style IR on our layer; a
+        // scroll view that draws its own would sit on top of it.
+        drawsBackground = false
+        hasVerticalScroller = true
+        hasHorizontalScroller = true
+        autohidesScrollers = true
+        scrollerStyle = .overlay
+        contentView.drawsBackground = false
+        documentView = content
+
+        // Scrolling drags views under a stationary cursor, and AppKit does not
+        // keep enter/exit balanced through that: the row that arrives gets a
+        // `mouseEntered`, the row that left gets no `mouseExited`, and the hover
+        // highlight is stuck on two rows at once. So don't trust the events —
+        // recompute from where the pointer actually is.
+        contentView.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(contentScrolled),
+            name: NSView.boundsDidChangeNotification, object: contentView)
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc private func contentScrolled() {
+        MainActor.assumeIsolated { refreshHover() }
+    }
+
+    /// Re-derive `isHovered` for every pointer-tracking descendant from the actual
+    /// cursor position. A row scrolled out of the clip view is not hovered even if
+    /// the cursor is over where it used to be, hence the `visibleRect` test.
+    private func refreshHover() {
+        guard let window else { return }
+        let pointer = window.mouseLocationOutsideOfEventStream
+
+        func walk(_ view: NSView) {
+            if let flipped = view as? FlippedView, flipped.tracksPointer {
+                let local = flipped.convert(pointer, from: nil)
+                flipped.isHovered =
+                    flipped.bounds.contains(local) && flipped.visibleRect.contains(local)
+            }
+            view.subviews.forEach(walk)
+        }
+        walk(content)
+    }
+
+    public required init?(coder: NSCoder) { fatalError() }
+
+    public override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        repaintNow()
+    }
+
+    /// Size the document to the content. The document must never be *smaller*
+    /// than the clip view, or a short list would sit in a box it doesn't fill and
+    /// the background would stop halfway down.
+    public func sizeDocument(to size: NSSize) {
+        let visible = contentView.bounds.size
+        content.frame = NSRect(
+            x: 0, y: 0,
+            width: max(size.width, visible.width),
+            height: max(size.height, visible.height))
+    }
+}
