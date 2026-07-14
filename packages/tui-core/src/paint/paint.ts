@@ -182,7 +182,11 @@ function drawEdgeText(
   let start = innerLeft;
   if (align === "center") start = innerLeft + Math.max(0, Math.floor((innerWidth - w) / 2));
   else if (align === "right") start = innerRight - w;
-  buffer.writeText(start, edgeY, text, styleId, ownerId, undefined, innerRight);
+  // Right-clip against the clip rect too (mirrors the text-leaf/spans paths),
+  // so edge text never bleeds past a horizontally-narrower nested clip — the
+  // corner glyph is already preserved by capping at innerRight.
+  const clipRight = Math.min(innerRight, clip.x + clip.width);
+  buffer.writeText(start, edgeY, text, styleId, ownerId, undefined, clipRight);
 }
 
 function paintNode(
