@@ -36,6 +36,8 @@ export interface TerminalDriverOptions {
   bracketedPaste?: boolean;
   focusReporting?: boolean;
   hideCursor?: boolean;
+  /** Idle delay (ms) after which a held lone ESC is flushed as an Escape key. */
+  escapeFlushMs?: number;
   /** Receives every parsed input event, including synthetic resize events. */
   onEvent: (event: TuiInputEvent) => void;
 }
@@ -51,6 +53,7 @@ export class TerminalDriver {
   private readonly mode;
   private entered = false;
   private currentSize: Size;
+  private escapeTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly options: TerminalDriverOptions) {
     this.mode = {
@@ -75,9 +78,33 @@ export class TerminalDriver {
   }
 
   private readonly onData = (chunk: Buffer): void => {
+    this.clearEscapeTimer();
     this.parser.push(chunk);
-    for (const event of this.parser.takeEvents()) this.options.onEvent(event);
+    this.emitEvents();
+    this.armEscapeFlush();
   };
+
+  private emitEvents(): void {
+    for (const event of this.parser.takeEvents()) this.options.onEvent(event);
+  }
+
+  /** After input goes idle, resolve a held lone ESC as an Escape keypress. */
+  private armEscapeFlush(): void {
+    if (!this.parser.awaitingEscape) return;
+    this.escapeTimer = setTimeout(() => {
+      this.escapeTimer = null;
+      this.parser.flush();
+      this.emitEvents();
+    }, this.options.escapeFlushMs ?? 40);
+    this.escapeTimer.unref?.();
+  }
+
+  private clearEscapeTimer(): void {
+    if (this.escapeTimer !== null) {
+      clearTimeout(this.escapeTimer);
+      this.escapeTimer = null;
+    }
+  }
 
   private readonly onResize = (): void => {
     this.currentSize = this.readSize();
@@ -103,6 +130,7 @@ export class TerminalDriver {
   stop(): void {
     if (!this.entered) return;
     this.entered = false;
+    this.clearEscapeTimer();
 
     const { input, output } = this.options;
     try {

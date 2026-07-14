@@ -162,4 +162,55 @@ describe("TerminalDriver — input", () => {
     expect(events).toContainEqual({ type: "resize", width: 100, height: 30 });
     expect(driver.size).toEqual({ width: 100, height: 30 });
   });
+
+  it("flushes a held lone Esc as an Escape key after the idle timeout", () => {
+    vi.useFakeTimers();
+    try {
+      const tty = fakeTty();
+      const events: TuiInputEvent[] = [];
+      const driver = new TerminalDriver({
+        input: tty.input,
+        output: tty.output,
+        escapeFlushMs: 20,
+        onEvent: (e) => events.push(e),
+      });
+      driver.start();
+
+      tty.emitData("\x1b");
+      expect(events).toHaveLength(0); // held — ambiguous
+      vi.advanceTimersByTime(25);
+      expect(events).toEqual([
+        { type: "key", key: "Escape", ctrl: false, alt: false, shift: false, meta: false },
+      ]);
+      driver.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("resolves Esc immediately (no double-flush) when a sequence follows it", () => {
+    vi.useFakeTimers();
+    try {
+      const tty = fakeTty();
+      const events: TuiInputEvent[] = [];
+      const driver = new TerminalDriver({
+        input: tty.input,
+        output: tty.output,
+        escapeFlushMs: 20,
+        onEvent: (e) => events.push(e),
+      });
+      driver.start();
+
+      tty.emitData("\x1b"); // held, timer armed
+      tty.emitData("\x1b[<0;3;3M"); // Esc keypress + a mouse report
+      expect(events[0]).toMatchObject({ type: "key", key: "Escape" });
+      expect(events[1]).toMatchObject({ type: "mouse" });
+      vi.advanceTimersByTime(30);
+      const escapes = events.filter((e) => e.type === "key" && e.key === "Escape");
+      expect(escapes).toHaveLength(1); // the armed flush was cancelled, not fired
+      driver.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

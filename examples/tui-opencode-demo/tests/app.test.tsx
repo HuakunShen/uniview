@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
+import { InputParser, MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
 import { createTuiReactRoot } from "@uniview/tui-react";
 import { App, createState, handleKey, type AppHost } from "../src/app";
 
@@ -67,6 +67,39 @@ describe("opencode demo — keyboard", () => {
     await tick();
     expect(screen(t)).not.toContain("Go to Diff"); // palette closed
     expect(screen(t)).toContain("@@ -4,9"); // navigated to the Diff page
+  });
+
+  it("closes the palette with Esc and toggles it with Ctrl-K", async () => {
+    const t = boot();
+    await tick();
+    t.send(keyEv("k", true)); // open
+    await tick();
+    expect(screen(t)).toContain("Go to Chat");
+    t.send(keyEv("Escape")); // Esc closes
+    await tick();
+    expect(screen(t)).not.toContain("Go to Chat");
+
+    t.send(keyEv("k", true)); // open again
+    await tick();
+    expect(screen(t)).toContain("Go to Chat");
+    t.send(keyEv("k", true)); // Ctrl-K toggles closed
+    await tick();
+    expect(screen(t)).not.toContain("Go to Chat");
+  });
+
+  it("Esc closes the palette without leaking mouse bytes (real byte parse)", async () => {
+    const t = boot();
+    await tick();
+    t.send(keyEv("k", true)); // open palette
+    await tick();
+    // The exact bug: Esc keypress immediately followed by a mouse-motion report
+    // (motion-tracking mode) arrives as "\x1b\x1b[<35;45;4M".
+    const parser = new InputParser();
+    parser.push(Buffer.from("\x1b\x1b[<35;45;4M", "utf8"));
+    for (const ev of parser.takeEvents()) t.send(ev);
+    await tick();
+    expect(screen(t)).not.toContain("Go to Chat"); // palette closed by the Esc
+    expect(screen(t)).not.toContain("[<35"); // no mouse bytes leaked into the query
   });
 
   it("cycles files on the Code page with ] and [", async () => {

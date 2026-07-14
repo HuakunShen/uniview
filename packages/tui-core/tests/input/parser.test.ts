@@ -63,6 +63,41 @@ describe("InputParser — keys", () => {
   });
 });
 
+describe("InputParser — Escape disambiguation", () => {
+  it("emits Escape when ESC is immediately followed by a mouse sequence", () => {
+    // Pressing Esc then any mouse motion (motion-tracking mode) arrives as \x1b\x1b[<...
+    const events = parse("\x1b\x1b[<0;5;5M");
+    expect(events[0]).toEqual(key("Escape"));
+    expect(events[1]).toMatchObject({ type: "mouse", action: "down", button: "left", x: 4, y: 4 });
+    expect(events).toHaveLength(2);
+  });
+
+  it("emits Escape when ESC precedes another escape sequence (arrow)", () => {
+    expect(parse("\x1b\x1b[A")).toEqual([key("Escape"), key("ArrowUp")]);
+  });
+
+  it("does not leak a mouse sequence body as text after an Esc", () => {
+    const events = parse("\x1b\x1b[<35;45;4M");
+    expect(events.some((e) => e.type === "text")).toBe(false);
+    expect(events[0]).toEqual(key("Escape"));
+    expect(events[1]).toMatchObject({ type: "mouse", action: "move" });
+  });
+
+  it("holds a lone ESC and flushes it as Escape on idle", () => {
+    const parser = new InputParser();
+    parser.push("\x1b");
+    expect(parser.takeEvents()).toEqual([]); // ambiguous — held
+    expect(parser.awaitingEscape).toBe(true);
+    parser.flush();
+    expect(parser.takeEvents()).toEqual([key("Escape")]);
+    expect(parser.awaitingEscape).toBe(false);
+  });
+
+  it("still treats ESC + a printable char as Alt+char", () => {
+    expect(parse("\x1ba")).toEqual([key("a", { alt: true })]);
+  });
+});
+
 describe("InputParser — bracketed paste", () => {
   it("emits a single paste event for pasted text", () => {
     expect(parse("\x1b[200~hello\x1b[201~")).toEqual([{ type: "paste", text: "hello" }]);

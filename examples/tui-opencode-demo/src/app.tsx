@@ -127,8 +127,14 @@ export function runCommand(s: State, host: AppHost, id: string): void {
 /** Global key handling. Returns true if the event was consumed. */
 export function handleKey(s: State, host: AppHost, event: TuiInputEvent): boolean {
   if (s.palette.open) {
-    if (event.type === "key" && event.key === "Escape") s.palette.open = false;
-    else if (event.type === "key" && event.key === "Enter") {
+    if (event.type === "key" && event.key === "c" && event.ctrl) {
+      host.quit();
+      return true;
+    }
+    // Esc or Ctrl-K (toggle) closes the palette.
+    if (event.type === "key" && (event.key === "Escape" || (event.key === "k" && event.ctrl))) {
+      s.palette.open = false;
+    } else if (event.type === "key" && event.key === "Enter") {
       const filtered = COMMANDS.filter((c) =>
         c.label.toLowerCase().includes(s.palette.query.toLowerCase()),
       );

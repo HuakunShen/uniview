@@ -145,7 +145,15 @@ function csiKey(final: string, params: string): TuiInputEvent | null {
 
 function parseEscape(p: string): SubResult {
   if (p[0] !== "\x1b") return NONE;
-  if (p === "\x1b") return INCOMPLETE;
+  if (p === "\x1b") return INCOMPLETE; // ambiguous lone ESC — held until flush() or more bytes
+
+  // ESC directly followed by another ESC: the first ESC is a standalone Escape
+  // keypress; the rest (e.g. a mouse report after Esc in motion-tracking mode)
+  // starts a fresh sequence on the next pass. Without this, "\x1b\x1b[<..." was
+  // eaten as Alt+ESC and the mouse body leaked out as text.
+  if (p[1] === "\x1b") {
+    return { status: "complete", length: 1, event: keyEvent("Escape") };
+  }
 
   if (p.startsWith("\x1bO")) {
     if (p.length < 3) return INCOMPLETE;
@@ -214,6 +222,23 @@ export class InputParser {
   /** Drain and clear the events produced so far. */
   takeEvents(): TuiInputEvent[] {
     return this.events.splice(0);
+  }
+
+  /** True when the buffer holds only a lone ESC awaiting disambiguation. */
+  get awaitingEscape(): boolean {
+    return this.paste === null && this.pending === "\x1b";
+  }
+
+  /**
+   * Resolve a held lone ESC as an Escape keypress. The driver calls this after
+   * a short input-idle timeout so a bare Esc isn't stuck waiting for a byte that
+   * (unlike an escape sequence) never comes.
+   */
+  flush(): void {
+    if (this.awaitingEscape) {
+      this.events.push(keyEvent("Escape"));
+      this.pending = "";
+    }
   }
 
   private drain(): void {
