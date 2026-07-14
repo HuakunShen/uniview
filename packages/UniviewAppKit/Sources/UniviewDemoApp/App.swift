@@ -1,4 +1,5 @@
 import AppKit
+import UniviewAppKit
 
 /// A window that can nudge its traffic-light buttons down + right, so an inset /
 /// floating sidebar can wrap them with padding (the reference-app technique).
@@ -38,15 +39,32 @@ final class DesktopWindow: NSWindow {
     }
 }
 
+/// Quit when the window closes — a single-window app with no window left is a
+/// Dock icon with nothing behind it.
+final class DemoAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
+}
+
 /// Uniview Desktop — a thin native shell (transparent-titlebar, full-size
 /// content) hosting Uniview-rendered content. Programmatic AppKit only; no
 /// storyboard, no SwiftUI. Framework logic lives in the packages, not here.
 @main
 enum DemoApp {
+    /// `NSApplication.delegate` is a weak reference — a local would be released
+    /// the moment `main()` returned into the run loop.
+    @MainActor private static let delegate = DemoAppDelegate()
+
     @MainActor
     static func main() {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
+
+        // Without this, ⌘C/⌘V/⌘Q and friends are dead: they're menu key
+        // equivalents, not built-in AppKit behavior, and a programmatic app has
+        // no MainMenu.xib to inherit them from.
+        app.mainMenu = UniviewMainMenu.standard(appName: "Uniview Desktop")
+
+        app.delegate = Self.delegate
 
         // Sidebar style is a setting, not a standard. `.floating` is an inset
         // glass box that wraps the (repositioned) traffic lights; `.fullHeight`
