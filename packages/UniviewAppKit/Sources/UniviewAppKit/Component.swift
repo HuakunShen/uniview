@@ -23,8 +23,17 @@ public struct MountContext {
 /// in place (surgically — never teardown/recreate) from a `ShadowNode`.
 @MainActor
 public protocol Component {
+    /// Whether the mounter should mount this node's element children as
+    /// subviews. Containers (`View`) return true; text-like leaves
+    /// (`Text`/`Button`/`TextInput`) render their own content from props/text
+    /// and return false. Defaults to true.
+    var mountsChildren: Bool { get }
     /// Create a fresh native view for this component type.
     func makeView() -> NSView
     /// Apply `node`'s props/style/text to an existing view of this type.
     func update(_ view: NSView, node: ShadowNode, context: MountContext)
+}
+
+extension Component {
+    public var mountsChildren: Bool { true }
 }

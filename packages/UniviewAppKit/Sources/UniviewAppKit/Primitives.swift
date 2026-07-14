@@ -35,6 +35,8 @@ public struct ViewComponent: Component {
 public struct TextComponent: Component {
     public init() {}
 
+    public var mountsChildren: Bool { false }
+
     public func makeView() -> NSView {
         let label = NSTextField(labelWithString: "")
         label.lineBreakMode = .byWordWrapping
@@ -72,6 +74,8 @@ public struct TextComponent: Component {
 @MainActor
 public struct ButtonComponent: Component {
     public init() {}
+
+    public var mountsChildren: Bool { false }
 
     public func makeView() -> NSView {
         let button = HandlerButton(frame: .zero)
@@ -114,6 +118,8 @@ final class HandlerButton: NSButton {
 @MainActor
 public struct TextInputComponent: Component {
     public init() {}
+
+    public var mountsChildren: Bool { false }
 
     public func makeView() -> NSView {
         let field = HandlerTextField(frame: .zero)
@@ -170,6 +176,8 @@ final class HandlerTextField: NSTextField, NSTextFieldDelegate {
 @MainActor
 public struct UnknownComponent: Component {
     public init() {}
+
+    public var mountsChildren: Bool { false }
 
     public func makeView() -> NSView {
         NSTextField(labelWithString: "")
