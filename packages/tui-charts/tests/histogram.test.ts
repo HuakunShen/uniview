@@ -64,6 +64,13 @@ describe("renderHistogram", () => {
     expect(valueRow).toBe("00000");
   });
 
+  it("clamps a negative bins option to a single bucket instead of throwing", () => {
+    const result = renderHistogram([1, 2, 3], { bins: -3 });
+
+    expect(result.children).toBeDefined();
+    expect(result.children!.length).toBeGreaterThan(0);
+  });
+
   it("does not throw when all values are equal, and counts sum to values.length", () => {
     const result = renderHistogram([5, 5, 5], {
       bins: 4,

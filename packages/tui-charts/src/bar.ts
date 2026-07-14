@@ -36,7 +36,7 @@ export function renderBarChart(data: readonly BarDatum[], options: BarChartOptio
   const max = options.max ?? Math.max(1, ...values);
   const height = options.height ?? 8;
   const barWidth = options.barWidth ?? 1;
-  const gap = options.gap ?? 1;
+  const gap = Math.max(0, options.gap ?? 1);
   const gapSpans = " ".repeat(gap);
 
   const columns = data.map((datum) => ({

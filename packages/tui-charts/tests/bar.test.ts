@@ -27,6 +27,14 @@ describe("renderBarChart", () => {
     expect(firstRow.spans![0]!.style?.fg).toEqual(defaultTheme.colors.success);
   });
 
+  it("clamps a negative gap instead of throwing", () => {
+    const result = renderBarChart([{ label: "a", value: 1 }], { gap: -5 });
+
+    expect(result.children).toBeDefined();
+    expect(result.children!.length).toBeGreaterThan(0);
+    expect(styledLineText(result.children![0]!.spans!).length).toBeGreaterThan(0);
+  });
+
   it("adds a label row and a value row when requested", () => {
     const result = renderBarChart([{ label: "a", value: 1 }, { label: "b", value: 2 }], {
       height: 1,

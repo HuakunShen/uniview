@@ -25,7 +25,7 @@ export function renderHistogram(
   values: readonly number[],
   options: HistogramOptions = {},
 ): RenderNode {
-  const bins = options.bins ?? 10;
+  const bins = Math.max(1, Math.floor(options?.bins ?? 10));
   const min = values.length > 0 ? Math.min(...values) : 0;
   const max = values.length > 0 ? Math.max(...values) : 0;
   // Guard max === min (including the empty-input case, where min = max = 0):

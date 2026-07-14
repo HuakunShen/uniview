@@ -60,6 +60,14 @@ export class SubcellCanvas {
     }
   }
 
+  /**
+   * Rasterize the dot mask into styled lines. Consecutive cells are merged
+   * into one span only when their `Color` is the same object by **reference**
+   * (`===`), not by structural equality. Callers must reuse a single `Color`
+   * reference per run — e.g. a freshly-allocated `{r,g,b}` per dot will defeat
+   * merging and bloat the span tree — so value→color features (heatmap,
+   * gradient) should intern/cache their `Color` objects.
+   */
   toStyledLines(): StyledLine[] {
     const lines: StyledLine[] = [];
     for (let cy = 0; cy < this.cellHeight; cy += 1) {
