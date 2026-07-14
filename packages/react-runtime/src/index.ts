@@ -10,3 +10,9 @@ export {
   type WebSocketPluginClient,
 } from "./ws-client";
 export { connectToHostServer, type ConnectToHostServerOptions } from "./ws-client-entry";
+export {
+  getHostEnvironment,
+  setHostEnvironment,
+  useColorScheme,
+  useHostEnvironment,
+} from "./environment";

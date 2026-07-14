@@ -33,17 +33,16 @@ const STYLE_IR_PROP = "_style";
 
 function styleProps(props: Record<string, unknown>): StyleProps {
   const input: StyleProps = {};
-  if (typeof props.className === "string") {
-    input.className = props.className;
+  const className = props["className"];
+  const style = props["style"];
+
+  if (typeof className === "string") {
+    input.className = className;
   }
   // A boundary cast: plugin props are untrusted, and `style` is contractually
   // a StyleInput. A field the IR can't express is simply dropped below.
-  if (
-    typeof props.style === "object" &&
-    props.style !== null &&
-    !Array.isArray(props.style)
-  ) {
-    input.style = props.style as StyleInput;
+  if (typeof style === "object" && style !== null && !Array.isArray(style)) {
+    input.style = style as StyleInput;
   }
   return input;
 }

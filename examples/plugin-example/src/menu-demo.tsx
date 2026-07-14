@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useColorScheme } from "@uniview/react-runtime";
 import {
   Button,
   Menu,
@@ -40,6 +41,10 @@ const VIBRANCIES: Vibrancy[] = [
 ];
 
 export default function MenuDemo() {
+  // The host tells us what it resolved — the WINDOW's scheme, not the system's,
+  // so this flips when the Appearance menu below does. You don't need it to make
+  // the colors right (see below); you need it to *decide* things.
+  const scheme = useColorScheme();
   const [count, setCount] = useState(0);
   const [title, setTitle] = useState("Uniview Desktop");
   const [vibrancy, setVibrancy] = useState<Vibrancy>("under-window");
@@ -159,20 +164,37 @@ export default function MenuDemo() {
         </MenuItem>
       </Menu>
 
+      {/* Not a single hardcoded color below. `text-foreground`, `bg-card` and
+          `border-border` reach the native host as NAMES and become dynamic
+          NSColors — so this reads correctly in light AND dark, and it re-colors
+          the instant you flip the Appearance menu, with no re-render at all. The
+          old version hardcoded `text-zinc-100`, which was invisible on white. */}
       <div className="space-y-1">
-        <h2 className="text-2xl font-semibold text-zinc-100">The shell, in React</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-2xl font-semibold text-foreground">The shell, in React</h2>
+        <p className="text-sm text-muted-foreground">
           The menu bar and the window chrome are both this component's tree.
         </p>
       </div>
 
-      <div className="p-4 rounded-lg bg-zinc-800/60 border border-zinc-700 space-y-2">
-        <p className="text-lg text-zinc-100">
+      <div className="p-4 rounded-lg bg-card border border-border space-y-2">
+        <p className="text-lg text-foreground">
           vibrancy: {vibrancy} · titlebar: {titleBarStyle}
         </p>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted-foreground">
           Count is {count} · appearance is {appearance} · window is "{title}"
         </p>
+        {/* …and THIS is what useColorScheme() is for: a decision only the plugin
+            can make. The dot is a literal palette color, chosen by the plugin. */}
+        <div className="flex items-center gap-2">
+          <div
+            className={`w-2 h-2 rounded-full ${
+              scheme === "dark" ? "bg-violet-400" : "bg-amber-500"
+            }`}
+          />
+          <p className="text-xs text-muted-foreground">
+            useColorScheme() says {scheme}
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -196,7 +218,7 @@ export default function MenuDemo() {
 
       <div className="space-y-1">
         {log.map((line, i) => (
-          <p key={i} className="text-xs text-zinc-500">
+          <p key={i} className="text-xs text-muted-foreground">
             {line}
           </p>
         ))}

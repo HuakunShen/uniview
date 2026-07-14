@@ -301,6 +301,7 @@ final class ContentViewController: NSViewController {
     private let router = HandlerRouter()
     private var connection: PluginConnection?
     private var connectTask: Task<Void, Never>?
+    private var environmentObserver: HostEnvironmentObserver?
 
     init() {
         let router = self.router
@@ -332,7 +333,22 @@ final class ContentViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        view = FlippedView()  // clear; the shared ambience shows through
+        view = AppearanceReportingView()  // clear; the shared ambience shows through
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // The plugin is told about dark mode / accent / accessibility as it applies
+        // *to this view* — so a window forced light by `<Window appearance="light">`
+        // reports light, even on a dark system.
+        let observer = HostEnvironmentObserver(view: view) { [weak self] environment in
+            guard let connection = self?.connection else { return }
+            Task { await connection.setEnvironment(environment.json) }
+        }
+        self.environmentObserver = observer
+        (view as? AppearanceReportingView)?.onAppearanceChange = { [weak observer] in
+            observer?.appearanceChanged()
+        }
     }
 
     // MARK: - Sources
@@ -368,7 +384,8 @@ final class ContentViewController: NSViewController {
                         await MainActor.run {
                             self?.apply([.setRoot(node: self?.statusTree("Plugin error: \(message)"))])
                         }
-                    })
+                    },
+                    environment: self.environmentObserver?.snapshot().json)
             } catch {
                 self.apply([
                     .setRoot(

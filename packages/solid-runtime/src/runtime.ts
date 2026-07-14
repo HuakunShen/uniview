@@ -11,6 +11,7 @@ import type {
   Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
+import { setHostEnvironment } from "./environment";
 import {
   render,
   setUpdateCallback,
@@ -199,7 +200,15 @@ export function createSolidPluginRuntime<T extends Transport<RPCMessage>>(
     async initialize(req) {
       assertProtocolVersion(req.protocolVersion);
       resetState();
+      // Seed before the first render, so a plugin keying off colorScheme()
+      // doesn't paint light, ship it to the host, and repaint dark a round
+      // trip later.
+      if (req.env) setHostEnvironment(req.env);
       setupRuntime((req.props ?? {}) as Record<string, unknown>);
+    },
+
+    async setEnvironment(env) {
+      setHostEnvironment(env);
     },
 
     async updateProps(props: JSONValue) {

@@ -110,3 +110,44 @@ import Testing
 extension NSColor {
     fileprivate func `let`<T>(_ body: (NSColor) -> T) -> T { body(self) }
 }
+
+/// The path that actually happens in the app: the *window's* appearance changes
+/// (`<Window appearance="light">`), not the view's own. Setting `view.appearance`
+/// in a test is a different code path in AppKit, and passing that one proves
+/// nothing about this one — which is how a card stayed black on a white window.
+@MainActor
+@Suite struct WindowAppearanceRepaintTests {
+
+    @Test func aCardRepaintsWhenTheWINDOWSAppearanceChanges() throws {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 200),
+            styleMask: [.titled], backing: .buffered, defer: true)
+        let content = FlippedView(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+        window.contentView = content
+
+        let host = UniviewHost(
+            registry: .standard(), layoutEngine: YogaLayoutEngine(),
+            containerSize: Size(width: 200, height: 200), executeHandler: { _, _ in })
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [
+                    .setRoot(
+                        node: UINode(
+                            id: "card", type: "View",
+                            props: ["_style": .object(["backgroundColor": .string("card")])]))
+                ]))
+        let card = try #require(host.view(for: "card"))
+        content.addSubview(card)
+
+        window.appearance = NSAppearance(named: .aqua)
+        let light = card.layer!.backgroundColor
+        window.appearance = NSAppearance(named: .darkAqua)
+        let dark = card.layer!.backgroundColor
+
+        let rgb = { (c: CGColor?) in
+            NSColor(cgColor: c!)!.usingColorSpace(.sRGB)!.redComponent
+        }
+        #expect(rgb(light) != rgb(dark), "a card that stays dark on a light window is the bug")
+    }
+}

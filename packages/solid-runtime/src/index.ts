@@ -16,3 +16,5 @@ export {
 	connectSolidToHostServer,
 	type ConnectSolidToHostServerOptions,
 } from "./ws-client-entry"
+
+export { colorScheme, hostEnvironment, setHostEnvironment } from "./environment"

@@ -47,7 +47,8 @@ public actor PluginConnection {
     /// `onCommit` fires for every React render the plugin pushes.
     public func connect(
         onCommit: @escaping CommitHandler,
-        onError: @escaping ErrorHandler = { _ in }
+        onError: @escaping ErrorHandler = { _ in },
+        environment: UniviewNativeCore.JSONValue? = nil
     ) async throws {
         // Expose BEFORE the socket opens: the plugin pushes its first tree as soon
         // as initialize() resolves, and an unregistered method would be dropped.
@@ -83,9 +84,27 @@ public actor PluginConnection {
         await channel.start()
 
         // Handshake — the plugin renders and pushes its first tree in response.
-        _ = try await channel.call(
-            "initialize",
-            [.object(["protocolVersion": .number(Double(UNIVIEW_PROTOCOL_VERSION))])])
+        // The environment rides along so that first tree is already correct: a
+        // plugin keying off `useColorScheme()` must not paint light, ship it, and
+        // repaint dark a round trip later.
+        var request: [String: kkrpc.JSONValue] = [
+            "protocolVersion": .number(Double(UNIVIEW_PROTOCOL_VERSION))
+        ]
+        if let environment, let encoded = try? kkrpc.JSONValue.encoding(environment) {
+            request["env"] = encoded
+        }
+        _ = try await channel.call("initialize", [.object(request)])
+    }
+
+    /// Tell the plugin the machine changed underneath it — the system flipped to
+    /// dark, the accent color changed, the app went to the background.
+    public func setEnvironment(_ environment: UniviewNativeCore.JSONValue) async {
+        do {
+            let encoded = try kkrpc.JSONValue.encoding(environment)
+            _ = try await channel.call("setEnvironment", [encoded])
+        } catch {
+            FileHandle.standardError.write(Data("[bridge] setEnvironment failed: \(error)\n".utf8))
+        }
     }
 
     /// Send a user interaction back to the plugin (button click, text change…).
