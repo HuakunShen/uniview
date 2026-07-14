@@ -47,4 +47,25 @@ import Testing
         )
         #expect(shadow.style == StyleIR())
     }
+
+    @Test func handlerIdFollowsConvention() {
+        let shadow = ShadowNode.from(
+            UINode(id: "b", type: "Button", props: ["_onClickHandlerId": .string("h1")])
+        )
+        #expect(shadow.handlerId(for: "onClick") == "h1")
+        #expect(shadow.handlerId(for: "onChange") == nil)
+    }
+
+    @Test func renderedTextFlattensNestedChildren() {
+        let shadow = ShadowNode.from(
+            UINode(
+                id: "p", type: "p",
+                children: [
+                    UINode.text("Hello ", id: "a"),
+                    UINode(id: "s", type: "span", children: [UINode.text("world", id: "b")]),
+                ]
+            )
+        )
+        #expect(shadow.renderedText == "Hello world")
+    }
 }

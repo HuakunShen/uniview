@@ -60,6 +60,22 @@ public final class ShadowNode {
 
     public var isTextNode: Bool { type == TEXT_NODE_TYPE }
 
+    /// The handler id registered for an event, following the protocol
+    /// convention `onClick` → `_onClickHandlerId`. Returns nil when absent.
+    public func handlerId(for event: String) -> String? {
+        props["_\(event)HandlerId"]?.stringValue
+    }
+
+    /// Flattened text content — this node's own `text` (if a text node),
+    /// `br` as a newline, otherwise the concatenation of descendants' text.
+    /// Mirrors the serializer's text model so a `Text`/`Button` can read the
+    /// string it should display from its `#text` children.
+    public var renderedText: String {
+        if isTextNode { return text ?? "" }
+        if type == "br" { return "\n" }
+        return children.map(\.renderedText).joined()
+    }
+
     /// Recursively build a shadow node from a serialized `UINode`, decoding
     /// the Style IR from `props["style"]` (absent/invalid → empty style).
     public static func from(_ node: UINode) -> ShadowNode {
