@@ -533,6 +533,34 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  examples/tui-content-demo:
+    dependencies:
+      '@uniview/tui-content':
+        specifier: workspace:*
+        version: link:../../packages/tui-content
+      '@uniview/tui-core':
+        specifier: workspace:*
+        version: link:../../packages/tui-core
+      '@uniview/tui-react':
+        specifier: workspace:*
+        version: link:../../packages/tui-react
+      react:
+        specifier: 'catalog:'
+        version: 19.2.4
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      '@types/react':
+        specifier: ^19.2.14
+        version: 19.2.14
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
   examples/tui-core-demo:
     dependencies:
       '@uniview/tui-core':
