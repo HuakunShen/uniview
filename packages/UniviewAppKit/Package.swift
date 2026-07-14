@@ -44,7 +44,7 @@ let package = Package(
         ),
         .testTarget(
             name: "UniviewAppKitTests",
-            dependencies: ["UniviewAppKit"]
+            dependencies: ["UniviewAppKit", "UniviewYoga"]  // Yoga for end-to-end layout tests
         ),
         .testTarget(
             name: "UniviewYogaTests",
