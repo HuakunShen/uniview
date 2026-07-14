@@ -6,7 +6,7 @@ import { frameToText } from "../../src/buffer/frame";
 function rowText(root: RenderNode, w: number, h: number, y: number): string {
   const styles = new StyleTable();
   const { buffer } = renderToBuffer(root, { width: w, height: h }, styles);
-  return frameToText(buffer, styles, { trimRight: false }).split("\n")[y] ?? "";
+  return frameToText(buffer, { trimRight: false }).split("\n")[y] ?? "";
 }
 
 describe("titled borders", () => {
