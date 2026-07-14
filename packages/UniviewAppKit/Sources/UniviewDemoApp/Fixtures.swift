@@ -9,10 +9,15 @@ import UniviewNativeCore
 
 func demoSections() -> [DemoSection] {
     [
-        DemoSection(title: "Home", symbol: "house", tree: homeTree),
-        DemoSection(title: "Components", symbol: "square.grid.2x2", tree: componentsTree),
-        DemoSection(title: "Forms", symbol: "square.and.pencil", tree: formsTree),
-        DemoSection(title: "About", symbol: "info.circle", tree: aboutTree),
+        // The real thing: a React plugin renders, and we mount native AppKit views.
+        // Everything below it is a Swift-authored fixture — useful for exercising
+        // primitives, but NOT proof that the framework works end to end.
+        DemoSection(title: "Live React", symbol: "bolt", source: .plugin(id: "simple-demo")),
+        DemoSection(title: "Home", symbol: "house", source: .fixture(homeTree)),
+        DemoSection(
+            title: "Components", symbol: "square.grid.2x2", source: .fixture(componentsTree)),
+        DemoSection(title: "Forms", symbol: "square.and.pencil", source: .fixture(formsTree)),
+        DemoSection(title: "About", symbol: "info.circle", source: .fixture(aboutTree)),
     ]
 }
 

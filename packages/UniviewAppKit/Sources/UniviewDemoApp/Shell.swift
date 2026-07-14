@@ -1,14 +1,24 @@
 import AppKit
 import UniviewAppKit
+import UniviewBridge
 import UniviewNativeCore
 import UniviewYoga
 
 /// A demo section: a native sidebar entry (SF Symbol + title) paired with the
-/// Uniview tree it renders into the content pane.
+/// content it shows — either a hand-authored fixture tree, or a **live React
+/// plugin** streaming its render output over the bridge.
 struct DemoSection {
     let title: String
     let symbol: String
-    let tree: () -> UINode
+    let source: Source
+
+    enum Source {
+        /// A tree authored in Swift — useful to exercise primitives in isolation.
+        case fixture(() -> UINode)
+        /// A real TS/React plugin connected through the bridge server. This is the
+        /// actual product path: React renders, we mount native views.
+        case plugin(id: String)
+    }
 }
 
 // MARK: - Sidebar
@@ -269,17 +279,36 @@ final class SidebarViewController: NSViewController {
 /// `AmbienceView`) shows through, so the background is continuous under the
 /// sidebar and content alike — the Music-style look. The Uniview root is inset
 /// to the safe area so it clears the transparent title bar.
+/// Routes a native interaction to whatever is currently driving the UI. The host's
+/// handler closure is built before the plugin connection exists, so it talks to
+/// this box instead of capturing a connection directly.
+@MainActor
+final class HandlerRouter {
+    var connection: PluginConnection?
+
+    func execute(_ handlerId: String, _ args: [JSONValue]) {
+        guard let connection else {
+            FileHandle.standardError.write(Data("[uniview] \(handlerId) (no plugin)\n".utf8))
+            return
+        }
+        // Hand the click back to React; its re-render arrives via updateTree.
+        Task { await connection.executeHandler(handlerId, args) }
+    }
+}
+
 @MainActor
 final class ContentViewController: NSViewController {
     private let host: UniviewHost
+    private let router = HandlerRouter()
+    private var connection: PluginConnection?
+    private var connectTask: Task<Void, Never>?
 
     init() {
+        let router = self.router
         host = UniviewHost(
             layoutEngine: YogaLayoutEngine(),
             containerSize: .zero,
-            executeHandler: { id, args in
-                FileHandle.standardError.write("[uniview] \(id) \(args)\n".data(using: .utf8)!)
-            })
+            executeHandler: { id, args in router.execute(id, args) })
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -289,15 +318,99 @@ final class ContentViewController: NSViewController {
         view = FlippedView()  // clear; the shared ambience shows through
     }
 
-    func render(_ tree: UINode) {
-        host.apply(CommitBatch(revision: nextRevision(), mutations: [.setRoot(node: tree)]))
+    // MARK: - Sources
+
+    func show(_ section: DemoSection) {
+        switch section.source {
+        case .fixture(let make):
+            disconnectPlugin()
+            apply([.setRoot(node: make())])
+        case .plugin(let id):
+            connectPlugin(id: id)
+        }
+    }
+
+    /// Connect to a live React plugin through the bridge. Every React render the
+    /// plugin pushes becomes a commit, which mounts as native views.
+    private func connectPlugin(id: String) {
+        disconnectPlugin()
+        apply([.setRoot(node: statusTree("Connecting to “\(id)” over the bridge…"))])
+
+        connectTask = Task { @MainActor in
+            do {
+                let connection = try PluginConnection(
+                    serverUrl: "ws://127.0.0.1:3000", pluginId: id)
+                self.connection = connection
+                self.router.connection = connection
+
+                try await connection.connect(
+                    onCommit: { [weak self] batch in
+                        await MainActor.run { self?.apply(batch.mutations) }
+                    },
+                    onError: { [weak self] message in
+                        await MainActor.run {
+                            self?.apply([.setRoot(node: self?.statusTree("Plugin error: \(message)"))])
+                        }
+                    })
+            } catch {
+                self.apply([
+                    .setRoot(
+                        node: statusTree(
+                            "Could not reach the bridge at ws://127.0.0.1:3000.\n"
+                                + "Start it with:  cd examples/bridge-server && bun src/index.ts\n"
+                                + "then run the plugin:  cd examples/plugin-example && pnpm client:simple"))
+                ])
+            }
+        }
+    }
+
+    private func disconnectPlugin() {
+        connectTask?.cancel()
+        connectTask = nil
+        router.connection = nil
+        if let connection {
+            self.connection = nil
+            Task { await connection.disconnect() }
+        }
+    }
+
+    // MARK: - Commits
+
+    /// Re-stamp every commit with a monotonic revision. The plugin numbers its own
+    /// batches from 1, but the shadow tree drops stale revisions — so a fixture
+    /// rendered earlier would make the plugin's first batches look stale.
+    private func apply(_ mutations: [Mutation]) {
+        revision += 1
+        host.apply(CommitBatch(revision: revision, mutations: mutations))
         placeRoot()
     }
 
-    private var revision = -1
-    private func nextRevision() -> Int {
-        revision += 1
-        return revision
+    private var revision = 0
+
+    /// A plain message pane — connecting / bridge-unreachable / plugin error.
+    private func statusTree(_ message: String) -> UINode {
+        UINode(
+            id: "status", type: "View",
+            props: [
+                "style": .object([
+                    "flexDirection": .string("column"),
+                    "width": .string("100%"), "height": .string("100%"),
+                    "paddingTop": .number(40), "paddingLeft": .number(34),
+                    "paddingRight": .number(34),
+                ])
+            ],
+            children: [
+                UINode(
+                    id: "status.text", type: "Text",
+                    props: [
+                        "style": .object([
+                            "fontSize": .number(13),
+                            "color": .string("secondaryLabel"),
+                            "height": .number(140),
+                        ])
+                    ],
+                    children: [UINode.text(message, id: "status.text.t")])
+            ])
     }
 
     override func viewDidLayout() {
@@ -428,7 +541,7 @@ final class RootViewController: NSViewController {
         let sidebar = SidebarViewController(sections: sections, style: sidebarStyle) {
             [weak self] index in
             guard let self else { return }
-            self.content.render(self.sections[index].tree())
+            self.content.show(self.sections[index])
         }
         addChild(sidebar)
         addChild(content)

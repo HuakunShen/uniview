@@ -35,10 +35,15 @@ public final class ComponentRegistry {
     public static func standard() -> ComponentRegistry {
         let registry = ComponentRegistry()
         registry.register(["View", "div", "section", "main", "nav", "header", "footer"], ViewComponent())
-        registry.register(["Text", "p", "span", "label", "strong", "em"], TextComponent())
+        registry.register(
+            [
+                "Text", "p", "span", "label", "strong", "em",
+                "h1", "h2", "h3", "h4", "h5", "h6",
+            ], TextComponent())
         registry.register(["Icon", "Image", "img", "symbol"], IconComponent())
         registry.register(["Button", "button"], ButtonComponent())
-        registry.register(["TextInput", "input"], TextInputComponent())
+        // "Input" (capitalised) is what `@uniview/example-plugin-api` emits.
+        registry.register(["TextInput", "Input", "input"], TextInputComponent())
         return registry
     }
 }
