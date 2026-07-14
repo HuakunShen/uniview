@@ -35,6 +35,27 @@ describe("uinodeToRenderNode", () => {
     });
   });
 
+  it("descends into a nested inline element instead of dropping its text", () => {
+    // <text>before <strong>OK</strong> after</text> — "OK" is wrapped in a
+    // <strong> UINode, not a bare string or an explicit text node.
+    const node: UINode = {
+      id: "label",
+      type: "text",
+      props: {},
+      children: [
+        "before ",
+        {
+          id: "b",
+          type: "strong",
+          props: {},
+          children: [text("t", "OK")],
+        },
+        " after",
+      ],
+    };
+    expect(uinodeToRenderNode(node)).toMatchObject({ text: "before OK after" });
+  });
+
   it("maps layout props to a TuiStyle on a box", () => {
     const node: UINode = {
       id: "root",

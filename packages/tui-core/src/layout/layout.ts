@@ -43,6 +43,11 @@ function isHorizontal(style: TuiStyle): boolean {
   return dir === "row" || dir === "row-reverse";
 }
 
+function isReverse(style: TuiStyle): boolean {
+  const dir = style.flexDirection ?? "column";
+  return dir === "row-reverse" || dir === "column-reverse";
+}
+
 function isAbsolute(node: LayoutInput): boolean {
   return node.style?.position === "absolute";
 }
@@ -221,6 +226,20 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
   );
   const mains = sizes.map((s) => (horizontal ? s.width : s.height));
   const grows = flow.map((c) => c.style?.flexGrow ?? 0);
+
+  // `row-reverse`/`column-reverse` place the LAST child at the leading edge.
+  // The placement loop below always walks index 0..n-1 from the leading edge,
+  // so reversing these four parallel arrays together — keeping `flowIndices`
+  // in lockstep so `results[flowIndices[k]]` still targets the right original
+  // child — is enough to flip the visual order without touching the loop.
+  if (isReverse(style)) {
+    flow.reverse();
+    flowIndices.reverse();
+    sizes.reverse();
+    mains.reverse();
+    grows.reverse();
+  }
+
   const totalGrow = grows.reduce((a, b) => a + b, 0);
   const totalGap = gap * Math.max(0, flow.length - 1);
 

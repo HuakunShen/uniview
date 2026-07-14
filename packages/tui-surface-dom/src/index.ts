@@ -79,14 +79,26 @@ export class DomCellSurface implements CellSurface {
   }
 
   present(frame: CellBuffer, update: FrameUpdate): PresentStats {
-    this.pending = { frame: frame.clone(), update };
-    this.debug.lastUpdatedRows = [...update.dirtyRows];
+    // With the default rAF scheduler, multiple present() calls can land before
+    // flush() runs — dirty rows from an EARLIER call in the same pending batch
+    // must not be dropped just because a later call replaces `this.pending`,
+    // or those rows never get repainted even though `frame` (always the latest
+    // full snapshot) already has their correct content. Union rather than
+    // replace; `frame` itself needs no merging since each snapshot is complete.
+    const dirtyRows = this.pending
+      ? [...new Set([...this.pending.update.dirtyRows, ...update.dirtyRows])]
+      : update.dirtyRows;
+    const fullRepaint = (this.pending?.update.fullRepaint ?? false) || update.fullRepaint;
+    const merged: FrameUpdate = { ...update, dirtyRows, fullRepaint };
+
+    this.pending = { frame: frame.clone(), update: merged };
+    this.debug.lastUpdatedRows = [...dirtyRows];
     if (!this.scheduled) {
       this.scheduled = true;
       this.schedule(() => this.flush());
     }
     return {
-      rowsPainted: update.dirtyRows.length,
+      rowsPainted: dirtyRows.length,
       runsPainted: update.changedRuns.length,
     };
   }

@@ -86,13 +86,21 @@ export class TuiHost {
     return ids;
   }
 
+  /** True when `nodeId`'s UINode carries `disabled: true`. */
+  private isDisabled(nodeId: string): boolean {
+    return this.tree.getNode(nodeId)?.props.disabled === true;
+  }
+
   /**
    * Focusable nodes in tree order — those that can be clicked or that edit
    * text. `textbox` is true when the node accepts text input (has onChange).
+   * Disabled nodes are excluded, matching how HTML `disabled` removes an
+   * element from the tab order rather than merely styling it.
    */
   focusableTargets(): { id: string; textbox: boolean }[] {
     const targets: { id: string; textbox: boolean }[] = [];
     for (const [id, map] of this.handlers) {
+      if (this.isDisabled(id)) continue;
       const textbox = map.onChange !== undefined;
       if (map.onClick !== undefined || map.onKeyDown !== undefined || textbox) {
         targets.push({ id, textbox });
@@ -108,8 +116,15 @@ export class TuiHost {
     return hitTest(frame, this.renderer.owners, x, y);
   }
 
-  /** Fire an event on a node; returns whether a handler was invoked. */
+  /**
+   * Fire an event on a node; returns whether a handler was invoked. A disabled
+   * node never fires — this is the single choke point every input path
+   * (click, key, automation) routes through, so gating here is what actually
+   * makes `disabled` mean something rather than a prop `semantics.ts` reports
+   * but nothing enforces.
+   */
   fireEvent(nodeId: string, event: EventPropName, payload?: JSONValue): boolean {
+    if (this.isDisabled(nodeId)) return false;
     const handlerId = this.handlers.get(nodeId)?.[event];
     if (handlerId === undefined) return false;
     this.invocations.push({ id: handlerId, payload });

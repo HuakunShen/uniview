@@ -79,4 +79,41 @@ describe("DomCellSurface", () => {
     surface.destroy();
     expect(container.childNodes).toHaveLength(0);
   });
+
+  /**
+   * With the real rAF scheduler, two present() calls can land in the same
+   * batch — flush() only runs once. Row 0's dirty flag from the FIRST present
+   * must not be dropped just because the second present() call replaces
+   * `pending` before flush() gets to look at it.
+   */
+  it("unions dirty rows across two presents that land before flush runs", () => {
+    let flush: (() => void) | undefined;
+    const manual = (cb: () => void) => {
+      flush = cb; // capture instead of running — simulates a pending rAF
+    };
+    const container = document.createElement("div");
+    const surface = new DomCellSurface(container, { schedule: manual });
+    surface.mount({ width: 5, height: 2 });
+
+    const base = new CellBuffer(5, 2);
+    present(surface, null, base); // captures flush #1 (rows [0,1], initial paint)
+    flush!(); // run the initial paint so subsequent diffs are incremental
+    flush = undefined;
+
+    const a = base.clone();
+    a.writeText(0, 0, "A", 0, 0);
+    surface.present(a, buildFrameUpdate(base, a, 2, HIDDEN_CURSOR)); // dirties row 0 only
+    expect(flush).toBeDefined(); // scheduled, but NOT run yet
+
+    const b = a.clone();
+    b.writeText(0, 1, "B", 0, 0);
+    surface.present(b, buildFrameUpdate(a, b, 3, HIDDEN_CURSOR)); // dirties row 1 only
+
+    flush!(); // the single batched flush must repaint BOTH rows
+
+    const rows = container.querySelectorAll(".uv-term-row");
+    expect(rows[0]!.textContent).toBe("A    ");
+    expect(rows[1]!.textContent).toBe("B    ");
+    expect(surface.debug.lastUpdatedRows.sort()).toEqual([0, 1]);
+  });
 });

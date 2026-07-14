@@ -118,11 +118,23 @@ function parseSpans(value: JSONValue | undefined): StyledSpan[] {
   return spans;
 }
 
+/**
+ * Flatten a text-type node's children into one string. `textContent` only
+ * handles the two leaf shapes (a bare string, or an explicit text node); a
+ * nested UINode (e.g. `<text><strong>OK</strong></text>`) falls through and
+ * must be descended into recursively, or its text silently disappears from
+ * the visual render while `semantics.ts`'s `collectText` (which already
+ * recurses) still finds it — a query/render mismatch, not just missing text.
+ */
 function joinText(node: UINode): string {
   let text = "";
   for (const child of node.children) {
+    if (typeof child === "string") {
+      text += child;
+      continue;
+    }
     const content = textContent(child);
-    if (content !== null) text += content;
+    text += content !== null ? content : joinText(child);
   }
   return text;
 }

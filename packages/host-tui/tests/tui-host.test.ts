@@ -96,6 +96,37 @@ describe("TuiHost — hit-testing and events", () => {
     h.fireEvent(nodeId!, "onClick", { x: 0, y: 0 });
     expect(onInvokeHandler).toHaveBeenCalledWith("click-1", { x: 0, y: 0 });
   });
+
+  it("does not invoke a disabled node's handler", () => {
+    const { h, onInvokeHandler } = host();
+    h.setRoot({
+      id: "btn",
+      type: "box",
+      props: { [handlerIdProp("onClick")]: "h1", disabled: true },
+      children: [],
+    });
+    expect(h.fireEvent("btn", "onClick")).toBe(false);
+    expect(onInvokeHandler).not.toHaveBeenCalled();
+  });
+
+  it("excludes a disabled node from focusable targets", () => {
+    const { h } = host();
+    h.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        { id: "a", type: "box", props: { [handlerIdProp("onClick")]: "a" }, children: [] },
+        {
+          id: "b",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "b", disabled: true },
+          children: [],
+        },
+      ],
+    });
+    expect(h.focusableTargets().map((t) => t.id)).toEqual(["a"]);
+  });
 });
 
 describe("TuiHost — eventTargets", () => {

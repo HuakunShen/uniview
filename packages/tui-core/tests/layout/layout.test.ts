@@ -86,6 +86,46 @@ describe("computeLayout — row layout", () => {
   });
 });
 
+describe("computeLayout — reverse flex directions", () => {
+  it("row-reverse places the last child at the leading edge", () => {
+    const result = computeLayout(
+      box({ flexDirection: "row-reverse", gap: 2, width: 20, height: 3 }, [
+        leaf(4, 1), // child 0 — should end up on the RIGHT
+        leaf(3, 1), // child 1 — should end up on the LEFT (leading edge)
+      ]),
+      { width: 20, height: 3 },
+    );
+    // Positions are swapped relative to plain "row": child 1 (width 3) leads.
+    expect(result.children[1]!.box).toMatchObject({ x: 0, width: 3 });
+    expect(result.children[0]!.box).toMatchObject({ x: 5, width: 4 });
+  });
+
+  it("column-reverse places the last child at the top", () => {
+    const result = computeLayout(
+      box({ flexDirection: "column-reverse", gap: 1, width: 5, height: 20 }, [
+        leaf(5, 2), // child 0 — should end up at the BOTTOM
+        leaf(5, 3), // child 1 — should end up at the TOP (leading edge)
+      ]),
+      { width: 5, height: 20 },
+    );
+    expect(result.children[1]!.box).toMatchObject({ y: 0, height: 3 });
+    expect(result.children[0]!.box).toMatchObject({ y: 4, height: 2 });
+  });
+
+  it("row-reverse keeps each child's own box mapped back to its own index (hit-testing stays correct)", () => {
+    const result = computeLayout(
+      box({ flexDirection: "row-reverse", width: 10, height: 1 }, [
+        leaf(4, 1),
+        leaf(4, 1),
+      ]),
+      { width: 10, height: 1 },
+    );
+    // Two same-size children swap slots entirely; each result index must still
+    // describe a box, and the two boxes must not overlap.
+    expect(result.children[0]!.box.x).not.toBe(result.children[1]!.box.x);
+  });
+});
+
 describe("computeLayout — padding and border", () => {
   it("offsets children by padding", () => {
     const result = computeLayout(
