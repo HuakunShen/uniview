@@ -12,6 +12,12 @@ describe("verticalBarColumn", () => {
     expect(verticalBarColumn(99, 8, 1)).toEqual(["█"]);
     expect(verticalBarColumn(5, 0, 1)).toEqual([" "]);
   });
+  it("treats non-finite input as empty", () => {
+    expect(verticalBarColumn(NaN, 8, 2)).toEqual([" ", " "]);
+    expect(verticalBarColumn(5, NaN, 2)).toEqual([" ", " "]);
+    expect(verticalBarColumn(Infinity, 8, 1)).toEqual([" "]);
+    expect(horizontalBarCells(NaN, 8, 2)).toBe("  ");
+  });
 });
 
 describe("horizontalBarCells", () => {
