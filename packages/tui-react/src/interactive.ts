@@ -13,6 +13,15 @@ export interface ScrollViewProps {
   width?: number;
   /** Show the scrollbar (default true). */
   scrollbar?: boolean;
+  /** Controlled scroll offset (rows). When set with onScrollChange, the parent owns scroll. */
+  scrollTop?: number;
+  /** Controlled-mode callback: report a requested new scroll offset (already clamped). */
+  onScrollChange?: (scrollTop: number) => void;
+}
+
+/** Clamp a scroll offset to the valid range for a row count and viewport height. */
+export function clampScroll(scrollTop: number, rowCount: number, height: number): number {
+  return Math.max(0, Math.min(Math.max(0, rowCount - height), scrollTop));
 }
 
 function scrollbarColumn(rowCount: number, height: number, scrollTop: number): ReactElement {
@@ -35,15 +44,27 @@ function scrollbarColumn(rowCount: number, height: number, scrollTop: number): R
  * wheel (routed by position) and, when focused, the keyboard (arrows / j·k /
  * PageUp·PageDown / Home·End). Renders a scrollbar in the last column.
  */
-export function ScrollView({ content, height, width, scrollbar = true }: ScrollViewProps): ReactElement {
+export function ScrollView({
+  content,
+  height,
+  width,
+  scrollbar = true,
+  scrollTop: controlledTop,
+  onScrollChange,
+}: ScrollViewProps): ReactElement {
   const rows = content.children ?? [];
   const maxScroll = Math.max(0, rows.length - height);
-  const [scrollTop, setScrollTop] = useState(0);
-  const clamped = Math.min(scrollTop, maxScroll);
+  const controlled = onScrollChange !== undefined;
+  const [internalTop, setInternalTop] = useState(0);
+  const clamped = clampScroll(controlled ? (controlledTop ?? 0) : internalTop, rows.length, height);
   const visible = rows.slice(clamped, clamped + height);
 
-  const scrollBy = (delta: number): void =>
-    setScrollTop((s) => Math.max(0, Math.min(maxScroll, s + delta)));
+  const scrollTo = (top: number): void => {
+    const next = clampScroll(top, rows.length, height);
+    if (controlled) onScrollChange?.(next);
+    else setInternalTop(next);
+  };
+  const scrollBy = (delta: number): void => scrollTo(clamped + delta);
 
   const onKeyDown = (e: { key: string }): void => {
     switch (e.key) {
@@ -62,10 +83,10 @@ export function ScrollView({ content, height, width, scrollbar = true }: ScrollV
         scrollBy(-height);
         break;
       case "Home":
-        setScrollTop(0);
+        scrollTo(0);
         break;
       case "End":
-        setScrollTop(maxScroll);
+        scrollTo(maxScroll);
         break;
     }
   };

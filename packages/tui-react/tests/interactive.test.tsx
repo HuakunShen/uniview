@@ -37,6 +37,24 @@ describe("ScrollView", () => {
     expect(text).not.toContain("line 0");
   });
 
+  it("supports controlled scroll (parent owns scrollTop)", async () => {
+    const changes: number[] = [];
+    const content = rowsContent(20);
+    const { root, surface } = mount(
+      h(ScrollView, { content, height: 5, width: 16, scrollTop: 8, onScrollChange: (t: number) => changes.push(t) }),
+      16,
+      5,
+    );
+    await tick();
+    // renders the window starting at the controlled offset
+    expect(surface.text({ trimRight: true })).toContain("line 8");
+    // wheel does not self-scroll; it reports a requested offset to the parent
+    root.dispatchInput(wheel(1, 1, 1));
+    await tick();
+    expect(changes).toEqual([11]);
+    expect(surface.text({ trimRight: true })).toContain("line 8"); // unchanged until parent updates
+  });
+
   it("scrolls with the keyboard when focused", async () => {
     const { root, surface } = mount(h(ScrollView, { content: rowsContent(20), height: 4, width: 16 }), 16, 4);
     await tick();
