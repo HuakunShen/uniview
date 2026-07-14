@@ -91,6 +91,18 @@ export type {
 export { TuiRenderer } from "./renderer/tui-renderer";
 export type { TuiRendererOptions } from "./renderer/tui-renderer";
 
+// Render backend abstraction (Gate A conformance)
+export {
+  createTypeScriptBackend,
+  renderBackendFrame,
+  CONFORMANCE_FIXTURES,
+} from "./backend/render-backend";
+export type {
+  RenderBackend,
+  RenderResult,
+  BackendFixture,
+} from "./backend/render-backend";
+
 // Runnable app (direct mode)
 export { createTuiApp } from "./app/create-tui-app";
 export type { TuiApp, CreateTuiAppOptions } from "./app/create-tui-app";
