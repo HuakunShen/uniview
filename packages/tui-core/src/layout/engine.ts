@@ -7,7 +7,7 @@ import type { Size } from "../surface/types";
  * the same interface so hosts can swap correctness/portability trade-offs.
  */
 export interface LayoutEngine {
-	computeLayout(root: LayoutInput, container: Size): LayoutResult;
+  computeLayout(root: LayoutInput, container: Size): LayoutResult;
 }
 
 /** The built-in flexbox engine (no dependencies; runs in Worker/Deno/Bun). */

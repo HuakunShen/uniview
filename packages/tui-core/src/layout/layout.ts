@@ -103,6 +103,23 @@ function extents(style: TuiStyle): { h: number; v: number } {
   };
 }
 
+/**
+ * KNOWN LIMITATION: percentage main-axis sizes are resolved against
+ * `avail` — the ancestor's *available* space at measure time — rather than
+ * the space actually left over after sibling sizes are subtracted. When a
+ * `flexGrow` container holds a `height:"100%"` child alongside a
+ * fixed-height sibling (column direction), `contentSize` below sums both
+ * children's intrinsic heights (100% of the ancestor's height, *plus* the
+ * fixed sibling's height) into the parent's own intrinsic size, then that
+ * inflated size is used again as `avail` when the same `height:"100%"`
+ * child is re-measured during `arrange`. The two children's heights
+ * double-count and the parent overflows its own box instead of the
+ * `height:"100%"` child shrinking to make room for its sibling. See
+ * `tests/layout/flexgrow-percentage-height.test.ts` for the pinned
+ * numbers. The intended long-term fix is swapping in a real flexbox engine
+ * (e.g. Yoga) behind the `LayoutEngine` seam (`./engine.ts`) rather than
+ * patching this pure-TS implementation's two-pass measure/arrange split.
+ */
 /** Intrinsic outer size of a node given the space available to it. */
 function intrinsicSize(node: LayoutInput, avail: Size): Size {
   const style = node.style ?? EMPTY_STYLE;

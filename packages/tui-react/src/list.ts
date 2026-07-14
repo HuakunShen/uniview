@@ -87,7 +87,10 @@ export function List<T>(props: ListProps<T>): ReactElement {
         {
           key: i,
           width: "100%",
-          onClick: () => onSelect(index),
+          onClick: () => {
+            requestedRef.current = index;
+            onSelect(index);
+          },
           backgroundColor: selected ? selectedBackground : undefined,
         },
         content,
