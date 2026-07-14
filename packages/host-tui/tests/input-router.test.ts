@@ -124,3 +124,95 @@ describe("InputRouter — onKeyDown", () => {
     expect(events.map((e) => e.key)).toEqual(["ArrowDown", "ArrowUp"]);
   });
 });
+
+const textEl = (id: string, t: string): UINode => ({
+  id,
+  type: "text",
+  props: {},
+  children: [{ id: `${id}_t`, type: TEXT_NODE_TYPE, props: {}, children: [], text: t }],
+});
+
+const move = (x: number, y: number): TuiInputEvent => ({
+  type: "mouse",
+  action: "move",
+  button: "none",
+  x,
+  y,
+  ctrl: false,
+  alt: false,
+  shift: false,
+});
+const wheel = (x: number, y: number, deltaY: -1 | 1): TuiInputEvent => ({
+  type: "mouse",
+  action: "wheel",
+  button: "none",
+  x,
+  y,
+  deltaY,
+  ctrl: false,
+  alt: false,
+  shift: false,
+});
+
+describe("InputRouter — mouse hover and wheel", () => {
+  function setupHover() {
+    const calls: { id: string; payload: JSONValue | undefined }[] = [];
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 8, height: 3 },
+      onInvokeHandler: (id, payload) => calls.push({ id, payload }),
+    });
+    host.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "a",
+          type: "box",
+          props: {
+            [handlerIdProp("onMouseEnter")]: "enterA",
+            [handlerIdProp("onMouseLeave")]: "leaveA",
+            [handlerIdProp("onWheel")]: "wheelA",
+          },
+          children: [textEl("at", "AAAA")],
+        },
+        {
+          id: "b",
+          type: "box",
+          props: {
+            [handlerIdProp("onMouseEnter")]: "enterB",
+            [handlerIdProp("onMouseLeave")]: "leaveB",
+          },
+          children: [textEl("bt", "BBBB")],
+        },
+      ],
+    });
+    const router = new InputRouter(host);
+    router.onRender();
+    return { host, router, calls };
+  }
+
+  it("fires enter/leave as the pointer moves between nodes (bubbling to the handler)", () => {
+    const { router, calls } = setupHover();
+    router.dispatch(move(1, 0)); // over a
+    router.dispatch(move(2, 0)); // still over a — no new events
+    router.dispatch(move(1, 1)); // over b
+    expect(calls.map((c) => c.id)).toEqual(["enterA", "leaveA", "enterB"]);
+  });
+
+  it("fires leave when the pointer moves off all hover targets", () => {
+    const { router, calls } = setupHover();
+    router.dispatch(move(1, 0)); // enter a
+    router.dispatch(move(1, 2)); // empty row
+    expect(calls.map((c) => c.id)).toEqual(["enterA", "leaveA"]);
+  });
+
+  it("routes wheel to the nearest onWheel handler with deltaY", () => {
+    const { router, calls } = setupHover();
+    router.dispatch(wheel(1, 0, 1));
+    expect(calls.find((c) => c.id === "wheelA")?.payload).toMatchObject({ deltaY: 1 });
+  });
+});

@@ -128,6 +128,21 @@ export class TuiHost {
   }
 
   /**
+   * The nearest node at or above `startId` that has a handler for any of
+   * `events` — used to resolve hover/wheel targets by bubbling from the node
+   * under the pointer. Returns null when none is found.
+   */
+  nearestTarget(startId: string | null, events: readonly EventPropName[]): string | null {
+    let id: string | undefined | null = startId;
+    while (id) {
+      const map = this.handlers.get(id);
+      if (map && events.some((e) => map[e] !== undefined)) return id;
+      id = this.tree.parentId(id);
+    }
+    return null;
+  }
+
+  /**
    * Fire an event starting at `startId` and bubbling up ancestors until a
    * handler runs (like DOM bubbling). Returns whether any handler was invoked.
    */

@@ -1,9 +1,13 @@
+import type { EventPropName } from "@uniview/protocol";
 import {
   FocusManager,
   TextInputMachine,
   type TuiInputEvent,
 } from "@uniview/tui-core";
 import type { TuiHost } from "./tui-host";
+
+const HOVER_EVENTS: readonly EventPropName[] = ["onMouseEnter", "onMouseLeave"];
+const WHEEL_EVENTS: readonly EventPropName[] = ["onWheel"];
 
 interface FieldState {
   machine: TextInputMachine;
@@ -21,6 +25,7 @@ interface FieldState {
 export class InputRouter {
   private readonly focus = new FocusManager();
   private readonly fields = new Map<string, FieldState>();
+  private hoveredId: string | null = null;
 
   constructor(private readonly host: TuiHost) {}
 
@@ -32,6 +37,19 @@ export class InputRouter {
     for (const id of [...this.fields.keys()]) {
       if (!live.has(id)) this.fields.delete(id);
     }
+    // Drop hover state if the hovered node is gone (no leave — it no longer exists).
+    if (this.hoveredId && this.host.nearestTarget(this.hoveredId, HOVER_EVENTS) !== this.hoveredId) {
+      this.hoveredId = null;
+    }
+  }
+
+  /** Update hover: leave the previous target, enter the new one under (x, y). */
+  private updateHover(x: number, y: number): void {
+    const target = this.host.nearestTarget(this.host.nodeAt(x, y), HOVER_EVENTS);
+    if (target === this.hoveredId) return;
+    if (this.hoveredId) this.host.fireEvent(this.hoveredId, "onMouseLeave", { x, y });
+    this.hoveredId = target;
+    if (target) this.host.fireEvent(target, "onMouseEnter", { x, y });
   }
 
   get focusedId(): string | null {
@@ -64,12 +82,29 @@ export class InputRouter {
   }
 
   dispatch(event: TuiInputEvent): void {
-    if (event.type === "mouse" && event.action === "up" && event.button === "left") {
-      const id = this.host.nodeAt(event.x, event.y);
-      if (id) {
-        this.focus.focus(id, "pointer");
-        if (!this.isTextbox(id)) {
-          this.host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
+    if (event.type === "mouse") {
+      if (event.action === "move" || event.action === "drag") {
+        this.updateHover(event.x, event.y);
+        return;
+      }
+      if (event.action === "wheel") {
+        const target = this.host.nearestTarget(this.host.nodeAt(event.x, event.y), WHEEL_EVENTS);
+        if (target) {
+          this.host.fireEvent(target, "onWheel", {
+            deltaY: event.deltaY ?? 0,
+            x: event.x,
+            y: event.y,
+          });
+        }
+        return;
+      }
+      if (event.action === "up" && event.button === "left") {
+        const id = this.host.nodeAt(event.x, event.y);
+        if (id) {
+          this.focus.focus(id, "pointer");
+          if (!this.isTextbox(id)) {
+            this.host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
+          }
         }
       }
       return;
