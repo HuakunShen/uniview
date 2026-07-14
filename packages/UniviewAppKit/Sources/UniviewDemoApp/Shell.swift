@@ -155,14 +155,43 @@ final class SidebarStatusFooter: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+/// Configures the sidebar's presentation. Sidebar styling is a design choice,
+/// not a standard — so it is a settable option, not hardcoded. Two presets ship:
+/// a `floating` glass panel (inset, rounded, traffic lights on the ambience
+/// above) and a `fullHeight` sidebar (edge-to-edge, running to the window top
+/// with the traffic lights inline). Both sit on the one shared `AmbienceView`.
+struct SidebarStyle {
+    enum Placement { case floating, fullHeight }
+
+    var placement: Placement
+    var material: NSVisualEffectView.Material
+    var cornerRadius: CGFloat
+    var borderColor: NSColor?
+    var borderWidth: CGFloat
+    var width: CGFloat
+
+    /// A floating glass panel inset from the window edges (macOS-26-style).
+    static let floating = SidebarStyle(
+        placement: .floating, material: .hudWindow, cornerRadius: 14,
+        // A whisper-thin edge, not a bright hairline.
+        borderColor: NSColor.white.withAlphaComponent(0.07), borderWidth: 1, width: 214)
+
+    /// A full-height sidebar with the traffic lights inline (Music/Finder-style).
+    static let fullHeight = SidebarStyle(
+        placement: .fullHeight, material: .hudWindow, cornerRadius: 0,
+        borderColor: nil, borderWidth: 0, width: 240)
+}
+
 @MainActor
 final class SidebarViewController: NSViewController {
     private let sections: [DemoSection]
+    private let style: SidebarStyle
     private let onSelect: (Int) -> Void
     private var rows: [SidebarRow] = []
 
-    init(sections: [DemoSection], onSelect: @escaping (Int) -> Void) {
+    init(sections: [DemoSection], style: SidebarStyle, onSelect: @escaping (Int) -> Void) {
         self.sections = sections
+        self.style = style
         self.onSelect = onSelect
         super.init(nibName: nil, bundle: nil)
     }
@@ -170,19 +199,19 @@ final class SidebarViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     override func loadView() {
-        // The sidebar's OWN surface: a rounded glass panel (distinct material +
-        // hairline) that floats on the shared ambience. `withinWindow` blending
-        // lets a hint of the frost + bloom behind it show through, so it reads as
-        // a translucent panel rather than an opaque slab.
+        // The sidebar's OWN surface: a glass panel with a distinct material that
+        // sits on the shared ambience. `withinWindow` blending lets a hint of the
+        // frost + bloom behind it show through, so it reads as a translucent panel
+        // rather than an opaque slab. Corner/border come from the chosen style.
         let root = MaterialView()
-        root.material = .hudWindow
+        root.material = style.material
         root.blendingMode = .withinWindow
         root.state = .active
         root.wantsLayer = true
-        root.layer?.cornerRadius = 14
-        root.layer?.masksToBounds = true
-        root.layer?.borderWidth = 1
-        root.layer?.borderColor = NSColor.separatorColor.withAlphaComponent(0.5).cgColor
+        root.layer?.cornerRadius = style.cornerRadius
+        root.layer?.masksToBounds = style.cornerRadius > 0
+        root.layer?.borderWidth = style.borderWidth
+        root.layer?.borderColor = style.borderColor?.cgColor
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -202,9 +231,11 @@ final class SidebarViewController: NSViewController {
 
         root.addSubview(stack)
         root.addSubview(footer)
-        // The panel floats below the traffic lights, so anchor rows to its own top.
+        // Anchor to the safe area — it resolves to the panel's own top when the
+        // sidebar floats (below the title bar) and to just under the inline
+        // traffic lights when it runs full-height. One anchor covers both styles.
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 14),
+            stack.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor, constant: 8),
             stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
             footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
@@ -367,10 +398,12 @@ final class AmbienceView: NSView {
 @MainActor
 final class RootViewController: NSViewController {
     private let sections: [DemoSection]
+    private let sidebarStyle: SidebarStyle
     private let content = ContentViewController()
 
-    init(sections: [DemoSection]) {
+    init(sections: [DemoSection], sidebarStyle: SidebarStyle) {
         self.sections = sections
+        self.sidebarStyle = sidebarStyle
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -382,7 +415,8 @@ final class RootViewController: NSViewController {
         let ambience = AmbienceView()
         ambience.translatesAutoresizingMaskIntoConstraints = false
 
-        let sidebar = SidebarViewController(sections: sections) { [weak self] index in
+        let sidebar = SidebarViewController(sections: sections, style: sidebarStyle) {
+            [weak self] index in
             guard let self else { return }
             self.content.render(self.sections[index].tree())
         }
@@ -399,25 +433,48 @@ final class RootViewController: NSViewController {
         root.addSubview(sidebarView)
 
         let safe = root.safeAreaLayoutGuide
-        NSLayoutConstraint.activate([
+        var constraints = [
             ambience.topAnchor.constraint(equalTo: root.topAnchor),
             ambience.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             ambience.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             ambience.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-
-            // Floating sidebar: its own glass surface, inset from the window edges
-            // (below the traffic lights) so the shared ambience shows around it.
-            sidebarView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
-            sidebarView.topAnchor.constraint(equalTo: safe.topAnchor, constant: 6),
-            sidebarView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -12),
-            sidebarView.widthAnchor.constraint(equalToConstant: 214),
-
-            // Content fills the remaining area; it insets its own tree to the safe area.
+            sidebarView.widthAnchor.constraint(equalToConstant: sidebarStyle.width),
             contentView.topAnchor.constraint(equalTo: root.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: sidebarView.trailingAnchor, constant: 10),
             contentView.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             contentView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-        ])
+        ]
+
+        switch sidebarStyle.placement {
+        case .floating:
+            // Inset on all sides so the shared ambience shows around the panel.
+            constraints += [
+                sidebarView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 12),
+                sidebarView.topAnchor.constraint(equalTo: safe.topAnchor, constant: 6),
+                sidebarView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -12),
+                contentView.leadingAnchor.constraint(
+                    equalTo: sidebarView.trailingAnchor, constant: 10),
+            ]
+        case .fullHeight:
+            // Edge-to-edge, running to the window top with the traffic lights
+            // inline; a subtle seam separates it from the content.
+            let seam = NSView()
+            seam.wantsLayer = true
+            seam.layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(0.35).cgColor
+            seam.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(seam)
+            constraints += [
+                sidebarView.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+                sidebarView.topAnchor.constraint(equalTo: root.topAnchor),
+                sidebarView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+                seam.leadingAnchor.constraint(equalTo: sidebarView.trailingAnchor),
+                seam.topAnchor.constraint(equalTo: root.topAnchor),
+                seam.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+                seam.widthAnchor.constraint(equalToConstant: 1),
+                contentView.leadingAnchor.constraint(equalTo: seam.trailingAnchor),
+            ]
+        }
+
+        NSLayoutConstraint.activate(constraints)
         view = root
     }
 }

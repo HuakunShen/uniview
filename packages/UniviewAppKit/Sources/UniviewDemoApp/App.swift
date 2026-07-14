@@ -11,7 +11,10 @@ enum DemoApp {
         let app = NSApplication.shared
         app.setActivationPolicy(.regular)
 
-        let root = RootViewController(sections: demoSections())
+        // Sidebar style is a setting, not a standard: `.fullHeight` runs the
+        // sidebar to the window top with the traffic lights inline (Music-style);
+        // swap to `.floating` for the inset glass-panel look.
+        let root = RootViewController(sections: demoSections(), sidebarStyle: .fullHeight)
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),
