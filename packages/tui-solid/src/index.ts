@@ -17,6 +17,14 @@ import type {
   TuiInputEvent,
 } from "@uniview/tui-core";
 
+export { Box, RichText, Text } from "./primitives";
+export type {
+  BoxProps,
+  RichTextProps,
+  TextProps,
+  TuiCommonProps,
+} from "./primitives";
+
 export interface TuiSolidRootOptions {
   surface: CellSurface;
   size: Size;
