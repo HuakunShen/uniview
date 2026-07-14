@@ -4,6 +4,9 @@
 **Branch:** `feat/tui`
 **Status:** Approved shape; Phase 1 + 2 to be spec'd into an implementation plan next.
 **Builds on:** the `tui-core` / `tui-content` / `tui-react` / `host-tui` stack (see `.planning/plans/tui-content-rendering.md`).
+**Reference UIs:** the three target screenshots (lazygit / oha / crossword) are described
+in detail, with widget mappings and local repo paths, in
+[`2026-07-14-reference-uis.md`](./2026-07-14-reference-uis.md).
 
 ## 1. Goal
 
