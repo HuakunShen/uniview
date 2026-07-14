@@ -1,0 +1,28 @@
+{
+  "name": "@uniview/tui-2048-solid",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "2048 in the terminal, authored in Solid, with the real n-tuple + expectimax AI",
+  "scripts": {
+    "dev": "vite-node src/main.tsx",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uniview/solid-renderer": "workspace:*",
+    "@uniview/tui-core": "workspace:*",
+    "@uniview/tui-solid": "workspace:*",
+    "solid-js": "^1.9.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/node": "^22.0.0",
+    "babel-preset-solid": "^1.9.0",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0",
+    "vite-node": "^2.1.9",
+    "vitest": "^2.0.0"
+  }
+}

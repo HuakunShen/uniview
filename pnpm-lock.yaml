@@ -607,6 +607,46 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  examples/tui-2048-solid:
+    dependencies:
+      '@uniview/solid-renderer':
+        specifier: workspace:*
+        version: link:../../packages/solid-renderer
+      '@uniview/tui-core':
+        specifier: workspace:*
+        version: link:../../packages/tui-core
+      '@uniview/tui-solid':
+        specifier: workspace:*
+        version: link:../../packages/tui-solid
+      solid-js:
+        specifier: ^1.9.9
+        version: 1.9.11
+    devDependencies:
+      '@babel/core':
+        specifier: ^7.26.0
+        version: 7.29.0
+      '@babel/preset-typescript':
+        specifier: ^7.26.0
+        version: 7.28.5(@babel/core@7.29.0)
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      babel-preset-solid:
+        specifier: ^1.9.0
+        version: 1.9.10(@babel/core@7.29.0)(solid-js@1.9.11)
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.4.0
+        version: 5.4.21(@types/node@22.19.11)(lightningcss@1.32.0)
+      vite-node:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.32.0)
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
+
   examples/tui-charts-demo:
     dependencies:
       '@uniview/tui-core':
