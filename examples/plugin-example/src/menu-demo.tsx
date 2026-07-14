@@ -1,29 +1,53 @@
 import { useState } from "react";
-import { Button, Menu, MenuItem, MenuSeparator } from "@uniview/example-plugin-api";
+import {
+  Button,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  Window,
+} from "@uniview/example-plugin-api";
 
 /**
- * The application's menu bar, written in React and running in Node.
+ * The application shell — menu bar and window chrome — written in React and
+ * running in Node. None of it is Swift.
  *
- * Nothing here is Swift. The `<Menu>` is part of the same tree as the buttons:
- * it re-renders from state like anything else (watch the item titles and the
- * checkmark change), and `onSelect` is an ordinary handler prop — it crosses the
- * bridge as a handler id, exactly like `onClick`.
+ * `<Menu>` and `<Window>` are *surfaces*: native, but not views. They take up no
+ * space, so they sit in the tree next to the buttons and re-render from state
+ * like anything else — change `title` and the real window's title changes.
  *
- * `role` items are the exception, and they have to be. A plugin cannot implement
- * Copy: Copy isn't an action a program performs, it's a message sent to whatever
- * view has focus. A role hands the item to that native action, so the focused
- * text field handles it and the plugin never sees it — which is also why those
- * items grey themselves out when nothing on screen can handle them.
+ * `onSelect` needed no new protocol: it's an ordinary handler prop, so it
+ * crosses the bridge as a handler id and comes back through `executeHandler`,
+ * exactly like `onClick`.
+ *
+ * `role` items are the exception, and have to be. A plugin cannot implement
+ * Copy: Copy isn't an action a program performs, it's a message sent down the
+ * responder chain to whatever view has focus. A role hands the item to that
+ * native action — so the focused text field handles it, the plugin never sees
+ * it, and the item greys itself out when nothing on screen can handle it.
  */
 export default function MenuDemo() {
   const [count, setCount] = useState(0);
   const [verbose, setVerbose] = useState(false);
+  const [title, setTitle] = useState("Uniview Desktop");
+  const [insetLights, setInsetLights] = useState(true);
+  const [titlebar, setTitlebar] = useState<"transparent" | "default">("transparent");
   const [log, setLog] = useState<string[]>([]);
 
-  const note = (line: string) => setLog((l) => [line, ...l].slice(0, 6));
+  const note = (line: string) => setLog((l) => [line, ...l].slice(0, 5));
 
   return (
     <div className="p-6 space-y-5">
+      {/* The real NSWindow's chrome. Nothing here creates a window — it
+          configures the one the app already has, like RN's <StatusBar>. */}
+      <Window
+        title={title}
+        titlebar={titlebar}
+        transparentBackground
+        trafficLights={insetLights ? { x: 22, y: 22 } : undefined}
+        minWidth={880}
+        minHeight={600}
+      />
+
       <Menu>
         <MenuItem title="Uniview Desktop">
           <MenuItem title="About Uniview Desktop" role="about" />
@@ -43,7 +67,7 @@ export default function MenuDemo() {
           <MenuItem title="Select All" shortcut="cmd+a" role="selectAll" />
         </MenuItem>
 
-        {/* Everything below is the plugin's own — React state, React handlers. */}
+        {/* From here down it's all the plugin's own — React state, React handlers. */}
         <MenuItem title="Counter">
           <MenuItem
             title={`Increment (now ${count})`}
@@ -72,21 +96,53 @@ export default function MenuDemo() {
             }}
           />
         </MenuItem>
+
+        {/* A menu, written in React, that drives a window, written in React. */}
+        <MenuItem title="Window">
+          <MenuItem
+            title="Rename Window…"
+            shortcut="cmd+shift+n"
+            onSelect={() => {
+              const next = title === "Uniview Desktop" ? "Renamed by React" : "Uniview Desktop";
+              setTitle(next);
+              note(`window title → "${next}"`);
+            }}
+          />
+          <MenuItem
+            title="Inset traffic lights"
+            checked={insetLights}
+            onSelect={() => {
+              setInsetLights(!insetLights);
+              note(`traffic lights → ${!insetLights ? "inset" : "default corner"}`);
+            }}
+          />
+          <MenuItem
+            title="Show titlebar"
+            checked={titlebar === "default"}
+            onSelect={() => {
+              const next = titlebar === "default" ? "transparent" : "default";
+              setTitlebar(next);
+              note(`titlebar → ${next}`);
+            }}
+          />
+          <MenuSeparator />
+          <MenuItem title="Minimize" shortcut="cmd+m" role="minimize" />
+          <MenuItem title="Close" shortcut="cmd+w" role="close" />
+        </MenuItem>
       </Menu>
 
       <div className="space-y-1">
-        <h2 className="text-2xl font-semibold text-zinc-100">Menus in React</h2>
+        <h2 className="text-2xl font-semibold text-zinc-100">The shell, in React</h2>
         <p className="text-sm text-zinc-400">
-          The menu bar above is this component's tree. Press ⌘I, or use the
-          Counter menu.
+          The menu bar and the window chrome are both this component's tree.
         </p>
       </div>
 
       <div className="p-4 rounded-lg bg-zinc-800/60 border border-zinc-700 space-y-2">
         <p className="text-lg text-zinc-100">Count: {count}</p>
         <p className="text-xs text-zinc-500">
-          Verbose logging is {verbose ? "on" : "off"} — the menu item's checkmark
-          is React state.
+          Window title is "{title}" — traffic lights are{" "}
+          {insetLights ? "inset" : "at the OS default corner"}.
         </p>
       </div>
 
@@ -101,12 +157,12 @@ export default function MenuDemo() {
           }}
         />
         <Button
-          title="Reset"
+          title="Move traffic lights"
           variant="secondary"
           className="flex-1"
           onClick={() => {
-            setCount(0);
-            note("button → reset");
+            setInsetLights(!insetLights);
+            note(`traffic lights → ${!insetLights ? "inset" : "default corner"}`);
           }}
         />
       </div>

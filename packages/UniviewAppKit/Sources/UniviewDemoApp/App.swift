@@ -1,44 +1,6 @@
 import AppKit
 import UniviewAppKit
 
-/// A window that can nudge its traffic-light buttons down + right, so an inset /
-/// floating sidebar can wrap them with padding (the reference-app technique).
-/// AppKit re-lays the standard buttons every layout pass, so we reposition after
-/// each one, computing an absolute origin from the button container (no drift).
-final class DesktopWindow: NSWindow {
-    /// The first traffic light's position from the window's top-left; `nil` keeps
-    /// the OS default corner. Buttons are spaced `buttonSpacing` apart.
-    var trafficLightOrigin: CGPoint? {
-        didSet { repositionTrafficLights() }
-    }
-    private let buttonSpacing: CGFloat = 20
-
-    override func layoutIfNeeded() {
-        super.layoutIfNeeded()
-        repositionTrafficLights()
-    }
-
-    override func makeKeyAndOrderFront(_ sender: Any?) {
-        super.makeKeyAndOrderFront(sender)
-        repositionTrafficLights()
-        DispatchQueue.main.async { [weak self] in self?.repositionTrafficLights() }
-    }
-
-    private func repositionTrafficLights() {
-        guard let origin = trafficLightOrigin else { return }
-        let types: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
-        for (index, type) in types.enumerated() {
-            guard let button = standardWindowButton(type), let container = button.superview
-            else { continue }
-            // The container's top edge coincides with the window top; place the
-            // button `origin.y` points below it (container coords are bottom-up).
-            let x = origin.x + CGFloat(index) * buttonSpacing
-            let y = container.bounds.height - origin.y - button.frame.height
-            button.setFrameOrigin(NSPoint(x: x, y: y))
-        }
-    }
-}
-
 /// Quit when the window closes — a single-window app with no window left is a
 /// Dock icon with nothing behind it.
 final class DemoAppDelegate: NSObject, NSApplicationDelegate {
@@ -72,7 +34,7 @@ enum DemoApp {
         let sidebarStyle = SidebarStyle.floating
         let root = RootViewController(sections: demoSections(), sidebarStyle: sidebarStyle)
 
-        let window = DesktopWindow(
+        let window = UniviewWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1040, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,

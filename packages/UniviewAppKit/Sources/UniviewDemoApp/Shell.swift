@@ -319,6 +319,15 @@ final class ContentViewController: NSViewController {
             containerSize: .zero,
             executeHandler: { id, args in router.execute(id, args) })
         super.init(nibName: nil, bundle: nil)
+
+        // `<Window>` configures the window the app already owns — it can't be
+        // resolved yet, because a view has no window until it is on screen.
+        registry.registerSurface(
+            "Window",
+            WindowSurface(window: { [weak self] in
+                guard let self, isViewLoaded else { return nil }
+                return view.window
+            }))
     }
 
     required init?(coder: NSCoder) { fatalError() }
