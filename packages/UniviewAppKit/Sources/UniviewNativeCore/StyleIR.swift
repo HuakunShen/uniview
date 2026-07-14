@@ -42,6 +42,40 @@ extension StyleDimension: Codable {
     }
 }
 
+/// A drop shadow as geometry, not a name. `shadow-lg` is a *look*, and every
+/// design system draws it differently — so the numbers travel and the host just
+/// renders them. A host that hardcodes radius and offset can draw exactly one
+/// shadow, forever; this one used to.
+public struct BoxShadow: Equatable, Sendable, Codable {
+    public var offsetX: Double
+    public var offsetY: Double
+    public var radius: Double
+    public var color: String
+}
+
+public enum FontStyle: String, Codable, Sendable {
+    case normal
+    case italic
+}
+
+public enum TextDecoration: String, Codable, Sendable {
+    case none
+    case underline
+    case lineThrough = "line-through"
+}
+
+/// `none` takes the box out of layout — not merely invisible, absent.
+public enum Display: String, Codable, Sendable {
+    case flex
+    case none
+}
+
+public enum Overflow: String, Codable, Sendable {
+    case visible
+    case hidden
+    case scroll
+}
+
 public enum FlexDirection: String, Codable, Sendable {
     case row
     case column
@@ -139,6 +173,12 @@ public struct StyleIR: Equatable, Sendable, Codable {
     public var right: Double?
     public var bottom: Double?
     public var left: Double?
+    /// Sibling paint order. Higher draws later (on top).
+    public var zIndex: Double?
+    public var display: Display?
+    public var overflow: Overflow?
+    /// width / height. Yoga sizes the missing axis from the other one.
+    public var aspectRatio: Double?
     // Visual
     public var backgroundColor: String?
     /// A diagonal (top-leading → bottom-trailing) gradient fill, expressed as an
@@ -149,16 +189,30 @@ public struct StyleIR: Equatable, Sendable, Codable {
     public var borderWidth: Double?
     public var borderRadius: Double?
     public var opacity: Double?
-    /// A soft drop shadow token (`"brand"`, `"soft"`, or a color) — rendered as an
-    /// ambient shadow so cards/controls lift off the background.
-    public var shadow: String?
+    public var shadow: BoxShadow?
+    /// Overrides `shadow.color`, so `shadow-lg shadow-emerald-500/30` composes.
+    public var shadowColor: String?
     // Typography
     public var color: String?
     public var fontSize: Double?
     public var fontWeight: FontWeight?
     public var fontFamily: String?
+    public var fontStyle: FontStyle?
     public var textAlign: TextAlign?
+    public var textDecoration: TextDecoration?
+    /// Line height in points. Wins over `lineHeightMultiple` when both are set.
     public var lineHeight: Double?
+    /// Line height as a multiple of the font size — what `leading-tight` means.
+    /// The resolver can't turn it into points: the font size may come from a
+    /// later class, or from a parent it never sees. We know the final size.
+    public var lineHeightMultiple: Double?
+    /// Truncate to this many lines (`truncate` = 1, `line-clamp-3` = 3).
+    public var maxLines: Int?
 
     public init() {}
+
+    /// The line height in points, given the size the text is actually drawn at.
+    public func resolvedLineHeight(fontSize: Double) -> Double? {
+        lineHeight ?? lineHeightMultiple.map { $0 * fontSize }
+    }
 }

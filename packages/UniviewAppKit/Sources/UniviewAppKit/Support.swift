@@ -299,3 +299,12 @@ public enum CSSColor {
         }
     }
 }
+
+/// Maps the Style IR text alignment to AppKit's.
+func nsTextAlignment(_ align: TextAlign?) -> NSTextAlignment {
+    switch align {
+    case .center: return .center
+    case .right: return .right
+    case .left, .none: return .left
+    }
+}

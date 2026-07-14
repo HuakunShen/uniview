@@ -216,6 +216,19 @@ export default function MenuDemo() {
         />
       </div>
 
+      {/* The gaps that just landed: an absolutely-placed badge (its offsets used
+          to be un-expressible), a real elevation from the theme's scale, an
+          arbitrary size, a clamp, and an aspect ratio. */}
+      <div className="relative p-4 rounded-lg bg-card border border-border shadow-lg">
+        <div className="absolute -top-2 -right-2 w-[22px] aspect-square rounded-full bg-emerald-500" />
+        <p className="text-sm text-foreground leading-relaxed line-clamp-2">
+          A badge pinned to the corner with -top-2 -right-2, a 22px square from an
+          arbitrary value, shadow-lg from the theme's elevation scale, and this
+          paragraph clamped to two lines no matter how long it runs — every one of
+          which was impossible to say an hour ago.
+        </p>
+      </div>
+
       <div className="space-y-1">
         {log.map((line, i) => (
           <p key={i} className="text-xs text-muted-foreground">

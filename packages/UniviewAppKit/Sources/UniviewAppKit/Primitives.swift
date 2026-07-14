@@ -54,19 +54,25 @@ public struct ViewComponent: Component {
             layer.cornerRadius = radius
             // Clipping to a rounded rect would eat a drop shadow, and `GradientView`
             // clips its own gradient sublayer — so only mask plain rounded fills.
-            layer.masksToBounds = radius > 0 && !wantsShadow && !isGradient
+            // `overflow-hidden` asks for the clip explicitly and outranks that.
+            let clips = style.overflow == .hidden
+            layer.masksToBounds = clips || (radius > 0 && !wantsShadow && !isGradient)
             layer.borderWidth = CGFloat(style.borderWidth ?? 0)
             layer.borderColor = style.borderColor.flatMap(CSSColor.parse)?.cgColor
 
+            // The shadow is geometry now: the theme owns the scale, so a plugin can
+            // ask for any elevation instead of the single hardcoded one this used
+            // to draw. Alpha rides in the color, the way it does on the web.
             if let shadow = style.shadow {
-                let color = CSSColor.parse(shadow) ?? univiewBrandColor
-                layer.shadowColor = color.cgColor
-                layer.shadowOpacity = 0.26
-                layer.shadowRadius = 16
-                layer.shadowOffset = CGSize(width: 0, height: 8)
+                let color = CSSColor.parse(style.shadowColor ?? shadow.color)
+                layer.shadowColor = color?.cgColor
+                layer.shadowOpacity = Float(color?.alphaComponent ?? 0)
+                layer.shadowRadius = CGFloat(shadow.radius)
+                layer.shadowOffset = CGSize(width: shadow.offsetX, height: shadow.offsetY)
             } else {
                 layer.shadowOpacity = 0
             }
+            if let z = style.zIndex { layer.zPosition = CGFloat(z) }
         }
 
         if let sensitive = view as? any AppearanceSensitive {
@@ -97,17 +103,70 @@ public struct TextComponent: Component {
 
     public func update(_ view: NSView, node: ShadowNode, context: MountContext) {
         guard let label = view as? NSTextField else { return }
-        label.stringValue = node.renderedText
+        Self.style(label, with: node.style, text: node.renderedText)
+    }
 
-        let style = node.style
+    /// Everything that decides how the text is laid out — the font, the line
+    /// height, the line limit. Shared with `intrinsicSize` on purpose: a measurer
+    /// that ignores `maxLines` or `leading` sizes the box for text the label is
+    /// not going to draw, and the two disagree by exactly the amount that gets
+    /// clipped.
+    static func style(
+        _ label: NSTextField, with style: StyleIR, text: String, measuring: Bool = false
+    ) {
         let size = CGFloat(style.fontSize ?? Double(NSFont.systemFontSize))
-        label.font = NSFont.systemFont(ofSize: size, weight: nsFontWeight(style.fontWeight))
-        if let color = style.color.flatMap(CSSColor.parse) { label.textColor = color }
-        switch style.textAlign {
-        case .center: label.alignment = .center
-        case .right: label.alignment = .right
-        case .left, .none: label.alignment = .left
+        var font = NSFont.systemFont(ofSize: size, weight: nsFontWeight(style.fontWeight))
+        if style.fontStyle == .italic {
+            font =
+                NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask)
         }
+
+        // A clamp ends in an ellipsis, at one line or at three — text that simply
+        // stops mid-word reads as a rendering bug, not as "there is more".
+        //
+        // But the *measurer* must not truncate. `.byTruncatingTail` (and
+        // `truncatesLastVisibleLine`) make `fittingSize` report a single line's
+        // height, so a `line-clamp-2` box would be laid out one line tall and then
+        // draw one line — the clamp would silently become `truncate`. So we measure
+        // it wrapped to its line limit, and draw it truncated to the same limit.
+        // The two clamps need different AppKit settings, and they do not compose:
+        // `.byTruncatingTail` collapses a multi-line label back to ONE line, so a
+        // `line-clamp-2` set that way lays out two lines tall and draws one. A
+        // multi-line clamp keeps word wrapping and asks the *cell* to ellipsize the
+        // last visible line instead.
+        let limit = style.maxLines ?? 0
+        label.maximumNumberOfLines = limit
+        label.lineBreakMode = (limit == 1 && !measuring) ? .byTruncatingTail : .byWordWrapping
+        label.cell?.truncatesLastVisibleLine = limit > 1 && !measuring
+
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = label.lineBreakMode
+        paragraph.alignment = nsTextAlignment(style.textAlign)
+        if let height = style.resolvedLineHeight(fontSize: Double(size)) {
+            paragraph.minimumLineHeight = CGFloat(height)
+            paragraph.maximumLineHeight = CGFloat(height)
+        }
+
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .paragraphStyle: paragraph,
+        ]
+        switch style.textDecoration {
+        case .underline: attributes[.underlineStyle] = NSUnderlineStyle.single.rawValue
+        case .lineThrough: attributes[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+        case .none, .some(.none): break
+        }
+        if let color = style.color.flatMap(CSSColor.parse) {
+            attributes[.foregroundColor] = color
+        }
+
+        label.attributedStringValue = NSAttributedString(string: text, attributes: attributes)
+        label.alignment = paragraph.alignment
+        // The attributed string is what gets drawn, but the cell's own `font` and
+        // `textColor` are what everything else reads back — keep them in step so
+        // the label never describes itself as something it isn't.
+        label.font = font
+        if let color = attributes[.foregroundColor] as? NSColor { label.textColor = color }
     }
 
     /// Measured with a real `NSTextField`, not with the raw string: the cell adds
@@ -119,8 +178,7 @@ public struct TextComponent: Component {
         guard !text.isEmpty else { return nil }
 
         let ruler = Self.ruler
-        ruler.stringValue = text
-        ruler.font = nsFont(for: node.style)
+        Self.style(ruler, with: node.style, text: text, measuring: true)
         ruler.preferredMaxLayoutWidth =
             maxWidth.isFinite ? CGFloat(maxWidth) : CGFloat.greatestFiniteMagnitude
         let fitting = ruler.fittingSize

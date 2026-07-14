@@ -183,6 +183,17 @@ public final class YogaLayoutEngine: LayoutEngine {
         applyEdge(style.right, .right) { YGNodeStyleSetPosition(yg, $0, $1) }
         applyEdge(style.bottom, .bottom) { YGNodeStyleSetPosition(yg, $0, $1) }
         applyEdge(style.left, .left) { YGNodeStyleSetPosition(yg, $0, $1) }
+
+        // `hidden` is a LAYOUT property, not a paint one: the box leaves the flow
+        // and its siblings close the gap. Hiding the view instead would leave a
+        // hole exactly its size.
+        if let value = style.display {
+            YGNodeStyleSetDisplay(yg, value == .none ? .none : .flex)
+        }
+        if let value = style.overflow {
+            YGNodeStyleSetOverflow(yg, value == .scroll ? .scroll : (value == .hidden ? .hidden : .visible))
+        }
+        if let value = style.aspectRatio { YGNodeStyleSetAspectRatio(yg, Float(value)) }
     }
 
     private func applyEdge(_ value: Double?, _ edge: YGEdge, _ set: (YGEdge, Float) -> Void) {
