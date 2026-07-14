@@ -9,7 +9,7 @@ import {
   type JSONValue,
   type UINode,
 } from "@uniview/protocol";
-import type { CellStyle, RenderNode, StyledSpan, TuiStyle } from "@uniview/tui-core";
+import type { CellStyle, Color, RenderNode, StyledSpan, TuiStyle } from "@uniview/tui-core";
 
 /** Element types treated as inline text (their text children are flattened). */
 const TEXT_TYPES = new Set([
@@ -71,10 +71,24 @@ function propsToStyle(props: Record<string, JSONValue>): TuiStyle {
   return style as TuiStyle;
 }
 
+/** Accept a color prop as a named/CSS string or an `{ r, g, b }` triple. */
+function asColor(value: JSONValue | undefined): Color | undefined {
+  if (typeof value === "string") return value;
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const o = value as Record<string, JSONValue>;
+    if (typeof o.r === "number" && typeof o.g === "number" && typeof o.b === "number") {
+      return { r: o.r, g: o.g, b: o.b };
+    }
+  }
+  return undefined;
+}
+
 function propsToTextStyle(props: Record<string, JSONValue>): CellStyle {
   const style: Record<string, unknown> = {};
-  if (typeof props.color === "string") style.fg = props.color;
-  if (typeof props.backgroundColor === "string") style.bg = props.backgroundColor;
+  const fg = asColor(props.color);
+  const bg = asColor(props.backgroundColor);
+  if (fg !== undefined) style.fg = fg;
+  if (bg !== undefined) style.bg = bg;
   for (const flag of TEXT_STYLE_FLAGS) {
     if (props[flag] === true) style[flag] = true;
   }
@@ -127,9 +141,8 @@ export function uinodeToRenderNode(node: UINode | string): RenderNode | null {
       style,
       spans: parseSpans(node.props.spans),
     };
-    if (typeof node.props.backgroundColor === "string") {
-      rendered.background = node.props.backgroundColor;
-    }
+    const bg = asColor(node.props.backgroundColor);
+    if (bg !== undefined) rendered.background = bg;
     return rendered;
   }
 
@@ -151,9 +164,8 @@ export function uinodeToRenderNode(node: UINode | string): RenderNode | null {
       .map(uinodeToRenderNode)
       .filter((c): c is RenderNode => c !== null),
   };
-  if (typeof node.props.backgroundColor === "string") {
-    rendered.background = node.props.backgroundColor;
-  }
+  const bg = asColor(node.props.backgroundColor);
+  if (bg !== undefined) rendered.background = bg;
   return rendered;
 }
 

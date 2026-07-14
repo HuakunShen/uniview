@@ -137,6 +137,26 @@ describe("uinodeToRenderNode — richtext", () => {
     expect(rendered).toMatchObject({ type: "richtext", spans: [], background: "red" });
   });
 
+  it("accepts an { r, g, b } background (not just string colors)", () => {
+    const node: UINode = {
+      id: "panel",
+      type: "box",
+      props: { backgroundColor: { r: 24, g: 26, b: 38 } },
+      children: [],
+    };
+    expect(uinodeToRenderNode(node)).toMatchObject({ background: { r: 24, g: 26, b: 38 } });
+  });
+
+  it("accepts an { r, g, b } text color", () => {
+    const node: UINode = {
+      id: "label",
+      type: "text",
+      props: { color: { r: 255, g: 0, b: 0 } },
+      children: [],
+    };
+    expect(uinodeToRenderNode(node)).toMatchObject({ textStyle: { fg: { r: 255, g: 0, b: 0 } } });
+  });
+
   it("ignores a malformed spans prop (not an array)", () => {
     const node: UINode = {
       id: "bad",

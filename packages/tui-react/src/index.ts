@@ -19,7 +19,7 @@ export { VirtualList } from "./virtual-list";
 export type { VirtualListProps } from "./virtual-list";
 export { Select } from "./select";
 export type { SelectProps } from "./select";
-export { ScrollView, Hoverable, CommandPalette, filterCommands } from "./interactive";
+export { ScrollView, Hoverable, CommandPalette, filterCommands, clampScroll } from "./interactive";
 export type {
   ScrollViewProps,
   HoverableProps,
