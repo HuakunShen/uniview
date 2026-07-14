@@ -32,7 +32,14 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
+        # vendors/kkrpc's own `prepare` script shells out to `deno` to generate
+        # ambient Deno types, which this job doesn't have and doesn't need —
+        # uniview only consumes kkrpc's built dist, never its Deno declarations.
+        # CF_PAGES=1 is kkrpc's own upstream escape hatch for exactly this case
+        # (see vendors/kkrpc/packages/kkrpc/scripts/prepare.ts).
         run: pnpm install --frozen-lockfile
+        env:
+          CF_PAGES: "1"
 
       - name: Build
         run: pnpm build
@@ -66,7 +73,11 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
+        # See the same step in the build-and-test job: skips vendors/kkrpc's
+        # `deno`-dependent prepare script, which this job doesn't need either.
         run: pnpm install --frozen-lockfile
+        env:
+          CF_PAGES: "1"
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
