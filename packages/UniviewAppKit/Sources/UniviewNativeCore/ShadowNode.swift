@@ -1,0 +1,140 @@
+import Foundation
+
+/// A computed layout box (absolute coordinates in the host's coordinate space).
+/// Populated by the layout engine; consumed by the host when mounting views.
+public struct LayoutRect: Equatable, Sendable {
+    public var x: Double
+    public var y: Double
+    public var width: Double
+    public var height: Double
+
+    public init(x: Double = 0, y: Double = 0, width: Double = 0, height: Double = 0) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+
+    public static let zero = LayoutRect()
+}
+
+/// A node in the shadow tree — the intermediate representation between the
+/// serialized `UINode` and native views (Fabric-style).
+///
+/// Reference type: the tree is mutated in place by the reconciler and carries
+/// stable `id`s for keyed diffing. It holds **no** platform view reference —
+/// the AppKit host binds `NSView`s to nodes by `id` in its own layer, keeping
+/// `UniviewNativeCore` portable.
+public final class ShadowNode {
+    public let id: String
+    public var type: String
+    public var props: [String: JSONValue]
+    /// Resolved Style IR (decoded from `props["style"]`).
+    public var style: StyleIR
+    /// Text content when `type == TEXT_NODE_TYPE`.
+    public var text: String?
+    public private(set) weak var parent: ShadowNode?
+    public private(set) var children: [ShadowNode]
+    /// Computed layout, filled by the layout engine.
+    public var layout: LayoutRect
+
+    public init(
+        id: String,
+        type: String,
+        props: [String: JSONValue] = [:],
+        style: StyleIR = StyleIR(),
+        text: String? = nil,
+        children: [ShadowNode] = []
+    ) {
+        self.id = id
+        self.type = type
+        self.props = props
+        self.style = style
+        self.text = text
+        self.children = children
+        self.layout = .zero
+        for child in children {
+            child.parent = self
+        }
+    }
+
+    public var isTextNode: Bool { type == TEXT_NODE_TYPE }
+
+    /// The handler id registered for an event, following the protocol
+    /// convention `onClick` → `_onClickHandlerId`. Returns nil when absent.
+    public func handlerId(for event: String) -> String? {
+        props["_\(event)HandlerId"]?.stringValue
+    }
+
+    /// Flattened text content — this node's own `text` (if a text node),
+    /// `br` as a newline, otherwise the concatenation of descendants' text.
+    /// Mirrors the serializer's text model so a `Text`/`Button` can read the
+    /// string it should display from its `#text` children.
+    public var renderedText: String {
+        if isTextNode { return text ?? "" }
+        if type == "br" { return "\n" }
+        return children.map(\.renderedText).joined()
+    }
+
+    /// Recursively build a shadow node from a serialized `UINode`, decoding the
+    /// Style IR from the node's props. Style fields the host cannot use are
+    /// dropped individually and passed to `reporter` — the rest of the style
+    /// still reaches the node.
+    public static func from(_ node: UINode, reportingTo reporter: StyleIssueReporter? = nil)
+        -> ShadowNode
+    {
+        ShadowNode(
+            id: node.id,
+            type: node.type,
+            props: node.props,
+            style: resolveStyle(from: node.props, nodeId: node.id, reportingTo: reporter),
+            text: node.text,
+            children: node.children.map { from($0, reportingTo: reporter) }
+        )
+    }
+
+    /// `_style` is the Style IR a plugin's renderer resolved from its Tailwind
+    /// classes and style object; `style` is raw IR, for trees authored natively.
+    /// Web hosts keep reading the plugin's `className` / `style` — the same tree
+    /// serves both, which is why the IR gets its own key instead of overwriting
+    /// `style` (there it would mean "a CSS object").
+    static func resolveStyle(
+        from props: [String: JSONValue],
+        nodeId: String,
+        reportingTo reporter: StyleIssueReporter? = nil
+    ) -> StyleIR {
+        guard let raw = props["_style"] ?? props["style"] else { return StyleIR() }
+        let (style, issues) = StyleIR.decoding(raw)
+        if let reporter {
+            for issue in issues { reporter(nodeId, issue) }
+        }
+        return style
+    }
+
+    // MARK: - Structural mutation (driven by ShadowTree)
+
+    func appendChild(_ child: ShadowNode) {
+        child.parent = self
+        children.append(child)
+    }
+
+    /// Insert `child` before the child with `beforeId`; appends if the anchor
+    /// is absent (matches the host's insertBefore fallback).
+    func insertChild(_ child: ShadowNode, before beforeId: String) {
+        child.parent = self
+        if let index = children.firstIndex(where: { $0.id == beforeId }) {
+            children.insert(child, at: index)
+        } else {
+            children.append(child)
+        }
+    }
+
+    func removeChild(_ child: ShadowNode) {
+        children.removeAll { $0 === child }
+        if child.parent === self { child.parent = nil }
+    }
+
+    func detachFromParent() {
+        parent?.removeChild(self)
+    }
+}

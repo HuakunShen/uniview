@@ -1,8 +1,17 @@
 export { Button } from "./components/Button";
 export type { ButtonProps } from "./components/Button";
 
+export { Icon } from "./components/Icon";
+export type { IconProps } from "./components/Icon";
+
 export { Input } from "./components/Input";
 export type { InputProps } from "./components/Input";
+
+export { Menu, MenuItem, MenuSeparator } from "./components/Menu";
+export type { MenuItemProps, MenuProps, MenuRole } from "./components/Menu";
+
+export { Window } from "./components/Window";
+export type { Vibrancy, WindowLevel, WindowProps } from "./components/Window";
 
 export { Switch } from "./components/Switch";
 export type { SwitchProps } from "./components/Switch";

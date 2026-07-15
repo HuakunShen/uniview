@@ -1,5 +1,6 @@
 import type { JSONValue, UINode } from "./tree";
 import type { HandlerId } from "./events";
+import type { HostEnvironment } from "./environment";
 import type { Mutation } from "./mutations";
 
 /**
@@ -14,6 +15,8 @@ export interface HostToPluginAPI {
   initialize(req: {
     protocolVersion: number;
     props?: JSONValue;
+    /** The machine's state at connect time, so the first render is already right. */
+    env?: Partial<HostEnvironment>;
   }): Promise<void>;
 
   /**
@@ -21,6 +24,17 @@ export interface HostToPluginAPI {
    * Triggers a re-render in the plugin
    */
   updateProps(props: JSONValue): Promise<void>;
+
+  /**
+   * Push host/system state (dark mode, accent color, reduced motion…) into the
+   * plugin. Merged over what's there, so a host can send only what changed.
+   *
+   * Separate from `updateProps` on purpose: props belong to whoever mounted the
+   * plugin, and a host that folded the color scheme into them would be writing
+   * into someone else's namespace. The plugin reads this through `useColorScheme()`
+   * — the same shape React Native gives you.
+   */
+  setEnvironment(env: Partial<HostEnvironment>): Promise<void>;
 
   /**
    * Execute an event handler in the plugin

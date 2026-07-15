@@ -8,6 +8,63 @@
 
 Universal plugin system for React and Solid plugins that render in host framework demos (Svelte, Vue, React). Plugins run in isolated environments (Web Workers, Node.js, Deno, Bun) via kkrpc RPC.
 
+## THE PRIME DIRECTIVE: FRAMEWORK-, APP-, AND BRAND-AGNOSTIC
+
+**Uniview is a renderer. It renders what the tree says. It has no opinions of its
+own — not about which UI framework you author in, not about which app is being
+built, and above all not about what that app looks like.**
+
+Each word forbids something specific:
+
+- **Framework-agnostic.** `@uniview/protocol`, `@uniview/host-sdk` and every
+  native host speak `UINode` + `Mutation` + Style IR. They must not know that
+  React or Solid or Svelte exists. A new plugin-side framework is a new renderer
+  package and *zero* changes anywhere else.
+- **App-agnostic.** The renderer must not know what a "sidebar", a "launcher" or a
+  "command palette" is. Those are components, and components are written in the
+  plugin, in TypeScript. `packages/UniviewAppKit` is a library; `UniviewDemoApp`
+  is a demo *that uses it*. Framework logic must never leak into the demo, nor
+  demo logic into the framework.
+- **Brand-agnostic.** The renderer must not contain a color, a gradient, a corner
+  radius or a shadow that it invented. It draws the Style IR, and the Style IR
+  comes from the plugin. Semantic tokens (`accent`, `foreground`, `card`) resolve
+  to the *system's* colors — the ones the user chose — never to ours.
+
+### Why this is a hard rule, not a preference
+
+The renderer is what gets **reimplemented on every platform** (macOS AppKit today;
+Windows and HarmonyOS next). An app's UI is unbounded and grows forever; a
+renderer's primitive set is bounded and converges. That asymmetry is the entire
+bet — and it is the bet Raycast lost when they had to take an app's UI to a second
+platform and retreated to a WebView.
+
+Every product decision that leaks into the renderer breaks the bet twice: it is
+ported into every new platform (three copies of one opinion, in three languages),
+and it makes the renderer usable by exactly one product.
+
+This is not hypothetical. `ButtonComponent` used to accept `variant: "primary"`
+and paint a hardcoded blue→violet brand gradient with a matching colored shadow.
+The plugin could not override it — the gradient was not even *reachable* from the
+Style IR. It was Uniview's brand, compiled into a renderer that was about to be
+ported to two more platforms. It is gone now: gradients travel in the IR
+(`bg-linear-to-br from-… to-…`), an unstyled button is a **real native bezel
+button**, and the demo declares its own `demoBrandColor` inside `UniviewDemoApp`.
+
+### The two constraints this implies
+
+1. **The primitive set has a ceiling, and the core stays rewritable.**
+   `UniviewNativeCore` (shadow tree, mutations, the layout seam) is deliberately
+   small enough to reimplement per platform in about a week — which is why we can
+   afford *not* to fight C++ interop across three platforms. Adding a primitive
+   carries a per-platform cost forever; adding a *component* in TypeScript costs
+   nothing. Prefer the component.
+2. **High-frequency interaction is local, never RPC.** Scrolling, typing, hover
+   and focus are handled natively and must never stream per-event across the
+   transport. This is why style variants (`dark:`, `hover:`, `focus:`) travel
+   *with* the node and are resolved by the host, instead of being pushed to the
+   plugin for a re-render: a round trip per mouse-enter is wasteful locally and
+   fatal when the plugin runs on another machine.
+
 ## STRUCTURE
 
 ```
@@ -104,6 +161,21 @@ uniview/
 - ❌ **NEVER** use Svelte 4 syntax - ALWAYS use Svelte 5 runes
 - ❌ **NEVER** drop text children - host adapters must render string nodes
 - ❌ **MUST NOT** define product-specific primitives in `@uniview/protocol`
+- ❌ **NEVER** put a brand in a renderer — no invented color, gradient, radius or
+  shadow in `UniviewAppKit` / `host-*`. The Style IR carries them and the plugin
+  owns them. `accent` means the **user's** accent color, not yours.
+- ❌ **NEVER** give a primitive a `variant` (`"primary"`, `"danger"`…). A variant is
+  a design decision, so it is a TypeScript component that compiles to classes —
+  never a branch inside the renderer.
+- ❌ **NEVER** teach the renderer an app concept (sidebar, launcher, palette) —
+  those are components in the plugin
+- ❌ **NEVER** put a brand in a renderer — no invented colors, gradients, radii or
+  shadows in `UniviewAppKit`/`host-*`. The Style IR carries them; the plugin owns
+  them. `accent` means the *user's* accent color, not yours.
+- ❌ **NEVER** give a primitive a `variant` (`"primary"`, `"danger"`…). A variant
+  is a design decision, so it is a TypeScript component, not a renderer branch.
+- ❌ **NEVER** let the renderer learn app concepts (sidebar, launcher, palette) —
+  those are components in the plugin
 - ❌ **NEVER** use `@ts-ignore`, `@ts-expect-error`, `as any`
 - ❌ **DO NOT GUESS** during debugging - use logs and reproducible tests
 - ❌ **NEVER** import `react-dom` in plugins - breaks Worker compatibility

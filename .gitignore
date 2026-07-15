@@ -51,3 +51,10 @@ references/
 
 examples/bun*
 docs/superpowers
+
+# Xcode / Swift
+xcuserdata/
+*.xcuserstate
+.build/
+DerivedData/
+*.swiftpm/

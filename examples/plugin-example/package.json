@@ -13,6 +13,7 @@
     "build": "bun build.ts",
     "dev": "bun build.ts --serve",
     "client": "run-p client:simple client:advanced client:raycast client:clipboard client:grid client:form client:detail",
+    "client:app-shell": "bun src/app-shell.client.ts",
     "client:simple": "bun src/simple-demo.client.ts",
     "client:advanced": "bun src/advanced-demo.client.ts",
     "client:raycast": "bun src/raycast-demo.client.ts",

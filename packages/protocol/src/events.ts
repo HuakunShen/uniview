@@ -22,6 +22,26 @@ export type EventPropName =
   | "onWheel";
 
 /**
+ * The payload an `onKeyDown` handler receives.
+ *
+ * Deliberately a subset of the DOM's `KeyboardEvent`, field for field: the same
+ * plugin tree renders on a web host, where `onKeyDown` is handed the real thing.
+ * A native host that invented its own field names would mean one tree that reads
+ * its keys two different ways depending on who renders it.
+ *
+ * Native hosts only send keys the node *declared* (`keyDownEvents`) — see the
+ * prop's documentation. `key` is the declared name (`"Escape"`, `"ArrowDown"`).
+ */
+export interface KeyDownEvent {
+  key: string;
+  metaKey: boolean;
+  shiftKey: boolean;
+  altKey: boolean;
+  ctrlKey: boolean;
+  repeat: boolean;
+}
+
+/**
  * List of all event prop names for runtime checking
  */
 export const EVENT_PROPS: readonly EventPropName[] = [

@@ -88,6 +88,12 @@
 				continue;
 			}
 
+			if (key === "_style") {
+				// The resolved Style IR, for hosts with no CSS engine (AppKit, WinUI).
+				// On the web the authored `className` / `style` already say it.
+				continue;
+			}
+
 			if (key === "className") {
 				attrs.class = value;
 			} else if (key === "htmlFor") {

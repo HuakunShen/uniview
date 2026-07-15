@@ -10,6 +10,7 @@ import type {
   Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
+import { setHostEnvironment } from "./environment";
 import {
   createRenderer,
   render,
@@ -134,6 +135,11 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
       assertProtocolVersion(req.protocolVersion);
       resetRuntimeState();
 
+      // Seed the environment BEFORE the first render, so a plugin that keys off
+      // `useColorScheme()` doesn't paint a light tree, ship it to the host, and
+      // then repaint dark a round trip later.
+      if (req.env) setHostEnvironment(req.env);
+
       handlerRegistry = new HandlerRegistry();
       bridge = createRenderer();
       // React render/commit errors -> host reportError (previously they
@@ -180,6 +186,12 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
       );
       currentElement = newElement;
       render(newElement, bridge);
+    },
+
+    async setEnvironment(env) {
+      // No render call here on purpose: the store notifies its subscribers, and
+      // only the components that actually read `useColorScheme()` re-render.
+      setHostEnvironment(env);
     },
 
     async executeHandler(handlerId, args) {
