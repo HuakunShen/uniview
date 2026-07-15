@@ -29,9 +29,27 @@ export const UILayoutTagSchema = z.enum(
   LAYOUT_TAGS as unknown as [string, ...string[]],
 );
 
+/**
+ * The environment the host pushes with `initialize` (and later via
+ * `setEnvironment`). All fields optional — it's a `Partial<HostEnvironment>`, so
+ * a host can send only what it knows.
+ */
+export const HostEnvironmentSchema = z.object({
+  colorScheme: z.enum(["light", "dark"]).optional(),
+  accentColor: z.string().optional(),
+  reduceMotion: z.boolean().optional(),
+  highContrast: z.boolean().optional(),
+  active: z.boolean().optional(),
+});
+
 export const InitializeRequestSchema = z.object({
   protocolVersion: z.number().int().positive(),
   props: JSONValueSchema.optional(),
+  // Must be in the schema, or Zod strips it: the first environment would be
+  // dropped by any path that validates the request before forwarding, and
+  // `useColorScheme()` would render with the default until a later
+  // `setEnvironment` round trip corrected it.
+  env: HostEnvironmentSchema.optional(),
 });
 
 export const UpdatePropsRequestSchema = JSONValueSchema;

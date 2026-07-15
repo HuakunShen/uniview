@@ -152,6 +152,51 @@ import Testing
         #expect(container.layer?.backgroundColor != nil)
     }
 
+    /// A controlled field is controlled by the *presence* of `value`, not its
+    /// contents. Keying on emptiness wrote `defaultValue` back whenever the user
+    /// cleared the field, so a controlled input could never be emptied.
+    @Test func aControlledFieldCanBeClearedEvenWithADefaultValue() throws {
+        func field(_ props: [String: JSONValue]) throws -> HandlerTextField {
+            let node = ShadowNode.from(UINode(id: "f", type: "TextInput", props: props))
+            return try #require(mount(TextInputComponent(), node) as? StyledFieldView).field
+        }
+
+        // Controlled empty value wins over the default — the field stays empty.
+        let controlled = try field(["value": .string(""), "defaultValue": .string("seed")])
+        #expect(controlled.stringValue == "")
+
+        // No `value` prop at all: `defaultValue` seeds the uncontrolled field.
+        let uncontrolled = try field(["defaultValue": .string("seed")])
+        #expect(uncontrolled.stringValue == "seed")
+    }
+
+    /// A text label honours `dark:` like every box beside it. It can't use the
+    /// layer-repaint path (it draws text, not a layer), so it re-resolves its own
+    /// style for the appearance it's in.
+    @Test func aTextLabelResolvesDarkVariant() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "t", type: "Text",
+                props: [
+                    "style": .object([
+                        "color": .string("#000000"),
+                        "variants": .object([
+                            "dark": .object(["color": .string("#ffffff")])
+                        ]),
+                    ])
+                ],
+                children: [UINode.text("Hi", id: "t.t")]))
+        let label = try #require(mount(TextComponent(), node) as? StyledLabel)
+
+        label.appearance = NSAppearance(named: .darkAqua)
+        let dark = try #require(label.textColor?.usingColorSpace(.sRGB))
+        #expect(dark.redComponent > 0.9 && dark.blueComponent > 0.9, "dark:text-white applies")
+
+        label.appearance = NSAppearance(named: .aqua)
+        let light = try #require(label.textColor?.usingColorSpace(.sRGB))
+        #expect(light.redComponent < 0.1 && light.blueComponent < 0.1, "base color returns in light")
+    }
+
     /// An unstyled button is a REAL native button. The renderer has no house
     /// style to impose — that is the whole point of rendering natively.
     @Test func anUnstyledButtonIsANativeBezelButton() throws {

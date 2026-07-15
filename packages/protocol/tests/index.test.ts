@@ -44,7 +44,12 @@ describe("event handler prop helpers", () => {
 describe("runtime validators", () => {
   test("accepts valid JSON values", () => {
     expect(
-      isValidJSONValue({ name: "Ada", enabled: true, count: 2, tags: ["demo"] }),
+      isValidJSONValue({
+        name: "Ada",
+        enabled: true,
+        count: 2,
+        tags: ["demo"],
+      }),
     ).toBe(true);
   });
 
@@ -78,6 +83,17 @@ describe("runtime validators", () => {
     });
   });
 
+  test("keeps the initial environment on the initialize request", () => {
+    // Zod strips unknown keys; `env` has to be in the schema or the first
+    // color scheme is dropped and useColorScheme() renders with the default
+    // until a later setEnvironment round trip.
+    const result = validateInitializeRequest({
+      protocolVersion: PROTOCOL_VERSION,
+      env: { colorScheme: "dark", accentColor: "#ff0000" },
+    });
+    expect(result.env).toEqual({ colorScheme: "dark", accentColor: "#ff0000" });
+  });
+
   test("accepts a v3 text node in a tree", () => {
     expect(
       isValidUINode({
@@ -85,7 +101,13 @@ describe("runtime validators", () => {
         type: "div",
         props: {},
         children: [
-          { id: "t1", type: TEXT_NODE_TYPE, props: {}, children: [], text: "hi" },
+          {
+            id: "t1",
+            type: TEXT_NODE_TYPE,
+            props: {},
+            children: [],
+            text: "hi",
+          },
         ],
       }),
     ).toBe(true);
@@ -95,9 +117,21 @@ describe("runtime validators", () => {
 describe("mutation validators", () => {
   test("accepts a well-formed v3 mutation batch", () => {
     const mutations = [
-      { type: "setRoot", node: { id: "root", type: "div", props: {}, children: [] } },
-      { type: "appendChild", parentId: "root", node: { id: "a", type: "span", props: {}, children: [] } },
-      { type: "insertBefore", parentId: "root", node: { id: "b", type: "span", props: {}, children: [] }, beforeId: "a" },
+      {
+        type: "setRoot",
+        node: { id: "root", type: "div", props: {}, children: [] },
+      },
+      {
+        type: "appendChild",
+        parentId: "root",
+        node: { id: "a", type: "span", props: {}, children: [] },
+      },
+      {
+        type: "insertBefore",
+        parentId: "root",
+        node: { id: "b", type: "span", props: {}, children: [] },
+        beforeId: "a",
+      },
       { type: "setText", nodeId: "t1", text: "updated" },
       { type: "setProps", nodeId: "a", props: { className: "x" } },
       { type: "removeChild", parentId: "root", nodeId: "b" },
@@ -110,7 +144,9 @@ describe("mutation validators", () => {
     // The v2 shape { type: "setText", parentId, childIndex, text } must no
     // longer validate — catching a stale plugin talking to a v3 host.
     expect(
-      isValidMutations([{ type: "setText", parentId: "root", childIndex: 0, text: "x" }]),
+      isValidMutations([
+        { type: "setText", parentId: "root", childIndex: 0, text: "x" },
+      ]),
     ).toBe(false);
   });
 
@@ -120,7 +156,9 @@ describe("mutation validators", () => {
 
   test("validates executeHandler positional args", () => {
     expect(validateExecuteHandlerArgs("root:onClick", [])).toBeNull();
-    expect(validateExecuteHandlerArgs("root:onClick", [1, "two", null])).toBeNull();
+    expect(
+      validateExecuteHandlerArgs("root:onClick", [1, "two", null]),
+    ).toBeNull();
     expect(validateExecuteHandlerArgs(42, [])).toContain("handlerId");
     expect(validateExecuteHandlerArgs("id", "not-an-array")).toContain("args");
   });

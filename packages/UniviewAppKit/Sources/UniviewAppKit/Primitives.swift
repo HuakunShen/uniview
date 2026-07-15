@@ -158,15 +158,22 @@ public struct TextComponent: Component {
     public var mountsChildren: Bool { false }
 
     public func makeView(for node: ShadowNode) -> NSView {
-        let label = NSTextField(labelWithString: "")
+        let label = StyledLabel(labelWithString: "")
         label.lineBreakMode = .byWordWrapping
         label.maximumNumberOfLines = 0
         return label
     }
 
     public func update(_ view: NSView, node: ShadowNode, context: MountContext) {
-        guard let label = view as? NSTextField else { return }
-        Self.style(label, with: node.style, text: node.renderedText)
+        guard let label = view as? StyledLabel else { return }
+        // Store the base style + text and let the label resolve variants for
+        // whatever appearance it's in — and re-resolve when that changes. Applying
+        // `node.style` straight would leave `dark:text-zinc-50` painting its light
+        // color in a dark window: an `NSTextField` isn't a `StyleStateView`, so
+        // nothing else here would ever re-tint it. (Semantic tokens like
+        // `text-foreground` already adapt on their own — they're dynamic colors —
+        // this is for the literal `dark:`/hover variants the IR carries.)
+        label.render(base: node.style, text: node.renderedText)
     }
 
     /// Everything that decides how the text is laid out — the font, the line
@@ -255,6 +262,39 @@ public struct TextComponent: Component {
         label.maximumNumberOfLines = 0
         return label
     }()
+}
+
+/// A label that resolves its own style variants.
+///
+/// `dark:` / `hover:` on text can't ride the `StyleStateView` repaint path — that
+/// is layer painting, and a label draws text, not a layer. So the label keeps its
+/// *base* Style IR and re-resolves it for the current appearance whenever that
+/// changes. Without this, `<p className="text-zinc-900 dark:text-zinc-50">` kept
+/// its light color in a dark window while every box beside it flipped.
+@MainActor
+final class StyledLabel: NSTextField {
+    private var base = StyleIR()
+    private var text = ""
+
+    func render(base: StyleIR, text: String) {
+        self.base = base
+        self.text = text
+        restyle()
+    }
+
+    private func restyle() {
+        // A label isn't interactive, so the only condition that can hold is the
+        // appearance. `hover:`/`focus:` text variants would need first-responder /
+        // tracking machinery a label doesn't have; they're carried in the IR and
+        // simply don't apply here.
+        let dark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        TextComponent.style(self, with: base.resolved(for: [dark ? "dark" : "light"]), text: text)
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        restyle()
+    }
 }
 
 // MARK: - Icon
@@ -595,9 +635,17 @@ public struct TextInputComponent: Component {
         guard let container = view as? StyledFieldView else { return }
         let field = container.field
         field.placeholderString = node.props["placeholder"]?.stringValue ?? ""
-        let value = node.props["value"]?.stringValue ?? ""
-        let defaultValue = node.props["defaultValue"]?.stringValue ?? ""
-        field.setValueFromHost(value.isEmpty ? defaultValue : value)
+        // Controlled vs uncontrolled turns on whether `value` is *present*, not
+        // whether it's empty. Keying on emptiness meant a controlled `value=""`
+        // (the field just cleared) fell through to `defaultValue` and the old
+        // default was written straight back — so a controlled field could never
+        // be emptied. `defaultValue` is the uncontrolled seed; it applies only
+        // when there is no `value` prop at all.
+        if let value = node.props["value"]?.stringValue {
+            field.setValueFromHost(value)
+        } else if let defaultValue = node.props["defaultValue"]?.stringValue {
+            field.setValueFromHost(defaultValue)
+        }
         field.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
         field.bind(handlerId: node.handlerId(for: "onChange"), executor: context.executeHandler)
         field.keyInterest = KeyInterest(node: node, executor: context.executeHandler)
