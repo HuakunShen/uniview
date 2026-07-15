@@ -460,10 +460,19 @@ final class StyledButton: HandlerButton, StyleStateView {
     }
 
     func apply(style: StyleIR, title: String, icon: String?) {
-        // "Did the plugin paint this?" is the only question. A fill is the signal:
-        // borders and radii alone would leave a bezel button with a rectangle
-        // drawn over it.
-        let painted = style.backgroundColor != nil || style.backgroundGradient != nil
+        // "Did the plugin style this?" is the only question. A fill is one signal —
+        // but so is a border or a corner radius: an `outline` button
+        // (`border border-border rounded-md text-foreground`) has no fill and is
+        // just as clearly plugin-drawn. Keying only on the fill made those render
+        // as the default bezel with their border/radius/text-color thrown away.
+        //
+        // Counting borders is safe *because* `isBordered` goes false below: there
+        // is no native bezel underneath for the drawn border to sit on top of, so
+        // it is the button's outline, not a rectangle over a bezel.
+        let painted =
+            style.backgroundColor != nil || style.backgroundGradient != nil
+            || style.borderWidth != nil || style.borderColor != nil
+            || style.borderRadius != nil
         isBordered = !painted
         bezelStyle = painted ? .regularSquare : .rounded
         alignment = painted ? .center : .center
@@ -592,6 +601,7 @@ public struct TextInputComponent: Component {
         field.isEnabled = !(node.props["disabled"]?.boolValue ?? false)
         field.bind(handlerId: node.handlerId(for: "onChange"), executor: context.executeHandler)
         field.keyInterest = KeyInterest(node: node, executor: context.executeHandler)
+        container.apply(style: node.style)
         if node.props["autoFocus"]?.boolValue == true { container.focusFieldOnce() }
     }
 
@@ -603,16 +613,26 @@ public struct TextInputComponent: Component {
     }
 }
 
-/// A rounded, inset field: a subtle translucent fill + hairline that turns brand
-/// on focus, an optional leading SF Symbol, and a borderless text field. Mirrors
-/// the reference app's `CCField`. The composite lays out its own internals, so
-/// the layout engine treats it as a single leaf box.
+/// A rounded, inset field with an optional leading SF Symbol and a borderless
+/// text field. The composite lays out its own internals, so the layout engine
+/// treats it as a single leaf box.
+///
+/// Its chrome is **not** hardcoded. The fill, border, radius and text color come
+/// from the Style IR when the plugin sets them; where it doesn't, the fallback is
+/// the *system's* own semantic colors — `labelColor`, `separatorColor`, the
+/// user's `controlAccentColor` on focus — never an invented one. A plugin can
+/// therefore restyle the field completely, or ask for a plain one, which is the
+/// framework-agnostic contract: the renderer must draw what the tree says, not a
+/// look it decided on. (It used to paint a fixed translucent fill and hairline
+/// that no plugin could reach.)
 @MainActor
 public final class StyledFieldView: NSView {
     let field = HandlerTextField(frame: .zero)
     private let iconView = NSImageView()
     private let hasIcon: Bool
     private var focused = false
+    /// What the plugin asked for, if anything. Read by `updateColors`.
+    private var style = StyleIR()
 
     public override var isFlipped: Bool { true }
 
@@ -676,6 +696,16 @@ public final class StyledFieldView: NSView {
         }
     }
 
+    /// Take the plugin's style. Geometry (radius, border width) applies now; the
+    /// colors are (re)applied per appearance in `updateColors`.
+    func apply(style: StyleIR) {
+        self.style = style
+        if let radius = style.borderRadius { layer?.cornerRadius = CGFloat(radius) }
+        if let width = style.borderWidth { layer?.borderWidth = CGFloat(width) }
+        if let color = style.color.flatMap(CSSColor.parse) { field.textColor = color }
+        updateColors()
+    }
+
     private func setFocused(_ value: Bool) {
         focused = value
         updateColors()
@@ -683,10 +713,24 @@ public final class StyledFieldView: NSView {
 
     private func updateColors() {
         effectiveAppearance.performAsCurrentDrawingAppearance { [self] in
-            layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.06).cgColor
-            layer?.borderColor =
-                (focused ? NSColor.controlAccentColor.withAlphaComponent(0.85) : NSColor.separatorColor)
-                .cgColor
+            // Plugin's fill if it set one; otherwise a faint neutral from the
+            // system's own label color — not an invented tint.
+            layer?.backgroundColor =
+                (style.backgroundColor.flatMap(CSSColor.parse)
+                ?? NSColor.labelColor.withAlphaComponent(0.06)).cgColor
+
+            // A plugin-set border color owns both states. Left unset, the field
+            // keeps the native affordance: a hairline that turns to the user's
+            // accent color on focus.
+            if let border = style.borderColor.flatMap(CSSColor.parse) {
+                layer?.borderColor = border.cgColor
+            } else {
+                layer?.borderColor =
+                    (focused
+                    ? NSColor.controlAccentColor.withAlphaComponent(0.85)
+                    : NSColor.separatorColor).cgColor
+            }
+
             iconView.contentTintColor = focused ? .controlAccentColor : .secondaryLabelColor
         }
     }

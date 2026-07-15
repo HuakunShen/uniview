@@ -172,6 +172,16 @@ public final class WindowSurface: NativeSurface {
                 window.titlebarAppearsTransparent = false
                 window.titleVisibility = .visible
                 window.titlebarSeparatorStyle = .automatic
+                // Undo any inset from a previous `hiddenInset`. Without this, a
+                // window toggled hiddenInset → default keeps its lights nudged to
+                // the old offset (the demo's Window menu can do exactly that),
+                // because nothing else restores the OS default corner. An explicit
+                // `trafficLightPosition` below still wins.
+                if let window = window as? UniviewWindow,
+                    props["trafficLightPosition"] == nil
+                {
+                    window.trafficLightOrigin = nil
+                }
             }
         }
 

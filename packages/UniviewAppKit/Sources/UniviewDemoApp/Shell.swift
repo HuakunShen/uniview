@@ -135,7 +135,7 @@ final class ContentViewController: NSViewController {
                         node: statusTree(
                             "Could not reach the bridge at ws://127.0.0.1:3000.\n"
                                 + "Start it with:  cd examples/bridge-server && bun src/index.ts\n"
-                                + "then run the plugin:  cd examples/plugin-example && pnpm client:simple"))
+                                + "then run this app's plugin:  cd examples/plugin-example && pnpm client:app-shell"))
                 ])
             }
         }

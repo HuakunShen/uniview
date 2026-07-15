@@ -1,5 +1,19 @@
 import type { JSONValue } from "@uniview/protocol";
+import { resolveStyleIR } from "@uniview/style";
 import type { HandlerRegistry } from "./handler-registry";
+
+/**
+ * The Style IR travels as a derived `_style` prop, alongside the untouched
+ * `className` / `style` the author wrote. A native host has no CSS engine and
+ * reads `_style`; web hosts ignore it and render `className` themselves.
+ *
+ * This is resolved by the shared `@uniview/style` helper — the SAME one the React
+ * renderer uses — on purpose: a Solid plugin rendered through the native bridge
+ * must produce the identical IR a React plugin would, or the framework-agnostic
+ * contract is a lie. (It was: this serializer used to forward `className`
+ * untouched, so every Solid plugin lost its Tailwind styling on the native side.)
+ */
+const STYLE_IR_PROP = "_style";
 
 /**
  * Serialize props for a node, converting event handlers to handler IDs
@@ -21,61 +35,66 @@ import type { HandlerRegistry } from "./handler-registry";
 const warnedNestedFunctionProps = new Set<string>();
 
 export function serializeProps(
-	props: Record<string, unknown>,
-	registry: HandlerRegistry,
-	nodeId: string,
+  props: Record<string, unknown>,
+  registry: HandlerRegistry,
+  nodeId: string,
 ): Record<string, JSONValue> {
-	const serializedProps: Record<string, JSONValue> = {};
-	const handlers = new Map<string, (...args: unknown[]) => unknown>();
+  const serializedProps: Record<string, JSONValue> = {};
+  const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
-	for (const [key, value] of Object.entries(props)) {
-		// Skip React/Solid internal props
-		if (key === "children" || key === "key" || key === "ref") {
-			continue;
-		}
+  for (const [key, value] of Object.entries(props)) {
+    // Skip React/Solid internal props
+    if (key === "children" || key === "key" || key === "ref") {
+      continue;
+    }
 
-		// Convert event handler functions (on[A-Z]*) to handler IDs
-		if (typeof value === "function") {
-			if (/^on[A-Z]/.test(key)) {
-				const handlerId = `${nodeId}:${key}`;
-				handlers.set(handlerId, value as (...args: unknown[]) => unknown);
-				serializedProps[`_${key}HandlerId`] = handlerId;
-			}
-			continue;
-		}
-		// undefined is not a JSON value — drop it. null IS a valid JSONValue
-		// (e.g. `value={null}` to clear a controlled input) and must survive.
-		else if (value === undefined) {
-			continue;
-		} else if (value === null) {
-			serializedProps[key] = null;
-		}
-		// Include JSON-serializable values
-		else {
-			try {
-				let hasNestedFunction = false;
-				JSON.stringify(value, (_k, v: unknown) => {
-					if (typeof v === "function") {
-						hasNestedFunction = true;
-						return undefined;
-					}
-					return v;
-				});
-				if (hasNestedFunction && !warnedNestedFunctionProps.has(key)) {
-					warnedNestedFunctionProps.add(key);
-					console.warn(
-						`[uniview] prop "${key}" contains nested function(s) that will NOT become event handlers — only top-level on[A-Z]* function props are converted to handler ids. Pass callbacks as top-level props or model the data as child elements.`,
-					);
-				}
-				serializedProps[key] = value as JSONValue;
-			} catch {
-				// Skip values that can't be serialized
-				continue;
-			}
-		}
-	}
+    // Convert event handler functions (on[A-Z]*) to handler IDs
+    if (typeof value === "function") {
+      if (/^on[A-Z]/.test(key)) {
+        const handlerId = `${nodeId}:${key}`;
+        handlers.set(handlerId, value as (...args: unknown[]) => unknown);
+        serializedProps[`_${key}HandlerId`] = handlerId;
+      }
+      continue;
+    }
+    // undefined is not a JSON value — drop it. null IS a valid JSONValue
+    // (e.g. `value={null}` to clear a controlled input) and must survive.
+    else if (value === undefined) {
+      continue;
+    } else if (value === null) {
+      serializedProps[key] = null;
+    }
+    // Include JSON-serializable values
+    else {
+      try {
+        let hasNestedFunction = false;
+        JSON.stringify(value, (_k, v: unknown) => {
+          if (typeof v === "function") {
+            hasNestedFunction = true;
+            return undefined;
+          }
+          return v;
+        });
+        if (hasNestedFunction && !warnedNestedFunctionProps.has(key)) {
+          warnedNestedFunctionProps.add(key);
+          console.warn(
+            `[uniview] prop "${key}" contains nested function(s) that will NOT become event handlers — only top-level on[A-Z]* function props are converted to handler ids. Pass callbacks as top-level props or model the data as child elements.`,
+          );
+        }
+        serializedProps[key] = value as JSONValue;
+      } catch {
+        // Skip values that can't be serialized
+        continue;
+      }
+    }
+  }
 
-	registry.syncNode(nodeId, handlers);
+  const ir = resolveStyleIR(props);
+  if (ir !== null) {
+    serializedProps[STYLE_IR_PROP] = ir as JSONValue;
+  }
 
-	return serializedProps;
+  registry.syncNode(nodeId, handlers);
+
+  return serializedProps;
 }

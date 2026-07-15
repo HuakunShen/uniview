@@ -1,5 +1,5 @@
 import type { JSONValue } from "@uniview/protocol";
-import { resolveStyle, type StyleInput, type StyleProps } from "@uniview/style";
+import { resolveStyleIR } from "@uniview/style";
 import type { HandlerRegistry } from "./handler-registry";
 
 /**
@@ -30,34 +30,6 @@ const warnedNestedFunctionProps = new Set<string>();
  * `_style`; web hosts ignore it. One tree, both worlds.
  */
 const STYLE_IR_PROP = "_style";
-
-function styleProps(props: Record<string, unknown>): StyleProps {
-  const input: StyleProps = {};
-  const className = props["className"];
-  const style = props["style"];
-
-  if (typeof className === "string") {
-    input.className = className;
-  }
-  // A boundary cast: plugin props are untrusted, and `style` is contractually
-  // a StyleInput. A field the IR can't express is simply dropped below.
-  if (typeof style === "object" && style !== null && !Array.isArray(style)) {
-    input.style = style as StyleInput;
-  }
-  return input;
-}
-
-/** Resolve className+style into the Style IR, or null when the node has none. */
-function styleIR(props: Record<string, unknown>): JSONValue | null {
-  const input = styleProps(props);
-  if (input.className === undefined && input.style === undefined) return null;
-
-  const resolved: Record<string, JSONValue> = {};
-  for (const [key, value] of Object.entries(resolveStyle(input))) {
-    if (value !== undefined) resolved[key] = value;
-  }
-  return Object.keys(resolved).length > 0 ? resolved : null;
-}
 
 export function serializeProps(
   props: Record<string, unknown>,
@@ -114,9 +86,9 @@ export function serializeProps(
     }
   }
 
-  const ir = styleIR(props);
+  const ir = resolveStyleIR(props);
   if (ir !== null) {
-    serializedProps[STYLE_IR_PROP] = ir;
+    serializedProps[STYLE_IR_PROP] = ir as JSONValue;
   }
 
   registry.syncNode(nodeId, handlers);

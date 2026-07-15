@@ -112,6 +112,46 @@ import Testing
         #expect(changes == ["typed"])
     }
 
+    /// The field's chrome is the plugin's to set. It used to paint a fixed
+    /// translucent fill, hairline and radius that no tree could reach — a look
+    /// compiled into the renderer. Now the Style IR drives them.
+    @Test func aTextFieldDrawsTheChromeTheStyleIRAsksFor() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "f", type: "TextInput",
+                props: [
+                    "placeholder": .string("Search"),
+                    "style": .object([
+                        "backgroundColor": .string("#0000ff"),
+                        "borderColor": .string("#ff0000"),
+                        "borderWidth": .number(2),
+                        "borderRadius": .number(4),
+                    ]),
+                ]))
+        let container = try #require(mount(TextInputComponent(), node) as? StyledFieldView)
+
+        #expect(container.layer?.cornerRadius == 4)
+        #expect(container.layer?.borderWidth == 2)
+        let fill = try #require(container.layer?.backgroundColor).flatMap { NSColor(cgColor: $0) }?
+            .usingColorSpace(.sRGB)
+        #expect(try #require(fill).blueComponent > 0.9)
+        let border = try #require(container.layer?.borderColor).flatMap { NSColor(cgColor: $0) }?
+            .usingColorSpace(.sRGB)
+        #expect(try #require(border).redComponent > 0.9)
+    }
+
+    /// An unstyled field is not a bug — it falls back to the *system's* own
+    /// semantic colors (a faint label-color fill, a separator hairline), never an
+    /// invented brand tint. The point is only that the plugin *can* override them.
+    @Test func anUnstyledTextFieldFallsBackToSystemColors() throws {
+        let node = ShadowNode.from(
+            UINode(id: "f", type: "TextInput", props: ["placeholder": .string("Search")]))
+        let container = try #require(mount(TextInputComponent(), node) as? StyledFieldView)
+        // The default geometry survives; nothing crashed for lack of a style.
+        #expect(container.layer?.cornerRadius == 10)
+        #expect(container.layer?.backgroundColor != nil)
+    }
+
     /// An unstyled button is a REAL native button. The renderer has no house
     /// style to impose — that is the whole point of rendering natively.
     @Test func anUnstyledButtonIsANativeBezelButton() throws {
@@ -149,6 +189,33 @@ import Testing
         #expect(gradient.startPoint == CGPoint(x: 0, y: 0.5))  // to-r
         #expect(gradient.endPoint == CGPoint(x: 1, y: 0.5))
         #expect(gradient.cornerRadius == 10)
+    }
+
+    /// A bordered-but-unfilled button — an `outline` look
+    /// (`border border-border rounded-md text-foreground`) — is just as clearly
+    /// plugin-drawn as a filled one. Keying "did the plugin style this?" on the
+    /// fill alone made these fall back to the native bezel and threw the border,
+    /// radius and text color away.
+    @Test func aBorderedButtonWithNoFillIsStillPluginDrawn() throws {
+        let node = ShadowNode.from(
+            UINode(
+                id: "b", type: "Button",
+                props: [
+                    "title": .string("Outline"),
+                    "style": .object([
+                        "borderWidth": .number(1),
+                        "borderColor": .string("#ff0000"),
+                        "borderRadius": .number(6),
+                    ]),
+                ]))
+        let button = try #require(mount(ButtonComponent(), node) as? NSButton)
+        // Not the native bezel — the plugin's outline.
+        #expect(!button.isBordered)
+        #expect(button.layer?.borderWidth == 1)
+        let border = try #require(button.layer?.borderColor).flatMap { NSColor(cgColor: $0) }?
+            .usingColorSpace(.sRGB)
+        #expect(try #require(border).redComponent > 0.9)
+        #expect(button.layer?.cornerRadius == 6)
     }
 
     /// `variant` is not a prop any more. A tree that still sends one gets a plain

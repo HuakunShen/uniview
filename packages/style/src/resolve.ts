@@ -311,7 +311,8 @@ function matchToken(token: string, theme: Theme): ResolvedStyle | null {
   // together here — the multiple needs a font size the resolver may never see.
   if ((m = token.match(/^leading-(.+)$/))) {
     const key = m[1];
-    if (key in theme.leadings) return { lineHeightMultiple: theme.leadings[key] };
+    if (key in theme.leadings)
+      return { lineHeightMultiple: theme.leadings[key] };
     const value = spacingValue(key, theme);
     return value === undefined ? null : { lineHeight: value };
   }
@@ -396,7 +397,8 @@ function gradient(tokens: string[], theme: Theme): LinearGradient | undefined {
   // A direction with nothing to interpolate isn't a gradient, and two stops is
   // the minimum — a lone `from-` would paint a solid fill and silently swallow
   // whatever `bg-…` the author also wrote.
-  if (direction === undefined || from === undefined || to === undefined) return undefined;
+  if (direction === undefined || from === undefined || to === undefined)
+    return undefined;
   return { direction, colors: [from, ...via, to] };
 }
 
@@ -545,4 +547,46 @@ export function resolveStyle(
     : {};
   const fromStyle = input.style ? normalizeStyleInput(input.style) : {};
   return { ...fromClass, ...fromStyle };
+}
+
+/**
+ * Resolve a node's `className` + `style` into the Style IR object that travels on
+ * the wire as `_style`, or `null` when the node has no styling.
+ *
+ * This is what every renderer's serializer emits so that a native host — which
+ * has no CSS engine and never parses `className` — still gets the resolved
+ * layout and visual style. It lives here, in `@uniview/style`, precisely so that
+ * a *new* renderer (React, Solid, and whatever comes next) does not re-implement
+ * it and drift: the whole point of the framework-agnostic contract is that the IR
+ * is produced identically no matter which plugin-side framework authored the
+ * tree. (The Solid renderer once forwarded `className` untouched, so Solid
+ * plugins rendered natively lost every Tailwind-derived style — this exists so
+ * that can't recur.)
+ *
+ * `undefined` fields are dropped so the object is JSON-clean; the result is a
+ * plain `ResolvedStyle`, which is already JSON-safe, and callers hand it across
+ * the boundary as-is.
+ */
+export function resolveStyleIR(
+  props: { className?: unknown; style?: unknown },
+  theme: Theme = defaultTheme,
+): ResolvedStyle | null {
+  const input: StyleProps = {};
+  if (typeof props.className === "string") input.className = props.className;
+  // A boundary cast: plugin props are untrusted, and `style` is contractually a
+  // StyleInput. A field the IR can't express is dropped by the resolver.
+  if (
+    typeof props.style === "object" &&
+    props.style !== null &&
+    !Array.isArray(props.style)
+  ) {
+    input.style = props.style as StyleInput;
+  }
+  if (input.className === undefined && input.style === undefined) return null;
+
+  const resolved: ResolvedStyle = {};
+  for (const [key, value] of Object.entries(resolveStyle(input, theme))) {
+    if (value !== undefined) Object.assign(resolved, { [key]: value });
+  }
+  return Object.keys(resolved).length > 0 ? resolved : null;
 }

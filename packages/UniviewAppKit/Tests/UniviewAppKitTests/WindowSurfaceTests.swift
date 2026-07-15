@@ -137,6 +137,32 @@ import Testing
         #expect(close.frame.origin == home)
     }
 
+    /// `hiddenInset` insets the lights; switching back to `default` (or `hidden`)
+    /// without an explicit position must put them back. It didn't — the default
+    /// branch never cleared the inset, so a window toggled hiddenInset → default
+    /// kept its lights nudged. The demo's own Window menu can do exactly this.
+    @Test func leavingHiddenInsetReturnsTheTrafficLightsToTheDefaultCorner() throws {
+        let window = makeWindow()
+        let host = self.host(window)
+        window.orderFront(nil)
+        let close = try #require(window.standardWindowButton(.closeButton))
+        let home = close.frame.origin
+
+        host.apply(
+            CommitBatch(
+                revision: 0,
+                mutations: [.setRoot(node: tree(["titleBarStyle": .string("hiddenInset")]))]))
+        #expect(window.trafficLightOrigin != nil)
+        #expect(close.frame.origin != home)
+
+        host.apply(
+            CommitBatch(
+                revision: 1,
+                mutations: [.setRoot(node: tree(["titleBarStyle": .string("default")]))]))
+        #expect(window.trafficLightOrigin == nil)
+        #expect(close.frame.origin == home)
+    }
+
     @Test func absentTrafficLightsMeanTheOSDefaultCorner() {
         #expect(WindowSurface.point(nil) == nil)
         #expect(WindowSurface.point(.null) == nil)
