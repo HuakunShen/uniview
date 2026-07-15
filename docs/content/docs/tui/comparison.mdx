@@ -1,0 +1,211 @@
+---
+title: Comparison
+description: What uniview's TUI stack is missing next to ink, opentui, and Textual
+icon: Scale
+---
+
+uniview's TUI stack (`@uniview/tui-core` + `@uniview/tui-react`/`@uniview/tui-solid`) is
+new. [ink](https://github.com/vadimdemedes/ink) has been the default React-in-terminal
+renderer since 2017; [opentui](https://github.com/sst/opentui) is a newer engine with the
+same React-and-Solid-on-terminal shape as uniview, backed by a native (Zig) renderer and a
+Yoga layout; [Textual](https://github.com/Textualize/textual) is the most feature-complete
+TUI framework in any language, and its Python API doesn't map onto React/Solid, but its
+*feature list* is a useful checklist of what a mature TUI framework eventually grows.
+
+This page is an honest gap list, not a sales pitch. Every claim about ink/opentui/Textual
+below was checked against the checked-out source in `references/ink`, `references/opentui`,
+and `references/textual` (or against uniview's own source in `packages/`) — not against
+general knowledge of these projects, which drifts across versions.
+
+## Layout & primitives
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Layout engine | Custom flexbox-ish (`computeLayout`, pluggable `LayoutEngine`) | Yoga (`yoga-layout`) | Yoga (`lib/yoga.options.ts`) | Custom (`_layout_resolve.py`, `box_model.py`) — DOM/CSS box model, not flexbox |
+| `Box`/container | ✅ | ✅ `<Box>` | ✅ `<box>` | ✅ `Container`/`Vertical`/`Horizontal`/`Grid` |
+| Text | ✅ `Text` | ✅ `<Text>` (wraps, truncates, transforms) | ✅ `<text>` | ✅ `Static`/`Label` |
+| Pre-styled rich text (spans in one node) | ✅ `RichText` | ⚠️ via nested `<Text>` composition only | ✅ `<span>`/`<b>`/`<i>`/`<u>`/`<a>` inline modifiers | ✅ `Content`/markup (`[bold]...[/]`) |
+| `%` sizing bug | ⚠️ known bug: `height:"100%"` under a `flexGrow` ancestor resolves against the grandparent | ✅ (Yoga) | ✅ (Yoga) | ✅ |
+| Absolute positioning | ✅ `position:"absolute"` + `zIndex` | ❌ no absolute positioning | ✅ (Yoga `position: "absolute"`) | ✅ (`layer`, `offset`) |
+| `<Static>` (append-only, never-repainted log region) | ❌ | ✅ `<Static>` | ❌ | ⚠️ `RichLog`/`Log` are closer to a scrollback widget, not a static-append region |
+| `<Spacer>` (flex-grow filler) | ⚠️ same effect via `flexGrow={1}` on an empty `Box`, no dedicated component | ✅ `<Spacer>` | ❌ (same `flexGrow` workaround) | ❌ (same workaround) |
+| `<Transform>` (per-line output transform, e.g. gradient text) | ❌ | ✅ `<Transform>` | ❌ | ⚠️ via custom `render_line` overrides |
+| `<Newline>` | ⚠️ `\n` inside `Text` works; no dedicated component | ✅ `<Newline>` | ✅ `<br>` | N/A (markup handles it) |
+
+## Focus & input
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Focus manager | ✅ `FocusManager` — Tab/Shift-Tab cycling, digit-jump via `nextFocus` | ✅ `useFocusManager` (`.focusNext()`, `.focusPrevious()`, `.focus(id)`) | ✅ (Yoga tree + `KeyHandler`) | ✅ `App.focused`, `focus_next()`/`focus_previous()` |
+| Per-node input hook | ❌ only `onKeyDown` prop, routed then bubbled | ✅ `useInput((input, key) => …)` global hook, auto-scoped to focus/raw mode | ✅ `useKeyboard()` hook (React), `onKeyDown` events | ✅ `on_key` handler + `Binding`/`BINDINGS` declarative keymap |
+| Key bubbling model | ✅ DOM-style: focused node → nearest ancestor `onKeyDown`; Enter/Space activate focused node first | ⚠️ no bubbling — `useInput` is effectively global, ordering is registration order | ⚠️ event-based, `stopPropagation()` exists (see `KeyHandler.stopPropagation.test.ts`) but no ancestor-chain bubbling model | ✅ message bubbling through the DOM-like widget tree (`bubble=True` on messages) |
+| Click → focus target resolution | ✅ nearest focusable **ancestor** of the hit node | N/A (no mouse support) | ✅ (mouse-aware, hit-tested against Yoga tree) | ✅ |
+| Mouse modes | ✅ off / click / drag / motion via `TerminalDriver` | ❌ no mouse support at all | ✅ click/drag/move, `mock-mouse.ts` test harness | ✅ click, `MouseMove`, `MouseScroll` |
+| Hit-testing | ✅ `OwnerTable` (cell → node) | N/A | ✅ Yoga-tree hit test | ✅ compositor-based (`_compositor.py`) |
+| Kitty keyboard protocol (disambiguated key events) | ❌ | ✅ `kitty-keyboard.ts`, opt-in flags | ✅ `parse.keypress-kitty.ts` | ⚠️ partial via `_keyboard_protocol.py` |
+| Paste event | ❌ | ✅ `usePaste` | ⚠️ raw input only, no dedicated paste hook found | ✅ `Paste` message |
+| Terminal resize event | ✅ `resize` in `TuiInputEvent` | ✅ `useStdout().columns/rows` + resize listener, `useWindowSize` | ✅ `useResize`, `useTerminalDimensions` | ✅ `Resize` message |
+
+## Text/content widgets
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| `Panel` (titled/footered bordered box) | ✅ | ❌ (compose from `Box` + `Text` yourself) | ⚠️ `Box` supports title-ish styling but no dedicated titled-panel component | ✅ (border titles/subtitles on any widget) |
+| `List` (selection, full-row highlight, click-select) | ✅ | ❌ (userland only) | ⚠️ `Select` covers single-select lists; no plain scrolling list with full-row highlight as a named component | ✅ `ListView`/`OptionList` |
+| `VirtualList` (windowed rendering) | ✅ | ❌ | ⚠️ `ScrollBox` virtualizes via viewport culling (`objects-in-viewport.ts`) but there's no list-specific windowed component | ✅ `DataTable` and `ListView` virtualize rows |
+| `Select` (keyboard-navigable single-select) | ✅ | ❌ | ✅ `Select`, plus `TabSelect` for tab-strip selection | ✅ `Select`, `RadioSet` |
+| `ScrollView` | ✅ (wheel + key scroll, scrollbar, controlled/uncontrolled) | ❌ | ✅ `ScrollBox` + `ScrollBar` | ✅ `ScrollView` base class on every scrollable widget |
+| `Markdown` | ✅ headings/lists/quotes/tables/inline emphasis/links/fenced code+highlight | ❌ | ✅ `Markdown` renderable + `markdown-parser.ts` | ✅ `Markdown`, `MarkdownViewer` (with TOC) |
+| `Code` (syntax highlighting) | ✅ via lowlight/highlight.js, line numbers, filename→language detection | ❌ | ✅ `Code` renderable, tree-sitter-backed (`tree-sitter-styled-text.ts`), `LineNumberRenderable` | ✅ `TextArea` has syntax highlighting (tree-sitter) |
+| `Diff` (unified diff viewer) | ✅ gutters, sign column, hunk headers, per-line highlight | ❌ | ✅ `Diff` renderable (`Diff.ts`, `Diff.regression.test.ts`) | ❌ no built-in diff widget |
+| `StreamingMarkdown` (stable/tail split for cheap re-parses of growing text) | ✅ | ❌ | ❌ (no equivalent found in `Markdown.ts`) | ❌ |
+| Editable multi-line text area | ❌ | ❌ | ✅ `Textarea` — full editor: selection, undo/redo, highlights, visual-line wrapping (`Textarea.*.test.ts`) | ✅ `TextArea` — same class of feature, tree-sitter highlighting |
+| Single-line text input | ✅ `TextInputMachine` (state machine only — no bundled `<Input>` React/Solid component in the current primitive set) | ❌ (no built-in `<Input>`, common to build on `useInput`) | ✅ `Input` renderable | ✅ `Input` widget, with `Suggester`/validators |
+| Tables | ❌ | ❌ | ❌ | ✅ `DataTable` — sortable, editable cells, cursor modes |
+| Tree view | ❌ | ❌ | ❌ | ✅ `Tree`, `DirectoryTree` |
+| Tabs | ✅ `TabsMachine` (state machine only) | ❌ | ✅ `TabSelect` renderable | ✅ `TabbedContent`/`Tabs`/`TabPane` |
+
+## Charts & graphics
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Bar chart / histogram | ✅ eighth-block glyphs (▁-█, 8 steps/row) | ❌ | ❌ (no chart renderables in `renderables/index.ts`) | ❌ (`Sparkline` widget only) |
+| Sparkline | ✅ | ❌ | ❌ | ✅ `Sparkline` widget |
+| Gauge | ✅ | ❌ | ❌ | ❌ |
+| Line chart / scatter plot | ✅ braille 2×4 sub-cell canvas (`SubcellCanvas`, 8x character-grid resolution) | ❌ | ❌ | ❌ |
+| Sub-cell / braille rendering | ✅ (`packages/tui-core/src/canvas/subcell.ts`) | ❌ | ❌ (no braille/subcell canvas found in `core/src`) | ❌ |
+| 2D/3D scene rendering, sprites, particles, physics | ❌ | ❌ | ✅ `packages/core/src/3d/` — WebGL-in-terminal: sprites, textures, phong lighting, rapier/planck physics demos | ❌ |
+| Raster images (Kitty graphics / Sixel / iTerm inline images) | ❌ — grepped `tui-core`/`tui-react`/`tui-solid`/`host-tui` for `sixel`/`kitty`/`image protocol`: no hits | ⚠️ detects the Kitty **keyboard** protocol but has no image rendering path | ⚠️ `terminal-capability-detection.ts` parses Kitty **graphics** protocol responses (capability probing), but no image renderable was found in `renderables/index.ts` | ❌ no built-in image widget in core (third-party `textual-image` exists, out of scope here) |
+
+## Rendering/output targets
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Live ANSI terminal output | ✅ `AnsiCellSurface`, truecolor, partial-repaint diffing (`diffFrames`) | ✅ `log-update.ts`, ANSI diffing via string reconciliation | ✅ native (Zig) buffer + diffing (`buffer.ts`, `renderer.ts`) | ✅ Rich-based compositor, partial repaint |
+| Color-depth degradation (truecolor → 256 → 16) | ✅ `nearestNamedColor`/`rgbToAnsi256` | ✅ (via `chalk`/`ansi-styles` downstream, not in ink core itself) | ✅ `terminal-palette.ts` | ✅ (Rich color downsampling) |
+| Headless/in-memory surface for tests | ✅ `MemoryCellSurface` (`.text()`, per-cell `.cells()`/styles) | ✅ `renderToString` | ✅ `test-renderer.ts` (headless renderer) | ✅ `App.run_test()` returns a `Pilot` driving an in-memory app |
+| SVG/static export (for docs, screenshots) | ✅ `SvgCellSurface`/`renderSvg` | ❌ | ❌ (no SVG surface found in `core/src`) | ⚠️ `App.export_screenshot()` produces SVG |
+| String-render for CI logs | ✅ (via `MemoryCellSurface.text()`) | ✅ `renderToString` | ✅ (`test-renderer.ts` output capture, `console.ts`) | ✅ (`Pilot`/`App.run_test` + `export_text`) |
+
+## Testing & automation
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Query rendered tree by role/label | ✅ `semantics.ts` (`SemanticNode`, `RoleQuery`) | ❌ | ❌ (no role/label query API found — tests assert on buffer content) | ✅ every widget exposes `.query()` (CSS-selector-like), plus explicit ARIA-ish roles are not modeled, but ids/classes are queryable |
+| Programmatic drive without a real terminal | ✅ `AutomationSession` + `automation-runner.ts` | ⚠️ possible via `renderToString` + manual `stdin.write`, no first-class driver | ✅ `mock-keys.ts`, `mock-mouse.ts`, `test-recorder.ts` (can record and replay real sessions) | ✅ `Pilot` — `pilot.click()`, `pilot.press()`, `pilot.hover()`, async, first-class |
+| Snapshot testing | ⚠️ possible via `MemoryCellSurface.text()` + your own snapshot tool, no built-in harness | ❌ | ✅ `__snapshots__/` — dedicated snapshot test setup across `renderables/`, `tests/` | ✅ `pytest-textual-snapshot` (separate package, but Textualize-maintained) |
+| Session recording/replay | ❌ | ❌ | ✅ `test-recorder.ts` | ❌ |
+
+## Styling & theming
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Theme object (named colors, semantic roles) | ✅ `defaultTheme`/`ThemeColors` | ❌ (no theme concept — colors are per-prop) | ⚠️ colors are per-prop (`RGBA.ts`), no shared theme object found | ✅ `Theme` class, `App.theme`, built-in dark/light themes, live theme switching |
+| Syntax highlighting theme | ✅ `SyntaxTheme` | ❌ | ✅ (`syntax-style.ts`) | ✅ (`_text_area_theme.py`) |
+| CSS-like stylesheet (external, cascading, selectors) | ❌ | ❌ | ❌ (styling is inline props, no selector/cascade system found) | ✅ TCSS — `DEFAULT_CSS`, `CSS_PATH`, class/id selectors, cascading, hot-reloadable at dev time |
+| Per-node style props (color, bold, border, etc.) | ✅ | ✅ | ✅ | ✅ (both TCSS and inline) |
+
+## Animation
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Frame/tick hook for building your own animation | ⚠️ scheduler has `animationStarted()`/`animationStopped()` diagnostics hooks (`scheduler/diagnostics.ts`) but these track render-loop activity, not a tween API | ✅ `useAnimation({interval})` → `{frame, time, delta, reset}` | ✅ `Timeline` class — `duration`, `ease`, `loop`, `alternate`, `onUpdate`/`onComplete`, sequenceable via `.add()` | ✅ `_animator.py` + `_easing.py` — animate any reactive attribute (`self.animate("opacity", 0.0)`) |
+| Named easing functions | ❌ | ❌ (bring your own math) | ✅ (`easingFunctions` referenced in `Timeline.ts`) | ✅ (`_easing.py`) |
+| Declarative "animate this style prop" API | ❌ | ❌ | ⚠️ via `Timeline` targeting renderable properties, not declarative JSX props | ✅ `widget.animate(attribute, value, duration=…)` |
+
+## Accessibility
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| Screen-reader detection | ❌ | ✅ `useIsScreenReaderEnabled` | ❌ | ⚠️ no first-class screen-reader integration; Textual is a terminal renderer, same limitation as the others |
+| Semantic role model | ✅ `SemanticNode`/`RoleQuery` — but built for **automation/testing**, not for actual assistive tech output | ⚠️ `AccessibilityContext` exists but is thin | ❌ | ⚠️ has widget-level "role"-ish concepts for query purposes only |
+
+Terminal UIs generally have poor screen-reader story across the board — this is a weak
+category for every framework compared here, not a uniview-specific gap.
+
+## Dev ergonomics
+
+| Feature | uniview | ink | opentui | Textual |
+| --- | --- | --- | --- | --- |
+| React DevTools integration | ❌ | ✅ `devtools.ts` — connects to `react-devtools-core` over WebSocket when `DEV=true`-equivalent | ✅ `reconciler/devtools.ts` — same pattern, dynamically imported when `DEV=true` | N/A (not a React renderer) |
+| Error overlay (catch render errors, show a readable overlay instead of a crash) | ❌ — no `ErrorBoundary`/`ErrorOverview` equivalent found under `tui-react`/`tui-core` | ✅ `ErrorBoundary.tsx` + `ErrorOverview.tsx` | ✅ `components/error-boundary.tsx` | ✅ Textual shows a formatted traceback screen on unhandled exceptions |
+| Hot reload (bundler watch, not state-preserving HMR) | ⚠️ `tsdown --watch` / custom `--watch` flag in example build scripts, plain rebuild-and-restart | ⚠️ no TUI-specific HMR found; standard bundler watch | ⚠️ `lib/singleton.ts` mentions surviving "Bun hot reloads" for a specific singleton, not general component HMR | ⚠️ `CSS_PATH` stylesheets do hot-reload at dev time (`textual run --dev`); component code does not |
+| CLI/dev tooling package | ❌ | ❌ (ink itself has none; `ink-testing-library` is separate) | ✅ own `scripts/`, `dev/` tooling per package | ✅ `textual` CLI — `textual run`, `textual console`, `textual colors`, `textual keys` |
+
+## What uniview does that the others don't
+
+- **Framework-agnostic host, proven byte-identical.** `@uniview/tui-react` and
+  `@uniview/tui-solid` sit on the same `@uniview/tui-core` + `@uniview/host-tui`, and the
+  SVG output for the same app built in React vs. Solid is byte-identical. ink is
+  React-only; opentui ships separate `packages/react` and `packages/solid` bindings but
+  they are two independent reconcilers over the same core renderables — there's no
+  cross-framework output-identity guarantee comparable to what uniview's test suite
+  asserts.
+- **Sub-cell rendering for charts specifically.** uniview's `LineChart`/`Scatter` use a
+  braille 2×4 canvas for 8x the addressable resolution of the character grid
+  (`packages/tui-core/src/canvas/subcell.ts`). Neither ink nor opentui nor Textual ship any
+  chart primitives at all in their core — Textual's `Sparkline` is the closest, and it
+  doesn't use sub-cell addressing.
+- **SVG export as a first-class render target.** `SvgCellSurface`/`renderSvg` turns a frame
+  into a standalone SVG file, which is how this docs site's own screenshots
+  (`lazygit-solid.svg`, `charts-react.svg`, `2048-solid.svg`) are generated. opentui has no
+  SVG surface; Textual's `export_screenshot()` is the nearest equivalent elsewhere.
+- **Automation-first semantic querying built into the core package**, not bolted on as a
+  separate testing library. `host-tui/src/automation.ts` and `semantics.ts` let you query
+  by role/label and drive the tree without a real terminal, shipped alongside the renderer
+  rather than as an ink-testing-library-style add-on.
+
+## Prioritized gap list
+
+Ordered by (impact on "can I build a real app") × (how cheap it is given uniview's current
+architecture):
+
+1. **`useInput`/`useKeyboard`-style hook.** Right now input only reaches components via the
+   `onKeyDown` prop and bubbling. A hook that subscribes to the `InputRouter` directly
+   (matching ink's `useInput` and opentui's `useKeyboard`) would unblock the common
+   "handle a global hotkey regardless of focus" pattern without a workaround `Box` at the
+   root. **Small effort** — thin wrapper over the existing input pipeline, no new core
+   primitive.
+2. **Bundled `<Input>` / `<TextInput>` component.** `TextInputMachine` already models the
+   state; there's a `Select` but no plain single-line text field component exported from
+   `tui-react`/`tui-solid`. ink doesn't ship one either, but opentui and Textual both do,
+   and it's the single most common thing a form-shaped TUI needs. **Small effort** — wire
+   the existing state machine to `Box`/`Text` the way `Select` already does.
+3. **Bundled `<Tabs>` component.** Same situation as `<Input>`: `TabsMachine` exists,
+   nothing renders it. **Small effort.**
+4. **Error boundary + overlay.** A render error currently has no graceful path — ink and
+   opentui both catch render errors and show a readable overlay instead of leaving the
+   terminal in a broken raw-mode state. **Medium effort** — needs a React error boundary
+   (straightforward) and a Solid equivalent (Solid has no `componentDidCatch`, needs an
+   `ErrorBoundary` built on Solid's own primitives), plus a core-level "safe teardown of raw
+   mode on crash" path.
+5. **Yoga layout adapter.** The known `height:"100%"` bug and the general "flexbox-ish, not
+   flexbox" gap versus ink/opentui/Textual would go away by swapping in Yoga behind the
+   existing `LayoutEngine` interface, which was built pluggable for exactly this. **Medium
+   effort** — the interface exists; the work is a full Yoga adapter plus regression-testing
+   every existing layout example against it.
+6. **A titled/scrolling `Tree`/`DataTable`-class widget.** Textual's `DataTable` and `Tree`
+   cover a large slice of real TUI apps (file explorers, log tables) that uniview currently
+   has no answer for beyond composing `List`/`VirtualList` by hand. **Medium-large effort**
+   — needs its own selection/scroll/column-layout model, though it can reuse
+   `VirtualList`'s windowing.
+7. **Raster image support (Kitty graphics protocol).** Confirmed absent in uniview, and
+   only capability-*detected* (not rendered) in opentui; genuinely absent everywhere except
+   third-party Textual plugins. Worth building specifically *because* none of the
+   comparison frameworks have solved it well — but it's a real terminal-capability-detection
+   + protocol-encoding project. **Large effort** — needs a new `CellSurface` capability
+   (raw escape-sequence passthrough anchored to a cell region) plus per-terminal capability
+   probing (a starting point already exists in opentui's
+   `terminal-capability-detection.ts` for reference).
+8. **Animation/tween API.** uniview's scheduler already tracks "animation started/stopped"
+   as a diagnostics concept, but there's no `Timeline`/`useAnimation`-equivalent for
+   consumers. Charts and spinners currently have to hand-roll a `setInterval` + state
+   update. **Medium effort** — a `requestFrame`-driven timeline that writes into the
+   existing per-node style/props, modeled on opentui's `Timeline` (duration/ease/loop) or
+   ink's simpler `useAnimation`.
+9. **CSS-like stylesheet system.** Textual's TCSS (external file, selectors, cascade,
+   hot-reload) is the most structurally different feature here — neither ink nor opentui
+   have it either, so this is the lowest-priority item measured against the closest
+   competitors, but it's the biggest usability win for large apps if uniview ever wants to
+   compete with Textual specifically. **Large effort** — a real parser/cascade/selector
+   engine, largely orthogonal to the existing per-prop styling model.

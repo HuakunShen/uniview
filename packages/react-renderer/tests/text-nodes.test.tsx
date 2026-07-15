@@ -24,10 +24,8 @@ import {
   serializeTree,
 } from "../src";
 import { MutableTree } from "../../host-sdk/src/mutable-tree";
+import { flush } from "./flush";
 
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 30));
-}
 
 interface Harness {
   host: MutableTree;

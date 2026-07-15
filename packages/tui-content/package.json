@@ -1,0 +1,38 @@
+{
+  "name": "@uniview/tui-content",
+  "type": "module",
+  "version": "0.0.1",
+  "description": "Content rendering for Uniview TUI: Markdown, syntax-highlighted code, and diffs as a styled-text model",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@uniview/tui-core": "workspace:*",
+    "lowlight": "^3.3.0",
+    "marked": "^15.0.0"
+  },
+  "devDependencies": {
+    "@types/hast": "^3.0.5",
+    "@types/node": "^22.0.0",
+    "tsdown": "0.22.2",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@uniview/tui-lazygit-solid",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The lazygit-style multi-panel TUI demo, authored in Solid (parity proof for @uniview/tui-solid)",
+  "scripts": {
+    "dev": "vite-node src/main.tsx",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit",
+    "snapshot": "vite-node scripts/snapshot.tsx"
+  },
+  "dependencies": {
+    "@uniview/solid-renderer": "workspace:*",
+    "@uniview/tui-core": "workspace:*",
+    "@uniview/tui-solid": "workspace:*",
+    "solid-js": "^1.9.9"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/node": "^22.0.0",
+    "babel-preset-solid": "^1.9.0",
+    "typescript": "^5.7.0",
+    "vite": "^5.4.0",
+    "vite-node": "^2.1.9",
+    "vitest": "^2.0.0"
+  }
+}

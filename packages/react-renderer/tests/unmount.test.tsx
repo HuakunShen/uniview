@@ -7,10 +7,8 @@
 import { createElement, useEffect } from "react";
 import { describe, expect, test } from "vitest";
 import { createRenderer, render, unmount } from "../src";
+import { flush } from "./flush";
 
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 30));
-}
 
 describe("unmount", () => {
   test("runs effect cleanups and clears the tree", async () => {

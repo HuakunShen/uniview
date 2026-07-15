@@ -416,9 +416,14 @@ Plugin (React) → react-renderer → InternalNode tree → serializeTree() → 
 
 Events flow in reverse: User interaction → Host → kkrpc → HandlerRegistry.execute() → Plugin state update.
 
-### CI/CD Gaps
+### CI/CD
 
-- **Missing**: GitHub workflows for build/test/lint validation
+- **Present**: `.github/workflows/ci.yml` runs build + check-types + unit tests
+  (`turbo run`), Playwright e2e, and the Swift AppKit host tests on push/PR.
+  `deploy-docs.yml` publishes the fumadocs site to Pages.
+- Async-render tests must **drain the macrotask queue** (the shared `tick`/`flush`
+  helpers), never `setTimeout(fixed)` — a fixed sleep passes solo but goes red under
+  the parallel `turbo run test` CI runs.
 - **Inconsistent linting**: `docs/` uses Biome, rest uses Prettier
 
 ### Extension Inconsistencies

@@ -11,6 +11,10 @@ const config = {
   basePath: "/uniview",
   trailingSlash: true,
   reactStrictMode: true,
+  // Static export cannot run the default image optimizer. The terminal captures
+  // are SVG anyway — already vector, nothing to optimize — and this is what lets
+  // `next/image` still resolve them against the basePath.
+  images: { unoptimized: true },
   webpack(config, { webpack }) {
     config.plugins ??= [];
     config.plugins.push(

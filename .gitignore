@@ -47,6 +47,10 @@ yarn-error.log*
 .DS_Store
 *.pem
 .opencode/
+references/
+
+examples/bun*
+docs/superpowers
 
 # Xcode / Swift
 xcuserdata/

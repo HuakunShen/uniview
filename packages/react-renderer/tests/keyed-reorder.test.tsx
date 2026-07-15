@@ -13,6 +13,7 @@ import { createElement, useState } from "react";
 import { describe, expect, test } from "vitest";
 import { HandlerRegistry, createRenderer, render, serializeTree } from "../src";
 import type { UINode } from "@uniview/protocol";
+import { flush } from "./flush";
 
 let setItemsRef: (items: string[]) => void;
 
@@ -30,9 +31,6 @@ function ListApp() {
   );
 }
 
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 20));
-}
 
 function collect(tree: UINode | string | null): { ids: string[]; titles: string[] } {
   const ids: string[] = [];

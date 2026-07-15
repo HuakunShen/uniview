@@ -1,4 +1,3 @@
-import type { JSX as SolidJSX } from "solid-js";
 import type { UILayoutTag } from "@uniview/protocol";
 
 type LayoutTagElements = {

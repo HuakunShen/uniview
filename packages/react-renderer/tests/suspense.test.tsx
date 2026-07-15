@@ -20,10 +20,8 @@ import {
   serializeTree,
 } from "../src";
 import { MutableTree } from "../../host-sdk/src/mutable-tree";
+import { flush } from "./flush";
 
-function flush(ms = 30): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function shape(node: UINode | string | null): string {
   if (node === null) return "null";

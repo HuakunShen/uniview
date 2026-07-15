@@ -18,7 +18,8 @@ export type EventPropName =
   | "onKeyDown"
   | "onKeyUp"
   | "onMouseEnter"
-  | "onMouseLeave";
+  | "onMouseLeave"
+  | "onWheel";
 
 /**
  * The payload an `onKeyDown` handler receives.
@@ -54,6 +55,7 @@ export const EVENT_PROPS: readonly EventPropName[] = [
   "onKeyUp",
   "onMouseEnter",
   "onMouseLeave",
+  "onWheel",
 ] as const;
 
 /**

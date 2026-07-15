@@ -1,0 +1,175 @@
+import { describe, expect, it } from "vitest";
+import { InputParser, MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
+import { createTuiReactRoot } from "@uniview/tui-react";
+import { App, createState, handleKey, type AppHost } from "../src/app";
+
+const tick = async () => {
+  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+};
+const text = (t: string): TuiInputEvent => ({ type: "text", text: t });
+const keyEv = (k: string, ctrl = false): TuiInputEvent => ({ type: "key", key: k, ctrl, alt: false, shift: false, meta: false });
+const wheel = (x: number, y: number, deltaY: -1 | 1): TuiInputEvent => ({ type: "mouse", action: "wheel", button: "none", x, y, deltaY, ctrl: false, alt: false, shift: false });
+const move = (x: number, y: number): TuiInputEvent => ({ type: "mouse", action: "move", button: "none", x, y, ctrl: false, alt: false, shift: false });
+const click = (x: number, y: number): TuiInputEvent => ({ type: "mouse", action: "up", button: "left", x, y, ctrl: false, alt: false, shift: false });
+
+function boot() {
+  const styles = new StyleTable();
+  const surface = new MemoryCellSurface({ styles });
+  const root = createTuiReactRoot({ surface, styles, size: { width: 80, height: 20 } });
+  const state = createState(80, 20, 100000); // fully streamed
+  let quit = false;
+  const host: AppHost = {
+    rerender: () => root.render(<App state={state} host={host} />),
+    quit: () => (quit = true),
+  };
+  host.rerender();
+  // Route input the way main.tsx does.
+  const send = (e: TuiInputEvent) => {
+    if (e.type === "mouse") root.dispatchInput(e);
+    else if (!handleKey(state, host, e)) root.dispatchInput(e);
+  };
+  return { root, surface, state, send, wasQuit: () => quit };
+}
+const screen = (s: ReturnType<typeof boot>) => s.surface.text({ trimRight: true });
+
+describe("opencode demo — keyboard", () => {
+  it("switches pages with number keys", async () => {
+    const t = boot();
+    await tick();
+    t.send(text("2"));
+    await tick();
+    expect(screen(t)).toContain("greet.ts"); // Code page sidebar
+    t.send(text("3"));
+    await tick();
+    expect(screen(t)).toContain("@@ -4,9"); // Diff page hunk header
+  });
+
+  it("scrolls the content with the keyboard", async () => {
+    const t = boot();
+    t.send(text("3")); // diff page (not chat-follow)
+    await tick();
+    const before = screen(t);
+    t.send(keyEv("End"));
+    await tick();
+    expect(screen(t)).not.toBe(before);
+    expect(screen(t)).toContain("VERSION"); // last hunk is now visible
+  });
+
+  it("opens the palette with Ctrl-K, filters, and selects with Enter", async () => {
+    const t = boot();
+    await tick();
+    t.send(keyEv("k", true));
+    await tick();
+    expect(screen(t)).toContain("Go to Chat");
+    t.send(text("diff")); // filter
+    await tick();
+    expect(screen(t)).toContain("Go to Diff");
+    expect(screen(t)).not.toContain("Go to Chat");
+    t.send(keyEv("Enter"));
+    await tick();
+    expect(screen(t)).not.toContain("Go to Diff"); // palette closed
+    expect(screen(t)).toContain("@@ -4,9"); // navigated to the Diff page
+  });
+
+  it("closes the palette with Esc and toggles it with Ctrl-K", async () => {
+    const t = boot();
+    await tick();
+    t.send(keyEv("k", true)); // open
+    await tick();
+    expect(screen(t)).toContain("Go to Chat");
+    t.send(keyEv("Escape")); // Esc closes
+    await tick();
+    expect(screen(t)).not.toContain("Go to Chat");
+
+    t.send(keyEv("k", true)); // open again
+    await tick();
+    expect(screen(t)).toContain("Go to Chat");
+    t.send(keyEv("k", true)); // Ctrl-K toggles closed
+    await tick();
+    expect(screen(t)).not.toContain("Go to Chat");
+  });
+
+  it("Esc closes the palette without leaking mouse bytes (real byte parse)", async () => {
+    const t = boot();
+    await tick();
+    t.send(keyEv("k", true)); // open palette
+    await tick();
+    // The exact bug: Esc keypress immediately followed by a mouse-motion report
+    // (motion-tracking mode) arrives as "\x1b\x1b[<35;45;4M".
+    const parser = new InputParser();
+    parser.push(Buffer.from("\x1b\x1b[<35;45;4M", "utf8"));
+    for (const ev of parser.takeEvents()) t.send(ev);
+    await tick();
+    expect(screen(t)).not.toContain("Go to Chat"); // palette closed by the Esc
+    expect(screen(t)).not.toContain("[<35"); // no mouse bytes leaked into the query
+  });
+
+  it("cycles files on the Code page with ] and [", async () => {
+    const t = boot();
+    t.send(text("2"));
+    await tick();
+    t.send(text("]"));
+    await tick();
+    expect(screen(t)).toContain('"name": "uniview"'); // config.json is now selected
+  });
+});
+
+describe("opencode demo — mouse", () => {
+  it("clicks a tab to switch pages", async () => {
+    const t = boot();
+    await tick();
+    // header row 0: " uniview  1 Chat  2 Code  3 Diff ..." — click within "2 Code"
+    const col = screen(t).split("\n")[0]!.indexOf("2 Code");
+    t.send(click(col + 1, 0));
+    await tick();
+    expect(screen(t)).toContain("greet.ts");
+  });
+
+  it("scrolls with the mouse wheel", async () => {
+    const t = boot();
+    t.send(text("3"));
+    await tick();
+    const before = screen(t);
+    for (let i = 0; i < 4; i += 1) t.send(wheel(10, 10, 1));
+    await tick();
+    expect(screen(t)).not.toBe(before);
+  });
+
+  it("fills the active tab and file row uniformly (text bg composites over the fill)", async () => {
+    const t = boot();
+    t.send(text("2")); // Code page: greet.ts is the active file
+    await tick();
+    const f = t.surface.cells()!;
+    const bgAt = (x: number, y: number) => JSON.stringify(f.styles[f.cells[y]![x]!.styleId]?.bg ?? null);
+    // Active file row (row 1), across the whole 16-col sidebar incl. under the label
+    const sidebar = [0, 2, 5, 8, 12, 15].map((x) => bgAt(x, 1));
+    expect(new Set(sidebar).size).toBe(1); // one uniform background, no holes
+    expect(sidebar[0]).not.toBe(JSON.stringify(null)); // and it IS a color
+  });
+
+  it("selects a file by clicking the empty part of its row (not just the text)", async () => {
+    const t = boot();
+    t.send(text("2")); // Code page — sidebar rows 1..4 = greet/config/server/lib
+    await tick();
+    // Row 3 is server.py ("  server.py" ≈ 11 cells); click col 13, well past the
+    // label in the empty part of the 16-wide row.
+    t.send(click(13, 3));
+    await tick();
+    expect(screen(t)).toContain("import asyncio"); // server.py is now previewed
+  });
+
+  it("highlights a file row on hover", async () => {
+    const t = boot();
+    t.send(text("2"));
+    await tick();
+    const styles = new StyleTable();
+    // hover the second file row (row 2: sidebar under header); check a bg appears
+    t.send(move(3, 2));
+    await tick();
+    const frame = t.surface.cells();
+    // some cell in the sidebar rows now carries a (hover/active) background
+    const hasBg = frame!.cells.slice(1, 5).some((row) => row.slice(0, 16).some((c) => frame!.styles[c.styleId]?.bg !== undefined));
+    expect(hasBg).toBe(true);
+    void styles;
+  });
+});

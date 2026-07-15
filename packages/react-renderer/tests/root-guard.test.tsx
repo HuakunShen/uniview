@@ -10,10 +10,8 @@
 import { Fragment, createElement } from "react";
 import { describe, expect, test, vi } from "vitest";
 import { createRenderer, render } from "../src";
+import { flush } from "./flush";
 
-function flush(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 30));
-}
 
 describe("single-root container guard", () => {
   test("top-level fragment with multiple children raises a clear error", async () => {
