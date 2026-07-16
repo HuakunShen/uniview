@@ -1,0 +1,24 @@
+{
+  "name": "@uniview/tui-csv-demo",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "less for CSV: a virtualized <Table> pager with sort, regex find and row filter (React binding)",
+  "scripts": {
+    "dev": "tsx src/main.tsx",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uniview/tui-core": "workspace:*",
+    "@uniview/tui-react": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.14",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}
