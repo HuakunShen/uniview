@@ -1,5 +1,5 @@
 export { renderBarChart } from "./bar";
-export type { BarDatum, BarChartOptions } from "./bar";
+export type { BarDatum, BarChartOptions, BarSeries } from "./bar";
 export { renderHistogram } from "./histogram";
 export type { HistogramOptions } from "./histogram";
 export { renderSparkline } from "./sparkline";
@@ -9,4 +9,7 @@ export type { GaugeOptions, LineGaugeOptions } from "./gauge";
 export { renderLineChart } from "./line";
 export type { LineSeries, PlotOptions } from "./line";
 export { renderScatter } from "./scatter";
-export { dataToPixel } from "./axis";
+export { dataToPixel, axisTicks, frameChart } from "./axis";
+export type { AxisOptions, AxisTick } from "./axis";
+export { renderLegend } from "./legend";
+export type { LegendOptions, LegendEntry } from "./legend";

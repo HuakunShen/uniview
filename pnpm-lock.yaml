@@ -527,6 +527,9 @@ importers:
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
+      '@uniview/tui-solid':
+        specifier: workspace:*
+        version: link:../../../packages/tui-solid
       tsx:
         specifier: ^4.19.0
         version: 4.21.0

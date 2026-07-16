@@ -88,4 +88,32 @@ describe("chart components", () => {
     await tick();
     expect(surface.text().length).toBeGreaterThan(0);
   });
+
+  it("LineChart draws axes and a legend when options carry them", async () => {
+    const { surface } = mount(
+      h(LineChart, {
+        series: [{ points: [[0, 0], [1, 1]], label: "cpu" }],
+        options: { width: 10, height: 4, axes: { xTitle: "t" }, legend: {} },
+      }),
+      24,
+      10,
+    );
+    await tick();
+    const text = surface.text();
+    expect(text).toContain("│"); // Y rule
+    expect(text).toContain("cpu"); // legend label
+  });
+
+  it("BarChart lays grouped series side by side", async () => {
+    const { surface } = mount(
+      h(BarChart, {
+        data: [{ label: "q1", value: [1, 2] }],
+        options: { height: 3, max: 2, mode: "grouped", series: [{ label: "A" }, { label: "B" }] },
+      }),
+      20,
+      6,
+    );
+    await tick();
+    expect(surface.text()).toContain("█"); // the value-2 bar reaches a full block
+  });
 });
