@@ -248,6 +248,7 @@ export { dataToPixel } from "./canvas/coords";
 // Public Canvas & shapes engine (Phase 7) — emits styled lines like charts
 export { DrawContext, renderCanvas } from "./canvas/draw";
 export type { Marker, DrawStyle, CanvasDraw, CanvasDrawOptions } from "./canvas/draw";
+export { drawWorldMap, WORLD_MAP_POINTS } from "./canvas/world-map";
 
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";
