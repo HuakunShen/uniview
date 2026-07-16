@@ -28,6 +28,8 @@ export { List, listCounter } from "./list";
 export type { ListProps } from "./list";
 export { Tree, DirectoryTree } from "./tree";
 export type { TreeProps, TreeNode, TreeRowMeta, DirectoryTreeProps } from "./tree";
+export { Calendar, isoDate } from "./calendar";
+export type { CalendarProps } from "./calendar";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 // First-class JSX components for the host primitives: <Box>/<Text>/<RichText>
