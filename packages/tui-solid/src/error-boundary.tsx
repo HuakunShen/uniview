@@ -39,7 +39,7 @@ export interface TuiErrorBoundaryProps {
 export function TuiErrorBoundary(props: TuiErrorBoundaryProps): JSX.Element {
   return (
     <ErrorBoundary
-      fallback={(error, reset) =>
+      fallback={(error: unknown, reset: () => void) =>
         props.fallback ? props.fallback(error, reset) : <ErrorOverview error={error} />
       }
     >
