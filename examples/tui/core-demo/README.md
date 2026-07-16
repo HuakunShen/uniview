@@ -12,4 +12,4 @@ pnpm --filter @uniview/tui-core-demo dev
 ```
 
 `q` / `Ctrl-C` to quit. For the React (JSX) equivalent see
-`examples/tui-react-demo`.
+`examples/tui/react-demo`.

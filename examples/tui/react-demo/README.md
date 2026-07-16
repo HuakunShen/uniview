@@ -21,4 +21,4 @@ pnpm --filter @uniview/tui-react-demo dev
 ```
 
 Click `[ Increment ]` or focus it with `Tab` and press `Enter`; `q` / `Ctrl-C`
-quits. For a full multi-page app see `examples/tui-opencode-demo`.
+quits. For a full multi-page app see `examples/tui/opencode-demo`.

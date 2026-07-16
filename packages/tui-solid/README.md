@@ -43,9 +43,9 @@ so they render identically under React and Solid.
 
 ## Working demos
 
-- [`examples/tui-lazygit-solid`](../../examples/tui-lazygit-solid) — a lazygit clone;
+- [`examples/tui/lazygit-solid`](../../examples/tui/lazygit-solid) — a lazygit clone;
   the parity proof against the React version.
-- [`examples/tui-2048-solid`](../../examples/tui-2048-solid) — 2048 played by a trained
+- [`examples/tui/2048-solid`](../../examples/tui/2048-solid) — 2048 played by a trained
   n-tuple + expectimax agent.
 
 ## Three things that will bite you

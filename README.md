@@ -92,7 +92,7 @@ Open `http://localhost:5173`, select "Solid" in the framework selector.
 **Terminal UI Example:**
 
 ```bash
-cd examples/tui-demo
+cd examples/tui/demo
 pnpm dev
 ```
 

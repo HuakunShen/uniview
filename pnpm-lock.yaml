@@ -469,17 +469,17 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  examples/tui-2048-solid:
+  examples/tui/2048-solid:
     dependencies:
       '@uniview/solid-renderer':
         specifier: workspace:*
-        version: link:../../packages/solid-renderer
+        version: link:../../../packages/solid-renderer
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-solid':
         specifier: workspace:*
-        version: link:../../packages/tui-solid
+        version: link:../../../packages/tui-solid
       solid-js:
         specifier: ^1.9.9
         version: 1.9.11
@@ -509,14 +509,14 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
-  examples/tui-charts-demo:
+  examples/tui/charts-demo:
     dependencies:
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-react':
         specifier: workspace:*
-        version: link:../../packages/tui-react
+        version: link:../../../packages/tui-react
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -537,17 +537,17 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
-  examples/tui-content-demo:
+  examples/tui/content-demo:
     dependencies:
       '@uniview/tui-content':
         specifier: workspace:*
-        version: link:../../packages/tui-content
+        version: link:../../../packages/tui-content
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-react':
         specifier: workspace:*
-        version: link:../../packages/tui-react
+        version: link:../../../packages/tui-react
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -565,11 +565,11 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
-  examples/tui-core-demo:
+  examples/tui/core-demo:
     dependencies:
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -578,11 +578,11 @@ importers:
         specifier: ^4.19.0
         version: 4.21.0
 
-  examples/tui-demo:
+  examples/tui/demo:
     dependencies:
       '@uniview/tui-renderer':
         specifier: workspace:*
-        version: link:../../packages/tui-renderer
+        version: link:../../../packages/tui-renderer
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -594,14 +594,14 @@ importers:
         specifier: ^4.19.0
         version: 4.21.0
 
-  examples/tui-lazygit-demo:
+  examples/tui/lazygit-demo:
     dependencies:
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-react':
         specifier: workspace:*
-        version: link:../../packages/tui-react
+        version: link:../../../packages/tui-react
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -622,17 +622,17 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
-  examples/tui-lazygit-solid:
+  examples/tui/lazygit-solid:
     dependencies:
       '@uniview/solid-renderer':
         specifier: workspace:*
-        version: link:../../packages/solid-renderer
+        version: link:../../../packages/solid-renderer
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-solid':
         specifier: workspace:*
-        version: link:../../packages/tui-solid
+        version: link:../../../packages/tui-solid
       solid-js:
         specifier: ^1.9.9
         version: 1.9.11
@@ -662,17 +662,17 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
-  examples/tui-opencode-demo:
+  examples/tui/opencode-demo:
     dependencies:
       '@uniview/tui-content':
         specifier: workspace:*
-        version: link:../../packages/tui-content
+        version: link:../../../packages/tui-content
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-react':
         specifier: workspace:*
-        version: link:../../packages/tui-react
+        version: link:../../../packages/tui-react
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -693,14 +693,14 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
 
-  examples/tui-react-demo:
+  examples/tui/react-demo:
     dependencies:
       '@uniview/tui-core':
         specifier: workspace:*
-        version: link:../../packages/tui-core
+        version: link:../../../packages/tui-core
       '@uniview/tui-react':
         specifier: workspace:*
-        version: link:../../packages/tui-react
+        version: link:../../../packages/tui-react
       react:
         specifier: 'catalog:'
         version: 19.2.4
