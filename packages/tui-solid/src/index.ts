@@ -63,6 +63,8 @@ export type {
   TextProps,
   TuiCommonProps,
 } from "./primitives";
+export { Masked } from "./masked";
+export type { MaskedProps } from "./masked";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 

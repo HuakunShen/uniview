@@ -11,6 +11,7 @@ export {
   styledLineText,
 } from "./text/styled-text";
 export type { StyledSpan, StyledLine } from "./text/styled-text";
+export { maskText, DEFAULT_MASK } from "./text/mask";
 
 // Cell buffer
 export { CellBuffer, CellFlags } from "./buffer/cell-buffer";

@@ -27,6 +27,8 @@ export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 // First-class JSX components for the host primitives: <Box>/<Text>/<RichText>
 export { Box, Text, RichText } from "./primitives";
+export { Masked } from "./masked";
+export type { MaskedProps } from "./masked";
 export type {
   BoxProps,
   TextProps,
