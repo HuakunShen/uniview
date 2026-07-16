@@ -5,10 +5,12 @@ import {
   createTuiReactRoot,
   LineGauge as RLineGauge,
   Scrollbar as RScrollbar,
+  Tabs as RTabs,
   TextInput as RTextInput,
 } from "@uniview/tui-react";
+import { createElement } from "react";
 import { createTuiSolidRoot } from "../../src/index";
-import { solidLineGauge, solidScrollbar, solidTextInput } from "./phase4-scenes";
+import { solidLineGauge, solidScrollbar, solidTabs, solidTextInput } from "./phase4-scenes";
 import { tick } from "../tick";
 
 async function reactSvg(
@@ -55,6 +57,23 @@ describe("phase 4 — React vs Solid parity", () => {
     const size = { width: 10, height: 1 };
     const r = await reactSvg(size, h(RTextInput, { value: "hi", onChange: () => {} }));
     const s = await solidSvg(size, solidTextInput);
+    expect(r).toBe(s);
+  });
+
+  it("Tabs renders byte-identical SVG", async () => {
+    const size = { width: 30, height: 3 };
+    const r = await reactSvg(
+      size,
+      h(RTabs, {
+        value: 0,
+        onChange: () => {},
+        tabs: [
+          { label: "One", content: createElement("text", null, "panel-one") },
+          { label: "Two", content: createElement("text", null, "panel-two") },
+        ],
+      }),
+    );
+    const s = await solidSvg(size, solidTabs);
     expect(r).toBe(s);
   });
 });
