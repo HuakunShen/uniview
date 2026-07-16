@@ -83,4 +83,18 @@ describe("renderLineChart", () => {
     expect(fgColors).toContainEqual(colorA);
     expect(fgColors).toContainEqual(colorB);
   });
+
+  it("draws axis rule glyphs when options.axes is set", () => {
+    const result = renderLineChart([{ points: [[0, 0], [1, 1]] }], {
+      width: 6,
+      height: 4,
+      xBounds: [0, 1],
+      yBounds: [0, 1],
+      axes: { xTitle: "t" },
+    });
+    const text = result.children!.map((c) => styledLineText(c.spans!)).join("\n");
+    expect(text).toContain("│"); // Y rule
+    expect(text).toContain("└"); // corner
+    expect(text).toContain("t"); // xTitle
+  });
 });

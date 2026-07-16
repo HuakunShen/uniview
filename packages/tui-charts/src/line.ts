@@ -5,7 +5,7 @@ import {
   styledLinesToRenderNode,
 } from "@uniview/tui-core";
 
-import { dataToPixel } from "./axis";
+import { dataToPixel, frameChart, type AxisOptions } from "./axis";
 
 /** One line series: a polyline over `points`, with an optional color. */
 export interface LineSeries {
@@ -25,6 +25,8 @@ export interface PlotOptions {
   xBounds?: [number, number];
   /** Y-axis data bounds. Defaults to the min/max y across all series' points. */
   yBounds?: [number, number];
+  /** Draw axis rules, ticks, and numeric labels around the plot. */
+  axes?: AxisOptions;
 }
 
 function deriveBounds(series: readonly LineSeries[]): {
@@ -88,5 +90,7 @@ export function renderLineChart(
     }
   }
 
-  return styledLinesToRenderNode(canvas.toStyledLines());
+  const body = canvas.toStyledLines();
+  const lines = options.axes ? frameChart(body, width, height, xBounds, yBounds, options.axes) : body;
+  return styledLinesToRenderNode(lines);
 }
