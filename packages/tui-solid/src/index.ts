@@ -22,6 +22,8 @@ import type {
 } from "@uniview/tui-core";
 
 export { BarChart, Gauge, Histogram, LineChart, LineGauge, Scatter, Sparkline } from "./charts";
+export { Canvas } from "./canvas";
+export type { CanvasProps } from "./canvas";
 export type {
   BarChartProps,
   GaugeProps,
