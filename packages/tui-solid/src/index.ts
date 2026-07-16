@@ -21,12 +21,13 @@ import type {
   TuiInputEvent,
 } from "@uniview/tui-core";
 
-export { BarChart, Gauge, Histogram, LineChart, Scatter, Sparkline } from "./charts";
+export { BarChart, Gauge, Histogram, LineChart, LineGauge, Scatter, Sparkline } from "./charts";
 export type {
   BarChartProps,
   GaugeProps,
   HistogramProps,
   LineChartProps,
+  LineGaugeProps,
   ScatterProps,
   SparklineProps,
 } from "./charts";

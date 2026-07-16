@@ -69,12 +69,13 @@ export type {
 } from "./content";
 export { nextFocus, useFocusList } from "./focus";
 
-export { BarChart, Histogram, Sparkline, Gauge, LineChart, Scatter } from "./charts";
+export { BarChart, Histogram, Sparkline, Gauge, LineGauge, LineChart, Scatter } from "./charts";
 export type {
   BarChartProps,
   HistogramProps,
   SparklineProps,
   GaugeProps,
+  LineGaugeProps,
   LineChartProps,
   ScatterProps,
 } from "./charts";
