@@ -107,7 +107,7 @@ export type {
   LayoutBox,
   MeasureConstraints,
 } from "./layout/layout";
-export { customLayoutEngine } from "./layout/engine";
+export { customLayoutEngine, yogaLayoutEngine } from "./layout/engine";
 export type { LayoutEngine } from "./layout/engine";
 
 // Render loop
