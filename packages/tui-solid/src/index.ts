@@ -10,9 +10,11 @@ import {
   setUpdateCallback,
   type SolidNode,
 } from "@uniview/solid-renderer";
+import { FrameClock } from "@uniview/tui-core";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import { TuiRuntimeContext } from "./input";
 import { connectSolidDevTools } from "./devtools";
+import { setActiveTuiClock } from "./animation";
 import type {
   CellSurface,
   CommittedOutput,
@@ -93,6 +95,8 @@ export { TuiErrorBoundary, ErrorOverview } from "./error-boundary";
 export type { TuiErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
 export { connectSolidDevTools } from "./devtools";
 export type { DevToolsOptions } from "./devtools";
+export { useAnimation, animate, getActiveTuiClock, setActiveTuiClock } from "./animation";
+export type { AnimationState, AnimateOptions } from "./animation";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
@@ -104,11 +108,15 @@ export interface TuiSolidRootOptions {
   committed?: CommittedOutput;
   /** When true, connect Solid DevTools (dynamically imported behind the flag). */
   devtools?: boolean;
+  /** Frame driver for useAnimation/animate. Defaults to a performance.now()-paced clock. */
+  clock?: FrameClock;
 }
 
 export interface TuiSolidRoot {
   /** The underlying terminal host. */
   readonly host: TuiHost;
+  /** The frame driver backing useAnimation/animate. */
+  readonly clock: FrameClock;
   /** Mount a Solid root component. */
   render(App: () => unknown): void;
   /** Route a normalized terminal input event to the Solid tree. */
@@ -140,6 +148,17 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
   });
   const router = new InputRouter(host);
 
+  const clock =
+    options.clock ??
+    new FrameClock({
+      now: () => performance.now(),
+      requestFrame: (frame) => {
+        setTimeout(frame, 16);
+      },
+      diagnostics: host.renderer.diagnostics,
+    });
+  setActiveTuiClock(clock);
+
   if (options.devtools) void connectSolidDevTools({ enabled: true });
 
   const sync = (): void => {
@@ -156,6 +175,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
 
   return {
     host,
+    clock,
 
     render(App: () => unknown): void {
       resetIdCounter();
@@ -192,6 +212,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       dispose?.();
       dispose = null;
       setUpdateCallback(() => {});
+      setActiveTuiClock(null);
       host.destroy();
     },
   };
