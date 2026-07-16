@@ -196,6 +196,8 @@ export { TabsMachine } from "./components/tabs-machine";
 export type { TabsEffect, TabsInit } from "./components/tabs-machine";
 export { SelectionMachine } from "./components/selection-machine";
 export type { SelectionEffect, SelectionInit } from "./components/selection-machine";
+export { TreeMachine } from "./components/tree-machine";
+export type { TreeEffect, TreeInit, TreeSourceNode, FlatTreeRow } from "./components/tree-machine";
 export {
   resolveColumnWidths,
   formatCell,
