@@ -198,6 +198,8 @@ export { SelectionMachine } from "./components/selection-machine";
 export type { SelectionEffect, SelectionInit } from "./components/selection-machine";
 export { TreeMachine } from "./components/tree-machine";
 export type { TreeEffect, TreeInit, TreeSourceNode, FlatTreeRow } from "./components/tree-machine";
+export { CalendarMachine } from "./components/calendar-machine";
+export type { CalendarEffect, CalendarInit, CalendarCell, YearMonthDay } from "./components/calendar-machine";
 export {
   resolveColumnWidths,
   formatCell,
