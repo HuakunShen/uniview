@@ -1,5 +1,5 @@
 import { createElement as h, useState, type ReactElement } from "react";
-import { BarChart, Box, Gauge, Panel, StatusBar, Table, Text, useInput, type Column } from "@uniview/tui-react";
+import { BarChart, Box, Gauge, LineChart, Panel, StatusBar, Table, Text, useInput, type Column } from "@uniview/tui-react";
 import { commandName, sortProcesses, type Process, type SortDir, type SortKey } from "./sysinfo";
 
 export interface AppHost {
@@ -15,6 +15,8 @@ export interface Frame {
   memTotalGB: number;
   load1: number;
   processes: Process[];
+  cpuHist: number[]; // overall CPU% history (oldest → newest)
+  memHist: number[]; // memory% history
 }
 
 /** A meter color band: green → yellow → red as utilization climbs. */
@@ -66,8 +68,13 @@ export function App({
     }
   };
 
-  const plotHeight = Math.max(5, Math.min(10, Math.floor((rows - 4) * 0.4)));
-  const tableHeight = Math.max(3, rows - plotHeight - 5);
+  // Three stacked regions above the table: history curve, per-core bars, table.
+  const available = Math.max(10, rows - 1); // minus the status bar
+  const historyH = Math.max(4, Math.min(8, Math.floor(available * 0.26)));
+  const barsH = Math.max(3, Math.min(7, Math.floor(available * 0.22)));
+  const row1H = historyH + 3; // + legend row + border
+  const row2H = barsH + 3; // + label row + border
+  const tableHeight = Math.max(3, rows - row1H - row2H - 1);
 
   useInput((input, k) => {
     const key = input.toLowerCase();
@@ -96,36 +103,41 @@ export function App({
   ];
 
   const memWidth = Math.min(34, Math.max(24, Math.floor(cols * 0.32)));
-  // Estimate the per-core panel's inner width so the bars roughly fill it.
-  const coreArea = Math.max(cols - memWidth - 6, frame.cores.length * 2);
+  const memBar = Math.max(6, memWidth - 6);
+  const curveWidth = Math.max(20, cols - memWidth - 4);
+  // Per-core bars span the full width below.
+  const coreArea = Math.max(cols - 4, frame.cores.length * 2);
   const barGap = 1;
   const barWidth = Math.max(1, Math.floor(coreArea / frame.cores.length) - barGap);
-  const memBar = Math.max(6, memWidth - 6);
+  const histLen = Math.max(frame.cpuHist.length, frame.memHist.length);
 
   return h(
     Box,
     { flexDirection: "column", width: "100%", height: "100%" },
+    // Row 1 — CPU/MEM history curve + memory meter.
     h(
       Box,
       { flexDirection: "row" },
       h(
         Panel,
-        { title: `CPU · ${frame.cpu.toFixed(0)}% avg · ${frame.cores.length} cores`, flexGrow: 1, height: plotHeight + 3 },
-        h(BarChart, {
-          data: frame.cores.map((v, i) => ({ label: String(i + 1), value: v, color: band(v) })),
+        { title: `History · last ${histLen}s`, flexGrow: 1, height: row1H },
+        h(LineChart, {
+          series: [
+            { points: frame.cpuHist.map((v, i) => [i, v] as [number, number]), color: "green", label: "CPU" },
+            { points: frame.memHist.map((v, i) => [i, v] as [number, number]), color: "cyan", label: "MEM" },
+          ],
           options: {
-            height: plotHeight,
-            max: 100,
-            barWidth,
-            gap: barGap,
-            showValues: false,
-            showLabels: frame.cores.length <= 16,
+            width: curveWidth,
+            height: historyH,
+            yBounds: [0, 100],
+            xBounds: [0, Math.max(1, histLen - 1)],
+            legend: { position: "top" },
           },
         }),
       ),
       h(
         Panel,
-        { title: "Memory", width: memWidth, height: plotHeight + 3 },
+        { title: "Memory", width: memWidth, height: row1H },
         h(
           Box,
           { flexDirection: "column" },
@@ -135,10 +147,26 @@ export function App({
             options: { width: memBar, color: band(frame.mem), label: `${frame.mem.toFixed(0)}%` },
           }),
           h(Text, { color: "gray" }, `${frame.memUsedGB.toFixed(1)} / ${frame.memTotalGB.toFixed(1)} GB`),
-          h(Text, { color: "gray" }, `load ${frame.load1.toFixed(2)}`),
+          h(Text, { color: "gray" }, `CPU ${frame.cpu.toFixed(0)}% · load ${frame.load1.toFixed(2)}`),
           h(Text, { color: "gray" }, `${frame.processes.length} processes`),
         ),
       ),
+    ),
+    // Row 2 — per-core CPU bars.
+    h(
+      Panel,
+      { title: `CPU · ${frame.cpu.toFixed(0)}% avg · ${frame.cores.length} cores`, height: row2H },
+      h(BarChart, {
+        data: frame.cores.map((v, i) => ({ label: String(i + 1), value: v, color: band(v) })),
+        options: {
+          height: barsH,
+          max: 100,
+          barWidth,
+          gap: barGap,
+          showValues: false,
+          showLabels: frame.cores.length <= 16,
+        },
+      }),
     ),
     h(
       Panel,
