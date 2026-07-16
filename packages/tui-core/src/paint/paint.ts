@@ -147,13 +147,18 @@ function drawBorder(
     buffer.writeText(x, y, g, styleId, ownerId, undefined, x + 1);
   };
 
+  const hTop = glyphs.horizontalTop ?? glyphs.horizontal;
+  const hBottom = glyphs.horizontalBottom ?? glyphs.horizontal;
+  const vLeft = glyphs.verticalLeft ?? glyphs.vertical;
+  const vRight = glyphs.verticalRight ?? glyphs.vertical;
+
   for (let x = left; x <= right; x += 1) {
-    put(x, top, glyphs.horizontal);
-    put(x, bottom, glyphs.horizontal);
+    put(x, top, hTop);
+    put(x, bottom, hBottom);
   }
   for (let y = top; y <= bottom; y += 1) {
-    put(left, y, glyphs.vertical);
-    put(right, y, glyphs.vertical);
+    put(left, y, vLeft);
+    put(right, y, vRight);
   }
   put(left, top, glyphs.topLeft);
   put(right, top, glyphs.topRight);

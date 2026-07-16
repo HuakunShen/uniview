@@ -8,9 +8,21 @@ export interface BorderGlyphs {
   bottomRight: string;
   horizontal: string;
   vertical: string;
+  /**
+   * Per-edge overrides for asymmetric borders (half-block / quadrant). When
+   * absent, both opposing edges reuse `horizontal`/`vertical`, so the classic
+   * box-drawing presets are byte-for-byte unaffected.
+   */
+  horizontalTop?: string;
+  horizontalBottom?: string;
+  verticalLeft?: string;
+  verticalRight?: string;
 }
 
-export const BORDER_PRESETS: Record<"single" | "rounded" | "double", BorderGlyphs> = {
+export const BORDER_PRESETS: Record<
+  "single" | "rounded" | "double" | "thick" | "quadrant-inside" | "quadrant-outside",
+  BorderGlyphs
+> = {
   single: {
     topLeft: "┌",
     topRight: "┐",
@@ -34,6 +46,38 @@ export const BORDER_PRESETS: Record<"single" | "rounded" | "double", BorderGlyph
     bottomRight: "╝",
     horizontal: "═",
     vertical: "║",
+  },
+  thick: {
+    topLeft: "┏",
+    topRight: "┓",
+    bottomLeft: "┗",
+    bottomRight: "┛",
+    horizontal: "━",
+    vertical: "┃",
+  },
+  "quadrant-inside": {
+    topLeft: "▗",
+    topRight: "▖",
+    bottomLeft: "▝",
+    bottomRight: "▘",
+    horizontal: "▄",
+    vertical: "▐",
+    horizontalTop: "▄",
+    horizontalBottom: "▀",
+    verticalLeft: "▐",
+    verticalRight: "▌",
+  },
+  "quadrant-outside": {
+    topLeft: "▛",
+    topRight: "▜",
+    bottomLeft: "▙",
+    bottomRight: "▟",
+    horizontal: "▀",
+    vertical: "▌",
+    horizontalTop: "▀",
+    horizontalBottom: "▄",
+    verticalLeft: "▌",
+    verticalRight: "▐",
   },
 };
 
