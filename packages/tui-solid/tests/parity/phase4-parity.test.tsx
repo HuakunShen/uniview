@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createElement as h } from "react";
 import { SvgCellSurface, StyleTable, type Size } from "@uniview/tui-core";
-import { createTuiReactRoot, LineGauge as RLineGauge, Scrollbar as RScrollbar } from "@uniview/tui-react";
+import {
+  createTuiReactRoot,
+  LineGauge as RLineGauge,
+  Scrollbar as RScrollbar,
+  TextInput as RTextInput,
+} from "@uniview/tui-react";
 import { createTuiSolidRoot } from "../../src/index";
-import { solidLineGauge, solidScrollbar } from "./phase4-scenes";
+import { solidLineGauge, solidScrollbar, solidTextInput } from "./phase4-scenes";
 import { tick } from "../tick";
 
 async function reactSvg(
@@ -43,6 +48,13 @@ describe("phase 4 — React vs Solid parity", () => {
     const size = { width: 24, height: 1 };
     const r = await reactSvg(size, h(RLineGauge, { fraction: 0.6, options: { width: 10, label: "Load" } }));
     const s = await solidSvg(size, solidLineGauge);
+    expect(r).toBe(s);
+  });
+
+  it("TextInput renders byte-identical SVG", async () => {
+    const size = { width: 10, height: 1 };
+    const r = await reactSvg(size, h(RTextInput, { value: "hi", onChange: () => {} }));
+    const s = await solidSvg(size, solidTextInput);
     expect(r).toBe(s);
   });
 });

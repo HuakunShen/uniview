@@ -194,6 +194,8 @@ export { CheckboxMachine } from "./components/checkbox-machine";
 export type { CheckboxEffect, CheckboxInit } from "./components/checkbox-machine";
 export { TabsMachine } from "./components/tabs-machine";
 export type { TabsEffect, TabsInit } from "./components/tabs-machine";
+export { textInputSlices } from "./components/text-input-view";
+export type { TextInputSlices, TextInputSliceOptions } from "./components/text-input-view";
 
 // Framework-agnostic UI event types & pure helpers (shared by tui-react/tui-solid)
 export {

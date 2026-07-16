@@ -76,6 +76,8 @@ export { Spacer, Newline, Transform } from "./layout-primitives";
 export type { NewlineProps, TransformProps } from "./layout-primitives";
 export { Static } from "./static";
 export type { StaticProps } from "./static";
+export { TextInput } from "./text-input";
+export type { TextInputProps } from "./text-input";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { TuiErrorBoundary, ErrorOverview } from "./error-boundary";
 export type { TuiErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
