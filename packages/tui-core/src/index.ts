@@ -245,6 +245,9 @@ export type { BorderGlyphs } from "./paint/border";
 export { VERTICAL_BLOCKS, HORIZONTAL_BLOCKS, verticalBarColumn, horizontalBarCells } from "./canvas/blocks";
 export { SubcellCanvas } from "./canvas/subcell";
 export { dataToPixel } from "./canvas/coords";
+// Public Canvas & shapes engine (Phase 7) — emits styled lines like charts
+export { DrawContext, renderCanvas } from "./canvas/draw";
+export type { Marker, DrawStyle, CanvasDraw, CanvasDrawOptions } from "./canvas/draw";
 
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";
