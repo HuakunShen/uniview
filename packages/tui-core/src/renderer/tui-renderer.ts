@@ -1,6 +1,7 @@
 import { CellBuffer } from "../buffer/cell-buffer";
 import type { CursorState } from "../buffer/frame";
 import { renderToBuffer, type RenderNode } from "../paint/paint";
+import { customLayoutEngine, type LayoutEngine } from "../layout/engine";
 import { OwnerTable } from "../paint/owner-table";
 import { DiagnosticsTracker } from "../scheduler/diagnostics";
 import { RenderScheduler, type RenderKind } from "../scheduler/scheduler";
@@ -21,6 +22,8 @@ export interface TuiRendererOptions {
   cursor?: CursorState;
   /** Injectable flush scheduler for deterministic tests. */
   schedule?: (flush: () => void) => void;
+  /** Layout engine; defaults to the zero-dependency customLayoutEngine. */
+  layoutEngine?: LayoutEngine;
 }
 
 /**
@@ -34,6 +37,7 @@ export class TuiRenderer {
 
   private readonly surface: CellSurface;
   private readonly styles: StyleTable;
+  private readonly layoutEngine: LayoutEngine;
   private readonly scheduler: RenderScheduler;
   private size: Size;
   private cursor: CursorState;
@@ -54,6 +58,7 @@ export class TuiRenderer {
   constructor(options: TuiRendererOptions) {
     this.surface = options.surface;
     this.styles = options.styles ?? new StyleTable();
+    this.layoutEngine = options.layoutEngine ?? customLayoutEngine;
     this.size = options.size;
     this.cursor = options.cursor ?? HIDDEN_CURSOR;
     this.scheduler = new RenderScheduler({
@@ -102,7 +107,7 @@ export class TuiRenderer {
 
   private renderFrame(_kind: RenderKind): void {
     const root: RenderNode = this.root ?? { type: "box" };
-    const { buffer, owners } = renderToBuffer(root, this.size, this.styles);
+    const { buffer, owners } = renderToBuffer(root, this.size, this.styles, this.layoutEngine);
     this.owners = owners;
 
     this.revision += 1;

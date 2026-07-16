@@ -107,8 +107,11 @@ export type {
   LayoutBox,
   MeasureConstraints,
 } from "./layout/layout";
-export { customLayoutEngine, yogaLayoutEngine } from "./layout/engine";
+export { customLayoutEngine } from "./layout/engine";
 export type { LayoutEngine } from "./layout/engine";
+// The Yoga adapter pulls in the yoga-layout WASM; keep it off the engine.ts /
+// paint.ts path so the zero-dependency custom engine stays WASM-free.
+export { yogaLayoutEngine } from "./layout/yoga-engine";
 
 // Render loop
 export { TuiRenderer } from "./renderer/tui-renderer";

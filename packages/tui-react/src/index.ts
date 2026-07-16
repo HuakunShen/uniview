@@ -15,6 +15,7 @@ import { connectReactDevTools } from "./devtools";
 import type {
   CellSurface,
   CommittedOutput,
+  LayoutEngine,
   Size,
   StyleTable,
   TuiInputEvent,
@@ -106,6 +107,8 @@ export interface TuiReactRootOptions {
   devtools?: boolean;
   /** Frame driver for useAnimation/animate. Defaults to a performance.now()-paced clock. */
   clock?: FrameClock;
+  /** Layout engine; defaults to the zero-dependency customLayoutEngine. Pass `yogaLayoutEngine` to opt in. */
+  layoutEngine?: LayoutEngine;
   /**
    * "full" (default) re-serializes the tree each commit; "incremental" feeds
    * React's mutation batches to the host (the protocol's incremental path).
@@ -142,6 +145,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     size: options.size,
     styles: options.styles,
     committed: options.committed,
+    layoutEngine: options.layoutEngine,
     onInvokeHandler: (handlerId, payload) => {
       void registry.execute(handlerId, payload);
     },

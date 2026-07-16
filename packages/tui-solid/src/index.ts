@@ -18,6 +18,7 @@ import { setActiveTuiClock } from "./animation";
 import type {
   CellSurface,
   CommittedOutput,
+  LayoutEngine,
   Size,
   StyleTable,
   TuiInputEvent,
@@ -110,6 +111,8 @@ export interface TuiSolidRootOptions {
   devtools?: boolean;
   /** Frame driver for useAnimation/animate. Defaults to a performance.now()-paced clock. */
   clock?: FrameClock;
+  /** Layout engine; defaults to the zero-dependency customLayoutEngine. Pass `yogaLayoutEngine` to opt in. */
+  layoutEngine?: LayoutEngine;
 }
 
 export interface TuiSolidRoot {
@@ -142,6 +145,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     size: options.size,
     styles: options.styles,
     committed: options.committed,
+    layoutEngine: options.layoutEngine,
     onInvokeHandler: (handlerId, payload) => {
       void registry.execute(handlerId, payload);
     },

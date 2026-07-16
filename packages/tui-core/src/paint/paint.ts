@@ -1,9 +1,6 @@
 import { CellBuffer } from "../buffer/cell-buffer";
-import {
-  computeLayout,
-  type LayoutInput,
-  type LayoutResult,
-} from "../layout/layout";
+import type { LayoutInput, LayoutResult } from "../layout/layout";
+import { customLayoutEngine, type LayoutEngine } from "../layout/engine";
 import { StyleTable, type CellStyle, type Color } from "../style/style-table";
 import { stringCellWidth } from "../text/graphemes";
 import { styledLineWidth, type StyledSpan } from "../text/styled-text";
@@ -291,8 +288,9 @@ export function renderToBuffer(
   root: RenderNode,
   size: Size,
   styles: StyleTable = new StyleTable(),
+  layoutEngine: LayoutEngine = customLayoutEngine,
 ): RenderOutput {
-  const layout = computeLayout(toLayoutInput(root), size);
+  const layout = layoutEngine.computeLayout(toLayoutInput(root), size);
   const buffer = new CellBuffer(size.width, size.height);
   const owners = new OwnerTable();
   paintNode(root, layout, buffer, styles, owners, {

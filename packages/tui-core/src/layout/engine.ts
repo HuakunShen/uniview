@@ -12,5 +12,3 @@ export interface LayoutEngine {
 
 /** The built-in flexbox engine (no dependencies; runs in Worker/Deno/Bun). */
 export const customLayoutEngine: LayoutEngine = { computeLayout };
-
-export { yogaLayoutEngine } from "./yoga-engine";

@@ -11,6 +11,7 @@ import {
   StyleTable,
   TuiRenderer,
   type CellSurface,
+  type LayoutEngine,
   type Size,
   type StyledLine,
 } from "@uniview/tui-core";
@@ -35,6 +36,8 @@ export interface TuiHostOptions {
   schedule?: (flush: () => void) => void;
   /** Optional committed-output channel for <Static> (append-only scrollback). */
   committed?: CommittedOutput;
+  /** Layout engine; defaults to the zero-dependency customLayoutEngine. */
+  layoutEngine?: LayoutEngine;
 }
 
 /**
@@ -61,6 +64,7 @@ export class TuiHost {
       size: options.size,
       styles: options.styles ?? new StyleTable(),
       schedule: options.schedule,
+      layoutEngine: options.layoutEngine,
     });
   }
 
