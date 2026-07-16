@@ -27,10 +27,11 @@ general knowledge of these projects, which drifts across versions.
 | Pre-styled rich text (spans in one node) | ✅ `RichText` | ⚠️ via nested `<Text>` composition only | ✅ `<span>`/`<b>`/`<i>`/`<u>`/`<a>` inline modifiers | ✅ `Content`/markup (`[bold]...[/]`) |
 | `height:"100%"` under `flexGrow` | ✅ not a bug — bringing up `yogaLayoutEngine` proved Yoga produces the **same** geometry (content-sized parent, `flex-basis:auto` correct); a `flexBasis:0` child fills instead | ✅ (Yoga) | ✅ (Yoga) | ✅ |
 | Absolute positioning | ✅ `position:"absolute"` + `zIndex` | ❌ no absolute positioning | ✅ (Yoga `position: "absolute"`) | ✅ (`layer`, `offset`) |
-| `<Static>` (append-only, never-repainted log region) | ❌ | ✅ `<Static>` | ❌ | ⚠️ `RichLog`/`Log` are closer to a scrollback widget, not a static-append region |
-| `<Spacer>` (flex-grow filler) | ⚠️ same effect via `flexGrow={1}` on an empty `Box`, no dedicated component | ✅ `<Spacer>` | ❌ (same `flexGrow` workaround) | ❌ (same workaround) |
-| `<Transform>` (per-line output transform, e.g. gradient text) | ❌ | ✅ `<Transform>` | ❌ | ⚠️ via custom `render_line` overrides |
-| `<Newline>` | ⚠️ `\n` inside `Text` works; no dedicated component | ✅ `<Newline>` | ✅ `<br>` | N/A (markup handles it) |
+| `<Static>` (append-only, never-repainted log region) | ✅ `<Static>` (React + Solid) — commits finalized lines to a scrollback channel above the live frame | ✅ `<Static>` | ❌ | ⚠️ `RichLog`/`Log` are closer to a scrollback widget, not a static-append region |
+| `<Spacer>` (flex-grow filler) | ✅ `<Spacer>` (React + Solid) | ✅ `<Spacer>` | ❌ (same `flexGrow` workaround) | ❌ (same workaround) |
+| `<Transform>` (per-line output transform, e.g. gradient text) | ✅ `<Transform>` (React + Solid) — per-line output transform | ✅ `<Transform>` | ❌ | ⚠️ via custom `render_line` overrides |
+| `<Newline>` | ✅ `<Newline>` (React + Solid) | ✅ `<Newline>` | ✅ `<br>` | N/A (markup handles it) |
+| `<Masked>` (mask child text, e.g. secrets) | ✅ `<Masked>` (React + Solid) | ❌ | ❌ | ❌ |
 
 ## Focus & input
 
