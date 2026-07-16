@@ -37,13 +37,13 @@ general knowledge of these projects, which drifts across versions.
 | Feature | uniview | ink | opentui | Textual |
 | --- | --- | --- | --- | --- |
 | Focus manager | ✅ `FocusManager` — Tab/Shift-Tab cycling, digit-jump via `nextFocus` | ✅ `useFocusManager` (`.focusNext()`, `.focusPrevious()`, `.focus(id)`) | ✅ (Yoga tree + `KeyHandler`) | ✅ `App.focused`, `focus_next()`/`focus_previous()` |
-| Per-node input hook | ❌ only `onKeyDown` prop, routed then bubbled | ✅ `useInput((input, key) => …)` global hook, auto-scoped to focus/raw mode | ✅ `useKeyboard()` hook (React), `onKeyDown` events | ✅ `on_key` handler + `Binding`/`BINDINGS` declarative keymap |
+| Per-node input hook | ✅ `useInput((input, key) => …)` global hook (React + Solid), resolved host-side via `InputRouter.subscribeInput`; `onKeyDown` prop still bubbles | ✅ `useInput((input, key) => …)` global hook, auto-scoped to focus/raw mode | ✅ `useKeyboard()` hook (React), `onKeyDown` events | ✅ `on_key` handler + `Binding`/`BINDINGS` declarative keymap |
 | Key bubbling model | ✅ DOM-style: focused node → nearest ancestor `onKeyDown`; Enter/Space activate focused node first | ⚠️ no bubbling — `useInput` is effectively global, ordering is registration order | ⚠️ event-based, `stopPropagation()` exists (see `KeyHandler.stopPropagation.test.ts`) but no ancestor-chain bubbling model | ✅ message bubbling through the DOM-like widget tree (`bubble=True` on messages) |
 | Click → focus target resolution | ✅ nearest focusable **ancestor** of the hit node | N/A (no mouse support) | ✅ (mouse-aware, hit-tested against Yoga tree) | ✅ |
 | Mouse modes | ✅ off / click / drag / motion via `TerminalDriver` | ❌ no mouse support at all | ✅ click/drag/move, `mock-mouse.ts` test harness | ✅ click, `MouseMove`, `MouseScroll` |
 | Hit-testing | ✅ `OwnerTable` (cell → node) | N/A | ✅ Yoga-tree hit test | ✅ compositor-based (`_compositor.py`) |
 | Kitty keyboard protocol (disambiguated key events) | ❌ | ✅ `kitty-keyboard.ts`, opt-in flags | ✅ `parse.keypress-kitty.ts` | ⚠️ partial via `_keyboard_protocol.py` |
-| Paste event | ❌ | ✅ `usePaste` | ⚠️ raw input only, no dedicated paste hook found | ✅ `Paste` message |
+| Paste event | ✅ `usePaste` (React + Solid) — every paste reaches subscribers host-side | ✅ `usePaste` | ⚠️ raw input only, no dedicated paste hook found | ✅ `Paste` message |
 | Terminal resize event | ✅ `resize` in `TuiInputEvent` | ✅ `useStdout().columns/rows` + resize listener, `useWindowSize` | ✅ `useResize`, `useTerminalDimensions` | ✅ `Resize` message |
 
 ## Text/content widgets
@@ -127,8 +127,8 @@ category for every framework compared here, not a uniview-specific gap.
 
 | Feature | uniview | ink | opentui | Textual |
 | --- | --- | --- | --- | --- |
-| React DevTools integration | ❌ | ✅ `devtools.ts` — connects to `react-devtools-core` over WebSocket when `DEV=true`-equivalent | ✅ `reconciler/devtools.ts` — same pattern, dynamically imported when `DEV=true` | N/A (not a React renderer) |
-| Error overlay (catch render errors, show a readable overlay instead of a crash) | ❌ — no `ErrorBoundary`/`ErrorOverview` equivalent found under `tui-react`/`tui-core` | ✅ `ErrorBoundary.tsx` + `ErrorOverview.tsx` | ✅ `components/error-boundary.tsx` | ✅ Textual shows a formatted traceback screen on unhandled exceptions |
+| React DevTools integration | ✅ `connectReactDevTools`/`connectSolidDevTools` — dynamically imports `react-devtools-core`/`solid-devtools` behind a `devtools` flag | ✅ `devtools.ts` — connects to `react-devtools-core` over WebSocket when `DEV=true`-equivalent | ✅ `reconciler/devtools.ts` — same pattern, dynamically imported when `DEV=true` | N/A (not a React renderer) |
+| Error overlay (catch render errors, show a readable overlay instead of a crash) | ✅ `ErrorBoundary`+`ErrorOverview` (React), `TuiErrorBoundary`+`ErrorOverview` (Solid, byte-identical SVG); core `withTerminalRestore`/`installCrashGuard` restore raw mode on crash | ✅ `ErrorBoundary.tsx` + `ErrorOverview.tsx` | ✅ `components/error-boundary.tsx` | ✅ Textual shows a formatted traceback screen on unhandled exceptions |
 | Hot reload (bundler watch, not state-preserving HMR) | ⚠️ `tsdown --watch` / custom `--watch` flag in example build scripts, plain rebuild-and-restart | ⚠️ no TUI-specific HMR found; standard bundler watch | ⚠️ `lib/singleton.ts` mentions surviving "Bun hot reloads" for a specific singleton, not general component HMR | ⚠️ `CSS_PATH` stylesheets do hot-reload at dev time (`textual run --dev`); component code does not |
 | CLI/dev tooling package | ❌ | ❌ (ink itself has none; `ink-testing-library` is separate) | ✅ own `scripts/`, `dev/` tooling per package | ✅ `textual` CLI — `textual run`, `textual console`, `textual colors`, `textual keys` |
 
@@ -160,12 +160,10 @@ category for every framework compared here, not a uniview-specific gap.
 Ordered by (impact on "can I build a real app") × (how cheap it is given uniview's current
 architecture):
 
-1. **`useInput`/`useKeyboard`-style hook.** Right now input only reaches components via the
-   `onKeyDown` prop and bubbling. A hook that subscribes to the `InputRouter` directly
-   (matching ink's `useInput` and opentui's `useKeyboard`) would unblock the common
-   "handle a global hotkey regardless of focus" pattern without a workaround `Box` at the
-   root. **Small effort** — thin wrapper over the existing input pipeline, no new core
-   primitive.
+1. **✅ Done (Phase 3): `useInput`/`useKeyboard`-style hook.** `useInput((input, key) => …)`
+   and `usePaste` ship in both `tui-react` and `tui-solid`, subscribing to the host
+   `InputRouter` directly via `subscribeInput` — a global hotkey is handled regardless of
+   focus, resolved host-side with no per-event RPC and no workaround `Box` at the root.
 2. **Bundled `<Input>` / `<TextInput>` component.** `TextInputMachine` already models the
    state; there's a `Select` but no plain single-line text field component exported from
    `tui-react`/`tui-solid`. ink doesn't ship one either, but opentui and Textual both do,
@@ -173,12 +171,10 @@ architecture):
    the existing state machine to `Box`/`Text` the way `Select` already does.
 3. **Bundled `<Tabs>` component.** Same situation as `<Input>`: `TabsMachine` exists,
    nothing renders it. **Small effort.**
-4. **Error boundary + overlay.** A render error currently has no graceful path — ink and
-   opentui both catch render errors and show a readable overlay instead of leaving the
-   terminal in a broken raw-mode state. **Medium effort** — needs a React error boundary
-   (straightforward) and a Solid equivalent (Solid has no `componentDidCatch`, needs an
-   `ErrorBoundary` built on Solid's own primitives), plus a core-level "safe teardown of raw
-   mode on crash" path.
+4. **✅ Done (Phase 3): Error boundary + overlay.** `ErrorBoundary` + `ErrorOverview` (React)
+   and `TuiErrorBoundary` + `ErrorOverview` (Solid, on Solid's own `ErrorBoundary`) render a
+   readable overlay instead of a crash — the two overlays are asserted byte-identical.
+   Core `withTerminalRestore`/`installCrashGuard` guarantee raw mode is restored on crash.
 5. **Yoga layout adapter.** The known `height:"100%"` bug and the general "flexbox-ish, not
    flexbox" gap versus ink/opentui/Textual would go away by swapping in Yoga behind the
    existing `LayoutEngine` interface, which was built pluggable for exactly this. **Medium
