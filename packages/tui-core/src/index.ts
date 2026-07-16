@@ -267,3 +267,25 @@ export type {
   DiagnosticsSource,
   WaitForIdleOptions,
 } from "./scheduler/diagnostics";
+// Animation engine (easings)
+export {
+  bounceIn,
+  bounceInOut,
+  bounceOut,
+  cubicIn,
+  cubicInOut,
+  cubicOut,
+  easings,
+  expoIn,
+  expoInOut,
+  expoOut,
+  linear,
+  quadIn,
+  quadInOut,
+  quadOut,
+  resolveEasing,
+  sineIn,
+  sineInOut,
+  sineOut,
+} from "./scheduler/ease";
+export type { EasingFn, EasingName } from "./scheduler/ease";
