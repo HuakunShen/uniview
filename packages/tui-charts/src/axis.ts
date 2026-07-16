@@ -1,22 +1,11 @@
 import type { Color, StyledLine, StyledSpan } from "@uniview/tui-core";
-import { defaultTheme } from "@uniview/tui-core";
+import { dataToPixel, defaultTheme } from "@uniview/tui-core";
 
-/**
- * Map a data value in `[bound[0], bound[1]]` to an integer dot index in
- * `[0, pixels-1]`, clamped to that range. Used to place data points onto a
- * {@link SubcellCanvas}'s dot grid.
- */
-export function dataToPixel(
-  value: number,
-  bound: readonly [number, number],
-  pixels: number,
-): number {
-  const [lo, hi] = bound;
-  const max = pixels - 1;
-  if (hi === lo) return Math.floor(max / 2);
-  const raw = Math.round(((value - lo) / (hi - lo)) * max);
-  return Math.max(0, Math.min(max, raw));
-}
+// The data → pixel coordinate mapping now lives in `@uniview/tui-core`
+// (`canvas/coords.ts`) so the public `<Canvas>` engine and the charts share a
+// single implementation. Re-exported here to keep `@uniview/tui-charts`'s
+// surface and internal `./axis` imports unchanged.
+export { dataToPixel };
 
 /** Options for the axis frame drawn around a plot body. */
 export interface AxisOptions {
