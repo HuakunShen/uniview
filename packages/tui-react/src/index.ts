@@ -29,6 +29,8 @@ export type { StatusBarProps, StatusItem } from "./status-bar";
 export { Box, Text, RichText } from "./primitives";
 export { Masked } from "./masked";
 export type { MaskedProps } from "./masked";
+export { Spacer, Newline, Transform } from "./layout-primitives";
+export type { NewlineProps, TransformProps } from "./layout-primitives";
 export type {
   BoxProps,
   TextProps,

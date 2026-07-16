@@ -65,6 +65,8 @@ export type {
 } from "./primitives";
 export { Masked } from "./masked";
 export type { MaskedProps } from "./masked";
+export { Spacer, Newline, Transform } from "./layout-primitives";
+export type { NewlineProps, TransformProps } from "./layout-primitives";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
