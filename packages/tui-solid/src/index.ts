@@ -73,6 +73,8 @@ export type { NewlineProps, TransformProps } from "./layout-primitives";
 export { Static } from "./static";
 export type { StaticProps } from "./static";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
+export { TuiErrorBoundary, ErrorOverview } from "./error-boundary";
+export type { TuiErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
