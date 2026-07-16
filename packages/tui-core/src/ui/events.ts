@@ -88,6 +88,22 @@ export function clampScroll(scrollTop: number, rowCount: number, height: number)
   return Math.max(0, Math.min(Math.max(0, rowCount - height), scrollTop));
 }
 
+/**
+ * Thumb geometry for a vertical scrollbar of `height` rows over `total` rows of
+ * content scrolled to `value`. Mirrors the math previously inlined in
+ * ScrollView's scrollbar so the extraction is byte-for-byte identical.
+ */
+export function scrollbarThumb(
+  total: number,
+  height: number,
+  value: number,
+): { start: number; thumb: number } {
+  const thumb = total <= height ? height : Math.max(1, Math.round((height * height) / total));
+  const maxScroll = Math.max(0, total - height);
+  const start = maxScroll <= 0 ? 0 : Math.round((value / maxScroll) * (height - thumb));
+  return { start, thumb };
+}
+
 /** Case-insensitive subsequence filter over command labels (fuzzy-ish). */
 export function filterCommands<T extends { label: string }>(
   commands: readonly T[],

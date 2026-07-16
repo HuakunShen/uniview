@@ -52,9 +52,10 @@ export type {
   TuiPointerEvent,
 } from "./primitives";
 
-export { ScrollView, Hoverable, CommandPalette, filterCommands, clampScroll } from "./interactive";
+export { ScrollView, Scrollbar, Hoverable, CommandPalette, filterCommands, clampScroll } from "./interactive";
 export type {
   ScrollViewProps,
+  ScrollbarProps,
   HoverableProps,
   CommandPaletteProps,
   Command,

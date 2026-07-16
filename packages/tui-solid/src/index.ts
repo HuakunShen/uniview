@@ -44,12 +44,14 @@ export {
   CommandPalette,
   filterCommands,
   Hoverable,
+  Scrollbar,
   ScrollView,
 } from "./interactive";
 export type {
   Command,
   CommandPaletteProps,
   HoverableProps,
+  ScrollbarProps,
   ScrollViewProps,
 } from "./interactive";
 export { List, listCounter } from "./list";

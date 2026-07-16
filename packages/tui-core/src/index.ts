@@ -201,6 +201,7 @@ export {
   filterCommands,
   listCounter,
   nextFocus,
+  scrollbarThumb,
 } from "./ui/events";
 export type {
   TuiEventHandlers,
