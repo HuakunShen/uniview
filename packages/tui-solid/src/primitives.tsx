@@ -44,6 +44,8 @@ export interface TextProps extends TuiCommonProps {
   underline?: boolean;
   strikethrough?: boolean;
   inverse?: boolean;
+  blink?: boolean;
+  hidden?: boolean;
 }
 
 /** Props for {@link RichText}. */
