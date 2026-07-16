@@ -80,6 +80,8 @@ export type {
 export { nextFocus, useFocusList } from "./focus";
 
 export { BarChart, Histogram, Sparkline, Gauge, LineGauge, LineChart, Scatter } from "./charts";
+export { Canvas } from "./canvas";
+export type { CanvasProps } from "./canvas";
 export type {
   BarChartProps,
   HistogramProps,
