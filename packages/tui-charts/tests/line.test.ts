@@ -97,4 +97,17 @@ describe("renderLineChart", () => {
     expect(text).toContain("└"); // corner
     expect(text).toContain("t"); // xTitle
   });
+
+  it("appends a legend line built from series labels + colors", () => {
+    const result = renderLineChart([{ points: [[0, 0], [1, 1]], label: "cpu", color: { r: 1, g: 2, b: 3 } }], {
+      width: 6,
+      height: 3,
+      xBounds: [0, 1],
+      yBounds: [0, 1],
+      legend: {},
+    });
+    const last = result.children![result.children!.length - 1]!;
+    expect(styledLineText(last.spans!)).toContain("cpu");
+    expect(last.spans!.some((s) => s.style?.fg && s.text.includes("■"))).toBe(true);
+  });
 });

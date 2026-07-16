@@ -6,6 +6,7 @@ import {
 } from "@uniview/tui-core";
 
 import { dataToPixel, frameChart, type AxisOptions } from "./axis";
+import { renderLegend, type LegendEntry, type LegendOptions } from "./legend";
 
 /** One line series: a polyline over `points`, with an optional color. */
 export interface LineSeries {
@@ -13,6 +14,8 @@ export interface LineSeries {
   points: readonly (readonly [number, number])[];
   /** Line color. Defaults to the theme's primary color. */
   color?: Color;
+  /** Series name shown in the legend. */
+  label?: string;
 }
 
 /** Options controlling {@link renderLineChart} sizing and data-space bounds. */
@@ -27,6 +30,8 @@ export interface PlotOptions {
   yBounds?: [number, number];
   /** Draw axis rules, ticks, and numeric labels around the plot. */
   axes?: AxisOptions;
+  /** Append (or prepend) a legend built from each series' `label` + `color`. */
+  legend?: LegendOptions;
 }
 
 function deriveBounds(series: readonly LineSeries[]): {
@@ -91,6 +96,15 @@ export function renderLineChart(
   }
 
   const body = canvas.toStyledLines();
-  const lines = options.axes ? frameChart(body, width, height, xBounds, yBounds, options.axes) : body;
+  const framed = options.axes ? frameChart(body, width, height, xBounds, yBounds, options.axes) : body;
+  let lines = framed;
+  if (options.legend) {
+    const entries: LegendEntry[] = series.map((s, i) => ({
+      label: s.label ?? `Series ${i + 1}`,
+      color: s.color ?? defaultTheme.colors.primary,
+    }));
+    const legendLines = renderLegend(entries, options.legend);
+    lines = (options.legend.position ?? "bottom") === "top" ? [...legendLines, ...framed] : [...framed, ...legendLines];
+  }
   return styledLinesToRenderNode(lines);
 }
