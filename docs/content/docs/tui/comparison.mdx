@@ -113,9 +113,9 @@ general knowledge of these projects, which drifts across versions.
 
 | Feature | uniview | ink | opentui | Textual |
 | --- | --- | --- | --- | --- |
-| Frame/tick hook for building your own animation | ⚠️ scheduler has `animationStarted()`/`animationStopped()` diagnostics hooks (`scheduler/diagnostics.ts`) but these track render-loop activity, not a tween API | ✅ `useAnimation({interval})` → `{frame, time, delta, reset}` | ✅ `Timeline` class — `duration`, `ease`, `loop`, `alternate`, `onUpdate`/`onComplete`, sequenceable via `.add()` | ✅ `_animator.py` + `_easing.py` — animate any reactive attribute (`self.animate("opacity", 0.0)`) |
-| Named easing functions | ❌ | ❌ (bring your own math) | ✅ (`easingFunctions` referenced in `Timeline.ts`) | ✅ (`_easing.py`) |
-| Declarative "animate this style prop" API | ❌ | ❌ | ⚠️ via `Timeline` targeting renderable properties, not declarative JSX props | ✅ `widget.animate(attribute, value, duration=…)` |
+| Frame/tick hook for building your own animation | ✅ `useAnimation()` → `{frame, time, delta, reset}` (React + Solid) over a host-side `FrameClock`; a `Timeline` class — `duration`, `ease`, `loop`, `alternate`, `onUpdate`/`onComplete`, sequenceable via `.add()` | ✅ `useAnimation({interval})` → `{frame, time, delta, reset}` | ✅ `Timeline` class — `duration`, `ease`, `loop`, `alternate`, `onUpdate`/`onComplete`, sequenceable via `.add()` | ✅ `_animator.py` + `_easing.py` — animate any reactive attribute (`self.animate("opacity", 0.0)`) |
+| Named easing functions | ✅ `ease.ts` — linear/quad/cubic/sine/expo/bounce (In/Out/InOut) + `resolveEasing` | ❌ (bring your own math) | ✅ (`easingFunctions` referenced in `Timeline.ts`) | ✅ (`_easing.py`) |
+| Declarative "animate this style prop" API | ✅ `animate("w", to, { duration, ease })` (React + Solid) — returns the current value to drop into a node's style/props; per-frame writes are local re-renders, never per-frame RPC | ❌ | ⚠️ via `Timeline` targeting renderable properties, not declarative JSX props | ✅ `widget.animate(attribute, value, duration=…)` |
 
 ## Accessibility
 
@@ -197,12 +197,11 @@ architecture):
    (raw escape-sequence passthrough anchored to a cell region) plus per-terminal capability
    probing (a starting point already exists in opentui's
    `terminal-capability-detection.ts` for reference).
-8. **Animation/tween API.** uniview's scheduler already tracks "animation started/stopped"
-   as a diagnostics concept, but there's no `Timeline`/`useAnimation`-equivalent for
-   consumers. Charts and spinners currently have to hand-roll a `setInterval` + state
-   update. **Medium effort** — a `requestFrame`-driven timeline that writes into the
-   existing per-node style/props, modeled on opentui's `Timeline` (duration/ease/loop) or
-   ink's simpler `useAnimation`.
+8. **✅ Done (Phase 8): Animation/tween API.** A framework-neutral `Timeline` +
+   `FrameClock` + named easings (`ease.ts`) live in `@uniview/tui-core`, and `useAnimation`
+   / `animate` ship in both `tui-react` and `tui-solid` over a host-side clock — per-frame
+   value writes are local re-renders, never per-frame RPC. The React and Solid renders of
+   the same animation are asserted byte-identical.
 9. **CSS-like stylesheet system.** Textual's TCSS (external file, selectors, cascade,
    hot-reload) is the most structurally different feature here — neither ink nor opentui
    have it either, so this is the lowest-priority item measured against the closest
