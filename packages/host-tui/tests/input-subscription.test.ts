@@ -60,4 +60,28 @@ describe("InputRouter.subscribeInput", () => {
 
     expect(got).toEqual([]); // neither leaked to the global layer
   });
+
+  it("forwards keys a focused text field ignores, but not ones it consumes", () => {
+    const { router } = setup({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "field",
+          type: "box",
+          props: { role: "textbox", value: "hi", [handlerIdProp("onChange")]: "chg" },
+          children: [],
+        },
+      ],
+    });
+    const got: TuiInputEvent[] = [];
+    router.subscribeInput((e) => got.push(e));
+
+    router.dispatch(keyEvent("Tab")); // focus the field
+    router.dispatch(keyEvent("Escape")); // the field ignores Escape → reaches global useInput
+    router.dispatch(text("x")); // the field consumes a printable char (insert) → NOT global
+
+    expect(got).toEqual([keyEvent("Escape")]);
+  });
 });

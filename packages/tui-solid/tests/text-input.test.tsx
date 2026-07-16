@@ -71,6 +71,39 @@ describe("TextInput (Solid)", () => {
     root.destroy();
   });
 
+  it("does not paint a placeholder caret until the field is focused", async () => {
+    // Regression: the placeholder branch used an unconditional `inverse`, so every
+    // empty placeholder field showed a caret before focus. It must use `caret`, so
+    // the host paints inverse/blink only on the focused textbox (React parity).
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 2 } });
+    const [a, setA] = createSignal("");
+    const [b, setB] = createSignal("");
+    root.render(() => (
+      <box flexDirection="column">
+        <TextInput value={a()} onChange={setA} placeholder="first" />
+        <TextInput value={b()} onChange={setB} placeholder="second" />
+      </box>
+    ));
+    await tick();
+
+    const caret = (row: number) => {
+      const frame = surface.cells()!;
+      return styles.get(frame.cells[row]![0]!.styleId); // col 0 is the caret cell in placeholder mode
+    };
+
+    // Nothing focused: neither empty placeholder field paints a caret.
+    expect(caret(0).inverse).toBeFalsy();
+    expect(caret(1).inverse).toBeFalsy();
+
+    root.dispatchInput(key("Tab")); // focus the first field
+    await tick();
+    expect(caret(0).inverse).toBe(true);
+    expect(caret(1).inverse).toBeFalsy();
+    root.destroy();
+  });
+
   it("fires onSubmit on Enter", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });

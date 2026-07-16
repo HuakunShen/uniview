@@ -169,7 +169,8 @@ export class InputRouter {
     if (focused && this.isTextbox(focused)) {
       const field = this.fieldFor(focused);
       const before = field.machine.value;
-      for (const effect of field.machine.handle(event)) {
+      const effects = field.machine.handle(event);
+      for (const effect of effects) {
         if (effect.type === "change") {
           if (effect.value !== before) {
             field.lastSent = effect.value;
@@ -179,7 +180,11 @@ export class InputRouter {
           this.host.fireEvent(focused, "onSubmit", effect.value);
         }
       }
-      return;
+      // Only stop here if the field actually consumed the key. Keys it ignores
+      // (Escape, F-keys, ArrowUp/Down) produce no effects and must keep flowing —
+      // to an ancestor keymap or the global useInput layer — per the documented
+      // "key events the focused control did not consume" contract.
+      if (effects.length > 0) return;
     }
 
     // A focused node can opt into raw keyboard handling (scroll, keymaps).

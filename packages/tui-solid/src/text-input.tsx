@@ -60,7 +60,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
         }
       >
         <Show when={showCursor()}>
-          <Text inverse>{slices().caret}</Text>
+          <Text caret>{slices().caret}</Text>
         </Show>
         <Text dim color={props.placeholderColor ?? "gray"}>
           {slices().head}
