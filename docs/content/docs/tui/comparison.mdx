@@ -54,16 +54,16 @@ general knowledge of these projects, which drifts across versions.
 | `List` (selection, full-row highlight, click-select) | ✅ | ❌ (userland only) | ⚠️ `Select` covers single-select lists; no plain scrolling list with full-row highlight as a named component | ✅ `ListView`/`OptionList` |
 | `VirtualList` (windowed rendering) | ✅ | ❌ | ⚠️ `ScrollBox` virtualizes via viewport culling (`objects-in-viewport.ts`) but there's no list-specific windowed component | ✅ `DataTable` and `ListView` virtualize rows |
 | `Select` (keyboard-navigable single-select) | ✅ | ❌ | ✅ `Select`, plus `TabSelect` for tab-strip selection | ✅ `Select`, `RadioSet` |
-| `ScrollView` | ✅ (wheel + key scroll, scrollbar, controlled/uncontrolled) | ❌ | ✅ `ScrollBox` + `ScrollBar` | ✅ `ScrollView` base class on every scrollable widget |
+| `ScrollView` | ✅ (wheel + key scroll, scrollbar, controlled/uncontrolled) + a standalone `<Scrollbar>` (React + Solid) extracted for reuse | ❌ | ✅ `ScrollBox` + `ScrollBar` | ✅ `ScrollView` base class on every scrollable widget |
 | `Markdown` | ✅ headings/lists/quotes/tables/inline emphasis/links/fenced code+highlight | ❌ | ✅ `Markdown` renderable + `markdown-parser.ts` | ✅ `Markdown`, `MarkdownViewer` (with TOC) |
 | `Code` (syntax highlighting) | ✅ via lowlight/highlight.js, line numbers, filename→language detection | ❌ | ✅ `Code` renderable, tree-sitter-backed (`tree-sitter-styled-text.ts`), `LineNumberRenderable` | ✅ `TextArea` has syntax highlighting (tree-sitter) |
 | `Diff` (unified diff viewer) | ✅ gutters, sign column, hunk headers, per-line highlight | ❌ | ✅ `Diff` renderable (`Diff.ts`, `Diff.regression.test.ts`) | ❌ no built-in diff widget |
 | `StreamingMarkdown` (stable/tail split for cheap re-parses of growing text) | ✅ | ❌ | ❌ (no equivalent found in `Markdown.ts`) | ❌ |
 | Editable multi-line text area | ❌ | ❌ | ✅ `Textarea` — full editor: selection, undo/redo, highlights, visual-line wrapping (`Textarea.*.test.ts`) | ✅ `TextArea` — same class of feature, tree-sitter highlighting |
-| Single-line text input | ✅ `TextInputMachine` (state machine only — no bundled `<Input>` React/Solid component in the current primitive set) | ❌ (no built-in `<Input>`, common to build on `useInput`) | ✅ `Input` renderable | ✅ `Input` widget, with `Suggester`/validators |
+| Single-line text input | ✅ `<TextInput>` (React + Solid) — controlled, host-driven editing (`TextInputMachine`) with rendered caret, `mask`/placeholder, `onChange`/`onSubmit` | ❌ (no built-in `<Input>`, common to build on `useInput`) | ✅ `Input` renderable | ✅ `Input` widget, with `Suggester`/validators |
 | Tables | ❌ | ❌ | ❌ | ✅ `DataTable` — sortable, editable cells, cursor modes |
 | Tree view | ❌ | ❌ | ❌ | ✅ `Tree`, `DirectoryTree` |
-| Tabs | ✅ `TabsMachine` (state machine only) | ❌ | ✅ `TabSelect` renderable | ✅ `TabbedContent`/`Tabs`/`TabPane` |
+| Tabs | ✅ `<Tabs>` (React + Solid) — tab strip + active panel, roving arrow nav (wraparound, disabled-skip) via `TabsMachine` | ❌ | ✅ `TabSelect` renderable | ✅ `TabbedContent`/`Tabs`/`TabPane` |
 
 ## Charts & graphics
 
@@ -71,7 +71,7 @@ general knowledge of these projects, which drifts across versions.
 | --- | --- | --- | --- | --- |
 | Bar chart / histogram | ✅ eighth-block glyphs (▁-█, 8 steps/row) | ❌ | ❌ (no chart renderables in `renderables/index.ts`) | ❌ (`Sparkline` widget only) |
 | Sparkline | ✅ | ❌ | ❌ | ✅ `Sparkline` widget |
-| Gauge | ✅ | ❌ | ❌ | ❌ |
+| Gauge | ✅ `<Gauge>` (centered label on bar) + `<LineGauge>` (ratatui-style label · bar · percent on one line) | ❌ | ❌ | ❌ |
 | Line chart / scatter plot | ✅ braille 2×4 sub-cell canvas (`SubcellCanvas`, 8x character-grid resolution) | ❌ | ❌ | ❌ |
 | Sub-cell / braille rendering | ✅ (`packages/tui-core/src/canvas/subcell.ts`) | ❌ | ❌ (no braille/subcell canvas found in `core/src`) | ❌ |
 | 2D/3D scene rendering, sprites, particles, physics | ❌ | ❌ | ✅ `packages/core/src/3d/` — WebGL-in-terminal: sprites, textures, phong lighting, rapier/planck physics demos | ❌ |
@@ -164,13 +164,13 @@ architecture):
    and `usePaste` ship in both `tui-react` and `tui-solid`, subscribing to the host
    `InputRouter` directly via `subscribeInput` — a global hotkey is handled regardless of
    focus, resolved host-side with no per-event RPC and no workaround `Box` at the root.
-2. **Bundled `<Input>` / `<TextInput>` component.** `TextInputMachine` already models the
-   state; there's a `Select` but no plain single-line text field component exported from
-   `tui-react`/`tui-solid`. ink doesn't ship one either, but opentui and Textual both do,
-   and it's the single most common thing a form-shaped TUI needs. **Small effort** — wire
-   the existing state machine to `Box`/`Text` the way `Select` already does.
-3. **Bundled `<Tabs>` component.** Same situation as `<Input>`: `TabsMachine` exists,
-   nothing renders it. **Small effort.**
+2. **✅ Done (Phase 4): Bundled `<TextInput>` component.** `<TextInput>` (React + Solid) wires
+   the host-owned `TextInputMachine` to a visible controlled field with a rendered caret,
+   `mask`/placeholder, and `onChange`/`onSubmit` — the host still owns editing (no per-event
+   RPC on a cursor move).
+3. **✅ Done (Phase 4): Bundled `<Tabs>` component.** `<Tabs>` (React + Solid) renders a tab
+   strip + active panel with roving arrow navigation through `TabsMachine`. A standalone
+   `<Scrollbar>` and a `<LineGauge>` shipped in the same phase.
 4. **✅ Done (Phase 3): Error boundary + overlay.** `ErrorBoundary` + `ErrorOverview` (React)
    and `TuiErrorBoundary` + `ErrorOverview` (Solid, on Solid's own `ErrorBoundary`) render a
    readable overlay instead of a crash — the two overlays are asserted byte-identical.
