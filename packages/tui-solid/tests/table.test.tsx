@@ -91,6 +91,22 @@ describe("Table (solid)", () => {
     root.destroy();
   });
 
+  it("autoFocus lets the arrow keys move the cursor without a preceding Tab", async () => {
+    const { root } = mount(() => {
+      const [sel, setSel] = createSignal(0);
+      return <Table columns={columns} rows={people} selectedIndex={sel()} onSelect={setSel} height={3} width={13} rowName={(r) => r.name} autoFocus />;
+    }, 13, 4);
+    const session = new AutomationSession(root.host);
+    await tick();
+
+    // No Tab: auto-focused on mount, so ArrowDown moves the cursor immediately.
+    root.dispatchInput(key("ArrowDown"));
+    await tick();
+    session.expect.node({ role: "row", name: "Bob" }, { selected: true });
+    session.expect.node({ role: "row", name: "Alice" }, { selected: false });
+    root.destroy();
+  });
+
   it("sorts when a controlled sort is applied", async () => {
     const { root, surface } = mount(() => {
       const [sel, setSel] = createSignal(0);

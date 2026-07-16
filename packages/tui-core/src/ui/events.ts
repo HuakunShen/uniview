@@ -54,6 +54,13 @@ export interface TuiSemanticProps {
   disabled?: boolean;
   checked?: boolean;
   selected?: boolean;
+  /**
+   * Request initial keyboard focus. The host focuses the first `autoFocus`
+   * node once, when nothing else is focused yet — so keyboard navigation works
+   * on mount without a preceding Tab. Must sit on a focusable node (one with
+   * onKeyDown/onClick/onChange) to have any effect.
+   */
+  autoFocus?: boolean;
 }
 
 /**

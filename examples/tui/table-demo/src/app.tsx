@@ -25,7 +25,9 @@ const columns: Column<File>[] = [
 
 /**
  * A file-list `<Table>`: column layout, a header row, a highlighted cursor row,
- * and controlled sort. Focus with Tab, move with the arrow keys; `q` quits.
+ * and controlled sort. `autoFocus` takes keyboard focus on mount, so the arrow
+ * keys move the cursor immediately (without it, a table is unfocused at startup
+ * and arrows do nothing until you Tab or click into it). `q` quits.
  */
 export function App({ host }: { host: AppHost }): ReactElement {
   const [sel, setSel] = useState(0);
@@ -46,6 +48,7 @@ export function App({ host }: { host: AppHost }): ReactElement {
       rowName={(f) => f.name}
       sort={sort}
       onSortChange={setSort}
+      autoFocus
     />
   );
 }

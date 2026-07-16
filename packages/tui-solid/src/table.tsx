@@ -101,6 +101,7 @@ export function Table<T>(props: TableProps<T>): JSX.Element {
     <Box
       onKeyDown={onKeyDown}
       role="table"
+      autoFocus={props.autoFocus}
       flexDirection="column"
       width={props.width}
       height={(showHeader() ? 1 : 0) + props.height}

@@ -156,13 +156,14 @@ export class TuiHost {
    * Disabled nodes are excluded, matching how HTML `disabled` removes an
    * element from the tab order rather than merely styling it.
    */
-  focusableTargets(): { id: string; textbox: boolean }[] {
-    const targets: { id: string; textbox: boolean }[] = [];
+  focusableTargets(): { id: string; textbox: boolean; autoFocus: boolean }[] {
+    const targets: { id: string; textbox: boolean; autoFocus: boolean }[] = [];
     for (const [id, map] of this.handlers) {
       if (this.isDisabled(id)) continue;
       const textbox = map.onChange !== undefined;
       if (map.onClick !== undefined || map.onKeyDown !== undefined || textbox) {
-        targets.push({ id, textbox });
+        const autoFocus = this.tree.getNode(id)?.props.autoFocus === true;
+        targets.push({ id, textbox, autoFocus });
       }
     }
     return targets;

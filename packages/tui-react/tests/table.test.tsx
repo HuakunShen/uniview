@@ -102,6 +102,43 @@ describe("Table", () => {
     root.destroy();
   });
 
+  it("autoFocus lets the arrow keys move the cursor without a preceding Tab", async () => {
+    function Auto() {
+      const [sel, setSel] = useState(0);
+      return h(Table<Person>, {
+        columns,
+        rows: people,
+        selectedIndex: sel,
+        onSelect: setSel,
+        height: 3,
+        width: 13,
+        rowName: (r) => r.name,
+        autoFocus: true,
+      });
+    }
+    const { root } = mount(h(Auto), 13, 4);
+    const session = new AutomationSession(root.host);
+    await tick();
+
+    // No Tab: the table is auto-focused on mount, so ArrowDown moves immediately.
+    root.dispatchInput(key("ArrowDown"));
+    await tick();
+    session.expect.node({ role: "row", name: "Bob" }, { selected: true });
+    session.expect.node({ role: "row", name: "Alice" }, { selected: false });
+    root.destroy();
+  });
+
+  it("without autoFocus, arrows are inert until the table is focused", async () => {
+    const { root } = mount(h(Harness, { rows: people, height: 3 }), 13, 4);
+    const session = new AutomationSession(root.host);
+    await tick();
+    // Nothing focused yet → ArrowDown goes to the global layer, cursor stays.
+    root.dispatchInput(key("ArrowDown"));
+    await tick();
+    session.expect.node({ role: "row", name: "Alice" }, { selected: true });
+    root.destroy();
+  });
+
   it("sorts when a controlled sort is applied", async () => {
     function Sorted() {
       const [sel, setSel] = useState(0);

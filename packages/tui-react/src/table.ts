@@ -45,6 +45,7 @@ export function Table<T>(props: TableProps<T>): ReactElement {
     rowName,
     sort = null,
     onSortChange,
+    autoFocus,
   } = props;
 
   // Sort order: a permutation of row indices in the current display order.
@@ -156,7 +157,7 @@ export function Table<T>(props: TableProps<T>): ReactElement {
 
   return createElement(
     "box",
-    { onKeyDown, role: "table", flexDirection: "column", width, height: (showHeader ? 1 : 0) + height },
+    { onKeyDown, role: "table", autoFocus, flexDirection: "column", width, height: (showHeader ? 1 : 0) + height },
     ...out,
   );
 }

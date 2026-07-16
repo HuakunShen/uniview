@@ -60,6 +60,12 @@ export interface TableProps<T> {
   /** Controlled sort; header click cycles it via `onSortChange`. */
   sort?: SortState | null;
   onSortChange?: (sort: SortState | null) => void;
+  /**
+   * Take initial keyboard focus on mount, so the arrow keys move the cursor
+   * without a preceding Tab. Off by default (a table is not focused until the
+   * user Tabs or clicks into it).
+   */
+  autoFocus?: boolean;
 }
 
 /** Display width of a string in terminal cells (a wide glyph counts as 2). */

@@ -27,6 +27,7 @@ export class InputRouter {
   private readonly focus = new FocusManager();
   private readonly fields = new Map<string, FieldState>();
   private hoveredId: string | null = null;
+  private autoFocused = false;
   private readonly inputSubscribers = new Set<(event: TuiInputEvent) => void>();
 
   constructor(private readonly host: TuiHost) {}
@@ -57,6 +58,16 @@ export class InputRouter {
     // Drop hover state if the hovered node is gone (no leave — it no longer exists).
     if (this.hoveredId && this.host.nearestTarget(this.hoveredId, HOVER_EVENTS) !== this.hoveredId) {
       this.hoveredId = null;
+    }
+    // Grant initial focus once: the first `autoFocus` target takes focus when
+    // nothing else has it, so keyboard nav works on mount without a Tab. Guarded
+    // so it fires only the first time — tabbing away and back never snaps here.
+    if (!this.autoFocused && this.focus.focused === null) {
+      const auto = targets.find((t) => t.autoFocus);
+      if (auto) {
+        this.autoFocused = true;
+        this.focus.focus(auto.id, "programmatic");
+      }
     }
     // Focus may have been cleared (its node was removed) — keep the caret in sync.
     this.syncFocus();
