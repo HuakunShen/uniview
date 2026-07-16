@@ -291,3 +291,5 @@ export {
 export type { EasingFn, EasingName } from "./scheduler/ease";
 export { Timeline } from "./scheduler/timeline";
 export type { TimelineOptions } from "./scheduler/timeline";
+export { FrameClock } from "./scheduler/frame-clock";
+export type { FrameClockOptions, FrameInfo, FrameListener } from "./scheduler/frame-clock";
