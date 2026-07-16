@@ -12,7 +12,7 @@ import { Box, Text } from "./primitives";
 
 // Shared shapes from @uniview/tui-core, re-exported so tui-solid mirrors
 // tui-react's surface.
-export type { Column, TableProps } from "@uniview/tui-core";
+export type { Column, TableProps, ColumnAlign, SortDirection, SortState } from "@uniview/tui-core";
 
 function intrinsicWidth<T>(columns: readonly Column<T>[], gap: number): number {
   const cells = columns.reduce((sum, c) => sum + (c.width ?? c.minWidth ?? 8), 0);

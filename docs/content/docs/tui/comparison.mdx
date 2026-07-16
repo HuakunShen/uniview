@@ -61,7 +61,7 @@ general knowledge of these projects, which drifts across versions.
 | `StreamingMarkdown` (stable/tail split for cheap re-parses of growing text) | ✅ | ❌ | ❌ (no equivalent found in `Markdown.ts`) | ❌ |
 | Editable multi-line text area | ❌ | ❌ | ✅ `Textarea` — full editor: selection, undo/redo, highlights, visual-line wrapping (`Textarea.*.test.ts`) | ✅ `TextArea` — same class of feature, tree-sitter highlighting |
 | Single-line text input | ✅ `<TextInput>` (React + Solid) — controlled, host-driven editing (`TextInputMachine`) with rendered caret, `mask`/placeholder, `onChange`/`onSubmit` | ❌ (no built-in `<Input>`, common to build on `useInput`) | ✅ `Input` renderable | ✅ `Input` widget, with `Suggester`/validators |
-| Tables | ❌ | ❌ | ❌ | ✅ `DataTable` — sortable, editable cells, cursor modes |
+| Tables | ✅ `<Table>` (React + Solid) — column layout, header, virtualized rows, per-row cursor, optional sort (editable cells still a gap) | ❌ | ❌ | ✅ `DataTable` — sortable, editable cells, cursor modes |
 | Tree view | ❌ | ❌ | ❌ | ✅ `Tree`, `DirectoryTree` |
 | Tabs | ✅ `<Tabs>` (React + Solid) — tab strip + active panel, roving arrow nav (wraparound, disabled-skip) via `TabsMachine` | ❌ | ✅ `TabSelect` renderable | ✅ `TabbedContent`/`Tabs`/`TabPane` |
 

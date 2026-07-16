@@ -41,7 +41,7 @@ export type { TextInputProps } from "./text-input";
 export { Tabs } from "./tabs";
 export type { TabsProps, TabItem } from "./tabs";
 export { Table } from "./table";
-export type { Column, TableProps } from "./table";
+export type { Column, TableProps, ColumnAlign, SortDirection, SortState } from "./table";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { ErrorBoundary, ErrorOverview } from "./error-boundary";
 export type { ErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";

@@ -12,7 +12,7 @@ import type { TuiKeyEvent } from "./primitives";
 
 // The row/column shapes live in @uniview/tui-core so React and Solid cannot
 // drift; re-exported here so tui-react's public API is self-contained.
-export type { Column, TableProps } from "@uniview/tui-core";
+export type { Column, TableProps, ColumnAlign, SortDirection, SortState } from "@uniview/tui-core";
 
 /** Total content width when the caller did not pin one: summed column widths + gaps. */
 function intrinsicWidth<T>(columns: readonly Column<T>[], gap: number): number {
