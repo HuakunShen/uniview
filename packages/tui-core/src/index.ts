@@ -196,6 +196,21 @@ export { TabsMachine } from "./components/tabs-machine";
 export type { TabsEffect, TabsInit } from "./components/tabs-machine";
 export { SelectionMachine } from "./components/selection-machine";
 export type { SelectionEffect, SelectionInit } from "./components/selection-machine";
+export {
+  resolveColumnWidths,
+  formatCell,
+  cycleSort,
+  orderRows,
+} from "./components/table-columns";
+export type {
+  Column,
+  TableProps,
+  ColumnAlign,
+  ColumnSpec,
+  ResolvedColumn,
+  SortDirection,
+  SortState,
+} from "./components/table-columns";
 export { textInputSlices } from "./components/text-input-view";
 export type { TextInputSlices, TextInputSliceOptions } from "./components/text-input-view";
 
