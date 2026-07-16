@@ -1189,9 +1189,18 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@uniview/tui-react':
+        specifier: workspace:*
+        version: link:../tui-react
       babel-preset-solid:
         specifier: ^1.9.0
         version: 1.9.10(@babel/core@7.29.0)(solid-js@1.9.11)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.4
       solid-js:
         specifier: ^1.9.9
         version: 1.9.11
