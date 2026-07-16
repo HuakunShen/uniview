@@ -55,6 +55,8 @@ export type {
   ScrollbarProps,
   ScrollViewProps,
 } from "./interactive";
+export { Tree, DirectoryTree } from "./tree";
+export type { TreeProps, TreeNode, TreeRowMeta, DirectoryTreeProps } from "./tree";
 export { List, listCounter } from "./list";
 export type { ListProps } from "./list";
 export { Select } from "./select";

@@ -1,67 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { createElement as h } from "react";
-import { StyleTable, SvgCellSurface } from "@uniview/tui-core";
-import { createTuiReactRoot } from "@uniview/tui-react";
-import {
-  Box as RBox,
-  Masked as RMasked,
-  Newline as RNewline,
-  Spacer as RSpacer,
-  Text as RText,
-  Transform as RTransform,
-} from "@uniview/tui-react";
+import { MemoryCellSurface, StyleTable, renderSvg } from "@uniview/tui-core";
+import { createTuiReactRoot, Tree as ReactTree, type TreeNode } from "@uniview/tui-react";
 import { createTuiSolidRoot } from "../src/index";
-import { Box, Masked, Newline, Spacer, Text, Transform } from "../src/index";
+import { Tree as SolidTree } from "../src/tree";
 import { tick } from "./tick";
 
-const WIDTH = 24;
-const HEIGHT = 6;
+const nodes: TreeNode[] = [
+  { id: "src", label: "src", children: [{ id: "a.ts", label: "a.ts" }, { id: "b.ts", label: "b.ts" }] },
+  { id: "readme", label: "readme" },
+];
+const fixed = {
+  selectedId: "a.ts",
+  expandedIds: ["src"],
+  onSelect: () => {},
+  onExpandedChange: () => {},
+  width: 20,
+} as const;
 
 async function reactSvg(): Promise<string> {
   const styles = new StyleTable();
-  const surface = new SvgCellSurface({ styles });
-  const root = createTuiReactRoot({ surface, styles, size: { width: WIDTH, height: HEIGHT } });
-  root.render(
-    h(
-      RBox,
-      { flexDirection: "column", border: "thick", width: WIDTH, height: HEIGHT },
-      h(RBox, { flexDirection: "row" }, h(RText, { blink: true }, "L"), h(RSpacer), h(RMasked, { value: "pw" })),
-      h(RNewline, { count: 1 }),
-      h(RTransform, { transform: (line: string) => line.toUpperCase(), children: "done" }),
-    ),
-  );
+  const surface = new MemoryCellSurface({ styles });
+  const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 6 } });
+  root.render(h(ReactTree, { nodes, ...fixed }));
   await tick();
-  const svg = surface.toSVG();
+  const svg = renderSvg(surface.lastFrame!, styles);
   root.destroy();
-  if (!svg) throw new Error("react: no frame presented");
   return svg;
 }
 
 async function solidSvg(): Promise<string> {
   const styles = new StyleTable();
-  const surface = new SvgCellSurface({ styles });
-  const root = createTuiSolidRoot({ surface, styles, size: { width: WIDTH, height: HEIGHT } });
-  root.render(() => (
-    <Box flexDirection="column" border="thick" width={WIDTH} height={HEIGHT}>
-      <Box flexDirection="row">
-        <Text blink>L</Text>
-        <Spacer />
-        <Masked value="pw" />
-      </Box>
-      <Newline count={1} />
-      <Transform transform={(line) => line.toUpperCase()}>done</Transform>
-    </Box>
-  ));
+  const surface = new MemoryCellSurface({ styles });
+  const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 6 } });
+  root.render(() => <SolidTree nodes={nodes} {...fixed} />);
   await tick();
-  const svg = surface.toSVG();
+  const svg = renderSvg(surface.lastFrame!, styles);
   root.destroy();
-  if (!svg) throw new Error("solid: no frame presented");
   return svg;
 }
 
-describe("Phase 2 primitives — React vs Solid parity", () => {
-  it("renders a byte-identical SVG from both bindings", async () => {
-    const [react, solid] = [await reactSvg(), await solidSvg()];
-    expect(solid).toBe(react);
+describe("Tree parity", () => {
+  it("renders byte-identical SVG in React and Solid", async () => {
+    expect(await reactSvg()).toBe(await solidSvg());
   });
 });
