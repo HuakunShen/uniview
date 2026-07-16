@@ -46,7 +46,9 @@ export function sgrParams(style: CellStyle): string[] {
   if (style.dim) params.push("2");
   if (style.italic) params.push("3");
   if (style.underline) params.push("4");
+  if (style.blink) params.push("5");
   if (style.inverse) params.push("7");
+  if (style.hidden) params.push("8");
   if (style.strikethrough) params.push("9");
   if (style.fg !== undefined) params.push(...colorParams(style.fg, false));
   if (style.bg !== undefined) params.push(...colorParams(style.bg, true));

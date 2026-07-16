@@ -60,6 +60,8 @@ const TEXT_STYLE_FLAGS: readonly (keyof CellStyle)[] = [
   "underline",
   "strikethrough",
   "inverse",
+  "blink",
+  "hidden",
 ];
 
 function propsToStyle(props: Record<string, JSONValue>): TuiStyle {

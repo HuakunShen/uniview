@@ -21,6 +21,8 @@ export interface CellStyle {
   underline?: boolean;
   strikethrough?: boolean;
   inverse?: boolean;
+  blink?: boolean;
+  hidden?: boolean;
   link?: string;
 }
 
@@ -34,6 +36,8 @@ const BOOLEAN_KEYS = [
   "underline",
   "strikethrough",
   "inverse",
+  "blink",
+  "hidden",
 ] as const;
 
 /** Drop falsy/undefined attributes so equal styles compare equal. */
