@@ -1,3 +1,12 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+/* Respect reduced-motion for any animated decoration on the landing page. */
+@media (prefers-reduced-motion: reduce) {
+	.uv-landing [class*='animate-'],
+	.uv-landing [style*='animation'] {
+		animation: none !important;
+		transition: none !important;
+	}
+}
