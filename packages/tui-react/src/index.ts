@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { createElement, type ReactElement } from "react";
 import {
   HandlerRegistry,
   MutationCollector,
@@ -8,6 +8,7 @@ import {
   unmount,
 } from "@uniview/react-renderer";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
+import { TuiRuntimeContext } from "./input";
 import type {
   CellSurface,
   CommittedOutput,
@@ -34,6 +35,7 @@ export { Spacer, Newline, Transform } from "./layout-primitives";
 export type { NewlineProps, TransformProps } from "./layout-primitives";
 export { Static } from "./static";
 export type { StaticProps } from "./static";
+export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export type {
   BoxProps,
   TextProps,
@@ -142,8 +144,9 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
 
     render(element: ReactElement): void {
       // React (ConcurrentRoot) commits asynchronously; `sync` runs from the
-      // bridge subscription on every commit, painting each frame.
-      reactRender(element, handle);
+      // bridge subscription on every commit, painting each frame. The Provider
+      // renders no host node, so `serializeTree(rootInstance)` is unchanged.
+      reactRender(createElement(TuiRuntimeContext.Provider, { value: router }, element), handle);
     },
 
     dispatchInput(event: TuiInputEvent): void {
