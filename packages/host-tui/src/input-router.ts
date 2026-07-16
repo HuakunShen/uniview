@@ -27,8 +27,24 @@ export class InputRouter {
   private readonly focus = new FocusManager();
   private readonly fields = new Map<string, FieldState>();
   private hoveredId: string | null = null;
+  private readonly inputSubscribers = new Set<(event: TuiInputEvent) => void>();
 
   constructor(private readonly host: TuiHost) {}
+
+  /**
+   * Subscribe to global input — key/text events the focused control did not
+   * consume, plus every paste. This is the host-side seam useInput/usePaste
+   * build on: high-frequency keys resolve here, never one RPC round trip per
+   * event (the plan's principle 3). Returns an unsubscribe function.
+   */
+  subscribeInput(listener: (event: TuiInputEvent) => void): () => void {
+    this.inputSubscribers.add(listener);
+    return () => this.inputSubscribers.delete(listener);
+  }
+
+  private emitGlobal(event: TuiInputEvent): void {
+    for (const listener of this.inputSubscribers) listener(event);
+  }
 
   /** Refresh the focusable set after a render; prunes fields for removed nodes. */
   onRender(): void {
@@ -83,6 +99,12 @@ export class InputRouter {
   }
 
   dispatch(event: TuiInputEvent): void {
+    if (event.type === "paste") {
+      // Paste is neither mouse nor key; it is always a global event.
+      this.emitGlobal(event);
+      return;
+    }
+
     if (event.type === "mouse") {
       if (event.action === "move" || event.action === "drag") {
         this.updateHover(event.x, event.y);
@@ -161,8 +183,15 @@ export class InputRouter {
     // keyboard navigation would silently die until the user pressed Tab.
     if (event.type === "key" && focused) {
       const target = this.host.nearestTarget(focused, KEY_EVENTS);
-      if (target) this.fireKey(target, event);
+      if (target) {
+        this.fireKey(target, event);
+        return;
+      }
     }
+
+    // Nothing local consumed this key/text — surface it to the global layer
+    // (useInput). Resolved host-side, so a global hotkey costs zero round trips.
+    if (event.type === "key" || event.type === "text") this.emitGlobal(event);
   }
 
   private fireKey(id: string, event: Extract<TuiInputEvent, { type: "key" }>): void {
