@@ -9,6 +9,7 @@ import {
 } from "@uniview/react-renderer";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import { TuiRuntimeContext } from "./input";
+import { connectReactDevTools } from "./devtools";
 import type {
   CellSurface,
   CommittedOutput,
@@ -38,6 +39,8 @@ export type { StaticProps } from "./static";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { ErrorBoundary, ErrorOverview } from "./error-boundary";
 export type { ErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
+export { connectReactDevTools } from "./devtools";
+export type { DevToolsOptions } from "./devtools";
 export type {
   BoxProps,
   TextProps,
@@ -81,6 +84,8 @@ export interface TuiReactRootOptions {
   styles?: StyleTable;
   /** Optional committed-output channel backing <Static> (append-only scrollback). */
   committed?: CommittedOutput;
+  /** When true, connect React DevTools (dynamically imported behind the flag). */
+  devtools?: boolean;
   /**
    * "full" (default) re-serializes the tree each commit; "incremental" feeds
    * React's mutation batches to the host (the protocol's incremental path).
@@ -120,6 +125,8 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     },
   });
   const router = new InputRouter(host);
+
+  if (options.devtools) void connectReactDevTools({ enabled: true });
 
   const syncFull = (): void => {
     const tree = handle.rootInstance

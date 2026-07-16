@@ -12,6 +12,7 @@ import {
 } from "@uniview/solid-renderer";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import { TuiRuntimeContext } from "./input";
+import { connectSolidDevTools } from "./devtools";
 import type {
   CellSurface,
   CommittedOutput,
@@ -75,6 +76,8 @@ export type { StaticProps } from "./static";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { TuiErrorBoundary, ErrorOverview } from "./error-boundary";
 export type { TuiErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
+export { connectSolidDevTools } from "./devtools";
+export type { DevToolsOptions } from "./devtools";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
@@ -84,6 +87,8 @@ export interface TuiSolidRootOptions {
   styles?: StyleTable;
   /** Optional committed-output channel backing <Static> (append-only scrollback). */
   committed?: CommittedOutput;
+  /** When true, connect Solid DevTools (dynamically imported behind the flag). */
+  devtools?: boolean;
 }
 
 export interface TuiSolidRoot {
@@ -119,6 +124,8 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     },
   });
   const router = new InputRouter(host);
+
+  if (options.devtools) void connectSolidDevTools({ enabled: true });
 
   const sync = (): void => {
     const container = getRootNode();
