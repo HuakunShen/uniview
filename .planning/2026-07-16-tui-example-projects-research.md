@@ -17,12 +17,18 @@ freezing, cell selection, in-cell wrapping) are the most valuable framework work
 
 ## Recommended build order
 
-| # | Example | Effort (min compelling) | Renderer changes? | Why this order |
-|---|---|---|---|---|
-| 1 | **Image viewer** (half-block) | S–M | None | Highest wow-per-line; proves the fg+bg cell model renders real rasters; universal (any truecolor term). |
-| 2 | **scope-tui** (synthetic/file-fed) | S–M | None | Showcases the Canvas braille grid + `useAnimation` per-frame loop + React↔Solid parity; visually striking. |
-| 3 | **openapi-tui** (browse-only) | S–M | None | Exercises `<Panel>` + `FocusManager` + `tui-content` highlighting + `<Tree>`/`<Table>` in a realistic multi-pane app. |
-| 4 | **csvlens** (viewer subset) | M | Some (drives Table gaps) | Reuses `<Table>` nearly as-is for phase 1; phase 2 lands 4 real Table capabilities every app benefits from. |
+| # | Example | Effort (min compelling) | Renderer changes? | Status | Why this order |
+|---|---|---|---|---|---|
+| 1 | **Image viewer** (half-block) | S–M | None | ✅ `examples/tui/image-demo` | Highest wow-per-line; proves the fg+bg cell model renders real rasters; universal (any truecolor term). |
+| 2 | **scope-tui** (synthetic/file-fed) | S–M | None | ✅ `examples/tui/scope-demo` | Showcases the Canvas braille grid + `useAnimation` per-frame loop + React↔Solid parity; visually striking. |
+| 3 | **openapi-tui** (browse-only) | S–M | None | ✅ `examples/tui/openapi-demo` | Exercises `<Panel>` + `FocusManager` + `tui-content` highlighting + `<Tree>`/`<Table>` in a realistic multi-pane app. |
+| 4 | **csvlens** (viewer subset) | M | Phase-1 none | ✅ `examples/tui/csv-demo` | Reuses `<Table>` nearly as-is for phase 1; phase 2 lands 4 real Table capabilities every app benefits from. |
+
+**All four phase-1 examples built** (2026-07-16, branch `tui`), each with a pure unit-tested core, a
+headless-verified render, and **zero renderer changes**. Remaining follow-on work is the deeper
+framework/bridge track, not new example scaffolding: csvlens phase-2 (the four `<Table>` gaps —
+horizontal scroll, freezing, cell selection, in-cell wrap), and the "full parity" bridge-plugin I/O
+variants below.
 
 Each "full parity" version (live audio / live HTTP / large-file bridge) doubles as the canonical demo
 of the **Node/Bun bridge plugin** doing real I/O — the sandboxed-Worker path can't open audio devices,
