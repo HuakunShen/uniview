@@ -7,8 +7,10 @@ import {
   serializeTree,
   unmount,
 } from "@uniview/react-renderer";
+import { FrameClock } from "@uniview/tui-core";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import { TuiRuntimeContext } from "./input";
+import { TuiClockContext } from "./animation";
 import { connectReactDevTools } from "./devtools";
 import type {
   CellSurface,
@@ -78,6 +80,8 @@ export type {
   DiffProps,
 } from "./content";
 export { nextFocus, useFocusList } from "./focus";
+export { useAnimation, animate, TuiClockContext, TuiClockProvider } from "./animation";
+export type { AnimationState, AnimateOptions } from "./animation";
 
 export { BarChart, Histogram, Sparkline, Gauge, LineGauge, LineChart, Scatter } from "./charts";
 export { Canvas } from "./canvas";
@@ -100,6 +104,8 @@ export interface TuiReactRootOptions {
   committed?: CommittedOutput;
   /** When true, connect React DevTools (dynamically imported behind the flag). */
   devtools?: boolean;
+  /** Frame driver for useAnimation/animate. Defaults to a performance.now()-paced clock. */
+  clock?: FrameClock;
   /**
    * "full" (default) re-serializes the tree each commit; "incremental" feeds
    * React's mutation batches to the host (the protocol's incremental path).
@@ -110,6 +116,8 @@ export interface TuiReactRootOptions {
 export interface TuiReactRoot {
   /** The underlying terminal host. */
   readonly host: TuiHost;
+  /** The frame driver backing useAnimation/animate. */
+  readonly clock: FrameClock;
   /** Mount (or replace) the React element. */
   render(element: ReactElement): void;
   /** Route a normalized terminal input event to the React tree. */
@@ -140,6 +148,16 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
   });
   const router = new InputRouter(host);
 
+  const clock =
+    options.clock ??
+    new FrameClock({
+      now: () => performance.now(),
+      requestFrame: (frame) => {
+        setTimeout(frame, 16);
+      },
+      diagnostics: host.renderer.diagnostics,
+    });
+
   if (options.devtools) void connectReactDevTools({ enabled: true });
 
   const syncFull = (): void => {
@@ -164,12 +182,20 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
 
   return {
     host,
+    clock,
 
     render(element: ReactElement): void {
       // React (ConcurrentRoot) commits asynchronously; `sync` runs from the
-      // bridge subscription on every commit, painting each frame. The Provider
-      // renders no host node, so `serializeTree(rootInstance)` is unchanged.
-      reactRender(createElement(TuiRuntimeContext.Provider, { value: router }, element), handle);
+      // bridge subscription on every commit, painting each frame. The Providers
+      // render no host node, so `serializeTree(rootInstance)` is unchanged.
+      reactRender(
+        createElement(
+          TuiClockContext.Provider,
+          { value: clock },
+          createElement(TuiRuntimeContext.Provider, { value: router }, element),
+        ),
+        handle,
+      );
     },
 
     dispatchInput(event: TuiInputEvent): void {
