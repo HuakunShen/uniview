@@ -149,6 +149,12 @@ export type {
   MouseMode,
   TerminalModeOptions,
 } from "./terminal/sequences";
+export {
+  withTerminalRestore,
+  withTerminalRestoreAsync,
+  installCrashGuard,
+} from "./terminal/crash-guard";
+export type { Restorable, ProcessLike } from "./terminal/crash-guard";
 
 // Input
 export { InputParser } from "./input/parser";
