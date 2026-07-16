@@ -6,6 +6,13 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@uniview/example-host-svelte", "run", "svelte"],
       "port": 5173
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-F", "docs", "dev"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
