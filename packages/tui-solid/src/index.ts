@@ -27,6 +27,8 @@ import type {
 export { BarChart, Gauge, Histogram, LineChart, LineGauge, Scatter, Sparkline } from "./charts";
 export { Canvas } from "./canvas";
 export type { CanvasProps } from "./canvas";
+export { Image } from "./image";
+export type { ImageProps } from "./image";
 export type {
   BarChartProps,
   GaugeProps,

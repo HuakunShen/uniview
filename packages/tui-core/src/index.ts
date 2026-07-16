@@ -252,6 +252,13 @@ export { dataToPixel } from "./canvas/coords";
 export { DrawContext, renderCanvas } from "./canvas/draw";
 export type { Marker, DrawStyle, CanvasDraw, CanvasDrawOptions } from "./canvas/draw";
 export { drawWorldMap, WORLD_MAP_POINTS } from "./canvas/world-map";
+export {
+  imageToHalfBlockLines,
+  resizeImage,
+  fitDimensions,
+  renderImage,
+} from "./canvas/image";
+export type { RgbaImage, ImageHalfBlockOptions, RenderImageOptions } from "./canvas/image";
 
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";

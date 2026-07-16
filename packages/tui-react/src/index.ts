@@ -87,6 +87,8 @@ export type { AnimationState, AnimateOptions } from "./animation";
 export { BarChart, Histogram, Sparkline, Gauge, LineGauge, LineChart, Scatter } from "./charts";
 export { Canvas } from "./canvas";
 export type { CanvasProps } from "./canvas";
+export { Image } from "./image";
+export type { ImageProps } from "./image";
 export type {
   BarChartProps,
   HistogramProps,
