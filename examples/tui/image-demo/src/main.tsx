@@ -54,7 +54,12 @@ async function main(): Promise<void> {
         paint();
         return;
       }
-      if (event.type === "key" && event.ctrl && event.key === "c") host.quit();
+      if (event.type === "key" && event.ctrl && event.key === "c") {
+        host.quit();
+        return;
+      }
+      // Forward everything else to the router so <App>'s useInput sees q / n / arrows.
+      root.dispatchInput(event);
     },
   });
 
