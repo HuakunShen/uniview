@@ -51,8 +51,9 @@ describe("easings", () => {
     expect(sineInOut(0.5)).toBeCloseTo(0.5, 10);
   });
 
-  it("stays monotonic across a sampled sweep", () => {
+  it("stays monotonic across a sampled sweep (bounce curves intentionally dip)", () => {
     for (const name of NAMES) {
+      if (name.startsWith("bounce")) continue; // bounce is non-monotonic by design
       const fn = easings[name];
       let prev = fn(0);
       for (let i = 1; i <= 20; i += 1) {
