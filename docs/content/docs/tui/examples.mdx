@@ -1,6 +1,6 @@
 ---
 title: Examples
-description: Four runnable demos — and how the screenshots are made
+description: Runnable demos — ports of real terminal apps — and how the screenshots are made
 icon: LayoutGrid
 ---
 
@@ -8,6 +8,11 @@ import Image from "next/image";
 import lazygitSolid from "@/public/tui/lazygit-solid.svg";
 import charts from "@/public/tui/charts-react.svg";
 import game2048 from "@/public/tui/2048-solid.svg";
+import htopReact from "@/public/tui/htop-react.svg";
+import scopeReact from "@/public/tui/scope-react.svg";
+import csvReact from "@/public/tui/csv-react.svg";
+import openapiReact from "@/public/tui/openapi-react.svg";
+import imageReact from "@/public/tui/image-react.svg";
 
 ## lazygit — in both frameworks
 
@@ -54,6 +59,87 @@ by hand, and the AI panel simply says so.
 
 Note what the board is made of: colored `Box`es and centered `Text`, and the score curve is
 the same `Sparkline` the charts demo uses. A game needed no new render primitive.
+
+## Ports of real terminal apps
+
+The next five re-implement well-known Rust/ratatui TUIs as uniview plugins, to
+prove the framework carries a real app. Every one is **pure plugin code — zero
+renderer changes** — and each keeps its interesting logic in a small, pure,
+unit-tested core.
+
+### htop — a live system monitor
+
+<Image src={htopReact} alt="A system monitor: a CPU/MEM history line chart and a memory meter across the top, a per-core CPU bar chart, and a process table sorted by CPU%" />
+
+```bash
+pnpm --filter @uniview/tui-htop-demo dev
+```
+
+`↑`/`↓` move; **C** / **M** / **T** / **P** / **N** sort the table by CPU, memory,
+time, PID or name (press again to flip). A CPU/MEM history `LineChart` and a memory
+`Gauge` sit above a per-core `BarChart` and a sortable, virtualized `Table`.
+
+The data is **real** — CPU% from differencing `os.cpus()` snapshots, memory from
+`os.freemem()/totalmem()`, processes from `ps` — sampled on an interval. That is
+exactly the Node/Bun **bridge-plugin** story: a sandboxed Worker can't read these,
+a plugin with real I/O can. The parsing and math (`computeCpuPercent`, `parsePs`,
+`sortProcesses`) are pure and unit-tested.
+
+### scope — an audio oscilloscope
+
+<Image src={scopeReact} alt="An audio scope: a braille oscilloscope trace of two waveforms over time, with mode tabs and a signal readout" />
+
+```bash
+pnpm --filter @uniview/tui-scope-demo dev
+```
+
+Modelled on `scope-tui`. `Tab` (or `1`/`2`/`3`) switches between oscilloscope,
+vectorscope and spectroscope, each drawn on a braille `Canvas` fed by a synthetic
+stereo signal. The frame loop is `useAnimation()` over the host frame clock —
+every frame regenerates the signal and repaints **locally, no per-frame RPC**. The
+DSP (a hand-rolled radix-2 FFT + Hann window) is pure and tested against a naive DFT.
+
+### csv — `less` for CSV
+
+<Image src={csvReact} alt="A CSV pager: a table of world cities with rank, city, country, population and founded columns, a scrollbar, and a status bar" />
+
+```bash
+pnpm --filter @uniview/tui-csv-demo dev                 # bundled sample
+pnpm --filter @uniview/tui-csv-demo dev -- data.csv     # a real file
+```
+
+A `csvlens`-style pager. `←`/`→` pick the sort column (marked `▸`), `s` sorts it,
+`/` finds by regex (`n`/`N` to jump), `&` filters rows. It reuses the framework
+`Table` nearly as-is — virtualized rows, column layout, a cursor — with the CSV
+parser and natural-order comparator as a pure, tested core.
+
+### openapi — an API explorer
+
+<Image src={openapiReact} alt="An OpenAPI browser: an operations list on the left, operation details top-right, and a collapsible JSON-Schema tree with $ref drill-down bottom-right" />
+
+```bash
+pnpm --filter @uniview/tui-openapi-demo dev
+```
+
+A browse-only `openapi-tui`. `Tab` switches panes, `↑`/`↓` move, `→`/`←` expand a
+schema node, `f` filters by tag. The heart is a collapsible JSON-Schema `Tree` with
+inline `$ref` drill-down and a cycle guard (`Category.parent ↻`), built by a pure
+`schemaToTree` converter over a bundled Petstore spec.
+
+### image — a raster viewer
+
+<Image src={imageReact} alt="A terminal image viewer showing a colorful Mandelbrot set rendered as half-block cells" />
+
+```bash
+pnpm --filter @uniview/tui-image-demo dev                    # synthetic gallery
+pnpm --filter @uniview/tui-image-demo dev -- photo.png       # a real image
+```
+
+An RGBA raster painted as half-block `▀` cells — **fg = the upper pixel, bg = the
+lower pixel**, two pixels per cell at full truecolor. This is the universal,
+protocol-free image path (the fallback yazi/chafa use), and it needs no new
+primitive: it emits the same styled-lines tree as the charts. Real files decode via
+`Bun.Image` + `pngjs`.
 
 ## How these screenshots are made
 
