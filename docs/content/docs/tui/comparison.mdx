@@ -21,11 +21,11 @@ general knowledge of these projects, which drifts across versions.
 
 | Feature | uniview | ink | opentui | Textual |
 | --- | --- | --- | --- | --- |
-| Layout engine | Custom flexbox-ish (`computeLayout`, pluggable `LayoutEngine`) | Yoga (`yoga-layout`) | Yoga (`lib/yoga.options.ts`) | Custom (`_layout_resolve.py`, `box_model.py`) — DOM/CSS box model, not flexbox |
+| Layout engine | ✅ Custom pure-TS flexbox (`computeLayout`) **+ a pluggable `LayoutEngine` seam** with an opt-in `yogaLayoutEngine` (real `yoga-layout` WASM, selected via the `layoutEngine` root option) | Yoga (`yoga-layout`) | Yoga (`lib/yoga.options.ts`) | Custom (`_layout_resolve.py`, `box_model.py`) — DOM/CSS box model, not flexbox |
 | `Box`/container | ✅ | ✅ `<Box>` | ✅ `<box>` | ✅ `Container`/`Vertical`/`Horizontal`/`Grid` |
 | Text | ✅ `Text` | ✅ `<Text>` (wraps, truncates, transforms) | ✅ `<text>` | ✅ `Static`/`Label` |
 | Pre-styled rich text (spans in one node) | ✅ `RichText` | ⚠️ via nested `<Text>` composition only | ✅ `<span>`/`<b>`/`<i>`/`<u>`/`<a>` inline modifiers | ✅ `Content`/markup (`[bold]...[/]`) |
-| `%` sizing bug | ⚠️ known bug: `height:"100%"` under a `flexGrow` ancestor resolves against the grandparent | ✅ (Yoga) | ✅ (Yoga) | ✅ |
+| `height:"100%"` under `flexGrow` | ✅ not a bug — bringing up `yogaLayoutEngine` proved Yoga produces the **same** geometry (content-sized parent, `flex-basis:auto` correct); a `flexBasis:0` child fills instead | ✅ (Yoga) | ✅ (Yoga) | ✅ |
 | Absolute positioning | ✅ `position:"absolute"` + `zIndex` | ❌ no absolute positioning | ✅ (Yoga `position: "absolute"`) | ✅ (`layer`, `offset`) |
 | `<Static>` (append-only, never-repainted log region) | ❌ | ✅ `<Static>` | ❌ | ⚠️ `RichLog`/`Log` are closer to a scrollback widget, not a static-append region |
 | `<Spacer>` (flex-grow filler) | ⚠️ same effect via `flexGrow={1}` on an empty `Box`, no dedicated component | ✅ `<Spacer>` | ❌ (same `flexGrow` workaround) | ❌ (same workaround) |
@@ -179,11 +179,13 @@ architecture):
    and `TuiErrorBoundary` + `ErrorOverview` (Solid, on Solid's own `ErrorBoundary`) render a
    readable overlay instead of a crash — the two overlays are asserted byte-identical.
    Core `withTerminalRestore`/`installCrashGuard` guarantee raw mode is restored on crash.
-5. **Yoga layout adapter.** The known `height:"100%"` bug and the general "flexbox-ish, not
-   flexbox" gap versus ink/opentui/Textual would go away by swapping in Yoga behind the
-   existing `LayoutEngine` interface, which was built pluggable for exactly this. **Medium
-   effort** — the interface exists; the work is a full Yoga adapter plus regression-testing
-   every existing layout example against it.
+5. **✅ Done (Phase 9): Yoga layout adapter.** `yogaLayoutEngine` (real `yoga-layout` WASM)
+   implements the pluggable `LayoutEngine` seam and is selectable via the `layoutEngine`
+   root option (React + Solid). Bringing it up also settled the supposed `height:"100%"`
+   "bug": Yoga produces the *same* geometry as the custom engine (correct `flex-basis:auto`
+   behavior), so it was never a bug. Yoga is a *stricter* flexbox — it honors explicit
+   cross-axis sizes the custom engine stretches — so `customLayoutEngine` remains the
+   default and Yoga is opt-in, keeping the zero-dependency (Worker/Deno/Bun) path WASM-free.
 6. **A titled/scrolling `Tree`/`DataTable`-class widget.** Textual's `DataTable` and `Tree`
    cover a large slice of real TUI apps (file explorers, log tables) that uniview currently
    has no answer for beyond composing `List`/`VirtualList` by hand. **Medium-large effort**
