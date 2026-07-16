@@ -1,5 +1,6 @@
 import { createRoot } from "solid-js";
 import {
+  createComponent,
   HandlerRegistry,
   getRootNode,
   render as solidRender,
@@ -10,6 +11,7 @@ import {
   type SolidNode,
 } from "@uniview/solid-renderer";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
+import { TuiRuntimeContext } from "./input";
 import type {
   CellSurface,
   CommittedOutput,
@@ -70,6 +72,7 @@ export { Spacer, Newline, Transform } from "./layout-primitives";
 export type { NewlineProps, TransformProps } from "./layout-primitives";
 export { Static } from "./static";
 export type { StaticProps } from "./static";
+export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
@@ -142,7 +145,16 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       };
       setRootNode(container);
       dispose = createRoot((disposeRoot) => {
-        solidRender(() => App() as SolidNode, container);
+        solidRender(
+          () =>
+            createComponent(TuiRuntimeContext.Provider, {
+              value: router,
+              get children() {
+                return App() as SolidNode;
+              },
+            }) as SolidNode,
+          container,
+        );
         return disposeRoot;
       });
       sync();
