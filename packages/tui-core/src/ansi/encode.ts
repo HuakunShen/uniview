@@ -4,6 +4,14 @@ export const SGR_RESET = "\x1b[0m";
 export const CURSOR_SHOW = "\x1b[?25h";
 export const CURSOR_HIDE = "\x1b[?25l";
 
+// Synchronized Output (DEC private mode 2026): a terminal that supports it holds
+// display updates between BSU and ESU, then composites the whole frame at once —
+// so a large per-frame delta (e.g. an animated canvas) can't tear or flicker.
+// Terminals that don't support it ignore the unknown private mode, so it is safe
+// to emit unconditionally.
+export const SYNC_BEGIN = "\x1b[?2026h";
+export const SYNC_END = "\x1b[?2026l";
+
 /** Move the cursor to a 0-based cell using a 1-based CUP sequence. */
 export function cursorTo(x: number, y: number): string {
   return `\x1b[${y + 1};${x + 1}H`;

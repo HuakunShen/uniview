@@ -4,6 +4,8 @@ import {
   CURSOR_HIDE,
   CURSOR_SHOW,
   SGR_RESET,
+  SYNC_BEGIN,
+  SYNC_END,
   cursorTo,
   sgrFor,
 } from "../ansi/encode";
@@ -78,7 +80,14 @@ export class AnsiCellSurface implements CellSurface {
       out += cursorTo(cursor.x, cursor.y);
     }
 
-    if (out.length > 0) this.write(out);
+    // Present the whole frame atomically: wrap the changed-run writes in
+    // Synchronized Output so a large delta composites in one step (no tearing),
+    // and hide the hardware cursor across the bulk write so it doesn't flash
+    // across half-painted cells. Unsupported terminals ignore both.
+    if (out.length > 0) {
+      const guardCursor = cursor.visible;
+      this.write(`${SYNC_BEGIN}${guardCursor ? CURSOR_HIDE : ""}${out}${guardCursor ? CURSOR_SHOW + cursorTo(cursor.x, cursor.y) : ""}${SYNC_END}`);
+    }
 
     return {
       rowsPainted: update.dirtyRows.length,
