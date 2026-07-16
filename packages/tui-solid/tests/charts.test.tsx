@@ -129,4 +129,38 @@ describe("chart components", () => {
     expect(surface.text()).not.toContain("▄█");
     root.destroy();
   });
+
+  it("LineChart draws axes and a legend when options carry them", async () => {
+    const { root, surface } = mount(
+      () => (
+        <LineChart
+          series={[{ points: [[0, 0], [1, 1]], label: "cpu" }]}
+          options={{ width: 10, height: 4, axes: { xTitle: "t" }, legend: {} }}
+        />
+      ),
+      24,
+      10,
+    );
+    await tick();
+    const text = surface.text();
+    expect(text).toContain("│");
+    expect(text).toContain("cpu");
+    root.destroy();
+  });
+
+  it("BarChart lays grouped series side by side", async () => {
+    const { root, surface } = mount(
+      () => (
+        <BarChart
+          data={[{ label: "q1", value: [1, 2] }]}
+          options={{ height: 3, max: 2, mode: "grouped", series: [{ label: "A" }, { label: "B" }] }}
+        />
+      ),
+      20,
+      6,
+    );
+    await tick();
+    expect(surface.text()).toContain("█");
+    root.destroy();
+  });
 });

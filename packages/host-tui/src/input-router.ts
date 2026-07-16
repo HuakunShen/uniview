@@ -27,8 +27,25 @@ export class InputRouter {
   private readonly focus = new FocusManager();
   private readonly fields = new Map<string, FieldState>();
   private hoveredId: string | null = null;
+  private autoFocused = false;
+  private readonly inputSubscribers = new Set<(event: TuiInputEvent) => void>();
 
   constructor(private readonly host: TuiHost) {}
+
+  /**
+   * Subscribe to global input — key/text events the focused control did not
+   * consume, plus every paste. This is the host-side seam useInput/usePaste
+   * build on: high-frequency keys resolve here, never one RPC round trip per
+   * event (the plan's principle 3). Returns an unsubscribe function.
+   */
+  subscribeInput(listener: (event: TuiInputEvent) => void): () => void {
+    this.inputSubscribers.add(listener);
+    return () => this.inputSubscribers.delete(listener);
+  }
+
+  private emitGlobal(event: TuiInputEvent): void {
+    for (const listener of this.inputSubscribers) listener(event);
+  }
 
   /** Refresh the focusable set after a render; prunes fields for removed nodes. */
   onRender(): void {
@@ -42,6 +59,23 @@ export class InputRouter {
     if (this.hoveredId && this.host.nearestTarget(this.hoveredId, HOVER_EVENTS) !== this.hoveredId) {
       this.hoveredId = null;
     }
+    // Grant initial focus once: the first `autoFocus` target takes focus when
+    // nothing else has it, so keyboard nav works on mount without a Tab. Guarded
+    // so it fires only the first time — tabbing away and back never snaps here.
+    if (!this.autoFocused && this.focus.focused === null) {
+      const auto = targets.find((t) => t.autoFocus);
+      if (auto) {
+        this.autoFocused = true;
+        this.focus.focus(auto.id, "programmatic");
+      }
+    }
+    // Focus may have been cleared (its node was removed) — keep the caret in sync.
+    this.syncFocus();
+  }
+
+  /** Mirror the current focus into the host so the caret repaints where focus went. */
+  private syncFocus(): void {
+    this.host.setFocusedId(this.focus.focused);
   }
 
   /** Update hover: leave the previous target, enter the new one under (x, y). */
@@ -83,6 +117,12 @@ export class InputRouter {
   }
 
   dispatch(event: TuiInputEvent): void {
+    if (event.type === "paste") {
+      // Paste is neither mouse nor key; it is always a global event.
+      this.emitGlobal(event);
+      return;
+    }
+
     if (event.type === "mouse") {
       if (event.action === "move" || event.action === "drag") {
         this.updateHover(event.x, event.y);
@@ -106,7 +146,10 @@ export class InputRouter {
           // is usually a leaf (the label inside a row), which is not focusable,
           // and focusing it is a silent no-op that strands focus elsewhere.
           const focusTarget = this.host.nearestFocusable(id);
-          if (focusTarget) this.focus.focus(focusTarget, "pointer");
+          if (focusTarget) {
+            this.focus.focus(focusTarget, "pointer");
+            this.syncFocus();
+          }
           if (!this.isTextbox(id)) {
             this.host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
           }
@@ -117,6 +160,7 @@ export class InputRouter {
 
     if (event.type === "key" && event.key === "Tab") {
       this.focus.move(event.shift ? "previous" : "next");
+      this.syncFocus();
       return;
     }
 
@@ -125,7 +169,8 @@ export class InputRouter {
     if (focused && this.isTextbox(focused)) {
       const field = this.fieldFor(focused);
       const before = field.machine.value;
-      for (const effect of field.machine.handle(event)) {
+      const effects = field.machine.handle(event);
+      for (const effect of effects) {
         if (effect.type === "change") {
           if (effect.value !== before) {
             field.lastSent = effect.value;
@@ -135,7 +180,11 @@ export class InputRouter {
           this.host.fireEvent(focused, "onSubmit", effect.value);
         }
       }
-      return;
+      // Only stop here if the field actually consumed the key. Keys it ignores
+      // (Escape, F-keys, ArrowUp/Down) produce no effects and must keep flowing —
+      // to an ancestor keymap or the global useInput layer — per the documented
+      // "key events the focused control did not consume" contract.
+      if (effects.length > 0) return;
     }
 
     // A focused node can opt into raw keyboard handling (scroll, keymaps).
@@ -161,8 +210,15 @@ export class InputRouter {
     // keyboard navigation would silently die until the user pressed Tab.
     if (event.type === "key" && focused) {
       const target = this.host.nearestTarget(focused, KEY_EVENTS);
-      if (target) this.fireKey(target, event);
+      if (target) {
+        this.fireKey(target, event);
+        return;
+      }
     }
+
+    // Nothing local consumed this key/text — surface it to the global layer
+    // (useInput). Resolved host-side, so a global hotkey costs zero round trips.
+    if (event.type === "key" || event.type === "text") this.emitGlobal(event);
   }
 
   private fireKey(id: string, event: Extract<TuiInputEvent, { type: "key" }>): void {

@@ -120,10 +120,17 @@ function extents(style: TuiStyle): { h: number; v: number } {
  * child is re-measured during `arrange`. The two children's heights
  * double-count and the parent overflows its own box instead of the
  * `height:"100%"` child shrinking to make room for its sibling. See
- * `tests/layout/flexgrow-percentage-height.test.ts` for the pinned
- * numbers. The intended long-term fix is swapping in a real flexbox engine
- * (e.g. Yoga) behind the `LayoutEngine` seam (`./engine.ts`) rather than
- * patching this pure-TS implementation's two-pass measure/arrange split.
+ * `tests/layout/flexgrow-percentage-height.test.ts` for the pinned numbers.
+ *
+ * UPDATE: bringing up a real flexbox engine (`yogaLayoutEngine`, backed by
+ * `yoga-layout`, behind the `LayoutEngine` seam in `./engine.ts`) settled this:
+ * with `flex-basis: auto`, Yoga produces the SAME geometry — the parent is
+ * content-sized to 25, the `height:"100%"` child included. So this is correct
+ * `flex-basis: auto` behavior, not a bug (a `flexBasis: 0` child fills instead).
+ * `yogaLayoutEngine` is available opt-in via the `layoutEngine` root option; it
+ * is a stricter flexbox (it honors explicit cross-axis sizes this engine
+ * stretches), so `customLayoutEngine` stays the default. See
+ * `tests/layout/yoga-flexgrow-percentage-height.test.ts` for the agreement.
  */
 /** Intrinsic outer size of a node given the space available to it. */
 function intrinsicSize(node: LayoutInput, avail: Size): Size {

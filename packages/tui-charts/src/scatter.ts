@@ -5,7 +5,8 @@ import {
   styledLinesToRenderNode,
 } from "@uniview/tui-core";
 
-import { dataToPixel } from "./axis";
+import { dataToPixel, frameChart } from "./axis";
+import { renderLegend, type LegendEntry } from "./legend";
 import type { LineSeries, PlotOptions } from "./line";
 
 function deriveBounds(series: readonly LineSeries[]): {
@@ -64,5 +65,16 @@ export function renderScatter(
     }
   }
 
-  return styledLinesToRenderNode(canvas.toStyledLines());
+  const body = canvas.toStyledLines();
+  const framed = options.axes ? frameChart(body, width, height, xBounds, yBounds, options.axes) : body;
+  let lines = framed;
+  if (options.legend) {
+    const entries: LegendEntry[] = series.map((s, i) => ({
+      label: s.label ?? `Series ${i + 1}`,
+      color: s.color ?? defaultTheme.colors.primary,
+    }));
+    const legendLines = renderLegend(entries, options.legend);
+    lines = (options.legend.position ?? "bottom") === "top" ? [...legendLines, ...framed] : [...framed, ...legendLines];
+  }
+  return styledLinesToRenderNode(lines);
 }

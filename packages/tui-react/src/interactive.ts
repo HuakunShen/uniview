@@ -1,5 +1,5 @@
 import { createElement, useState, type ReactElement, type ReactNode } from "react";
-import { clampScroll, filterCommands } from "@uniview/tui-core";
+import { clampScroll, filterCommands, scrollbarThumb } from "@uniview/tui-core";
 import type { RenderNode } from "@uniview/tui-core";
 import { renderNodeToElement } from "./content";
 
@@ -25,15 +25,37 @@ export interface ScrollViewProps {
   onScrollChange?: (scrollTop: number) => void;
 }
 
-function scrollbarColumn(rowCount: number, height: number, scrollTop: number): ReactElement {
-  const maxScroll = Math.max(0, rowCount - height);
-  const thumb = rowCount <= height ? height : Math.max(1, Math.round((height * height) / rowCount));
-  const start = maxScroll <= 0 ? 0 : Math.round((scrollTop / maxScroll) * (height - thumb));
+export interface ScrollbarProps {
+  /** Total number of rows in the scrollable content. */
+  total: number;
+  /** Scrollbar length in rows (the viewport height). */
+  height: number;
+  /** Current scroll offset in rows (index of the top visible row). */
+  value: number;
+  /** Color of the thumb (filled) cells. Defaults to "white". */
+  thumbColor?: string;
+  /** Color of the track (empty) cells. Defaults to "gray". */
+  trackColor?: string;
+}
+
+/**
+ * A vertical scrollbar: a 1-cell-wide column of `height` rows with a thumb sized
+ * and positioned by {@link scrollbarThumb}. Reusable on its own or inside
+ * {@link ScrollView}.
+ */
+export function Scrollbar({
+  total,
+  height,
+  value,
+  thumbColor = "white",
+  trackColor = "gray",
+}: ScrollbarProps): ReactElement {
+  const { start, thumb } = scrollbarThumb(total, height, value);
   const cells = Array.from({ length: height }, (_, i) => {
     const on = i >= start && i < start + thumb;
     return createElement(
       "text",
-      { key: i, color: on ? "white" : "gray", dim: !on },
+      { key: i, color: on ? thumbColor : trackColor, dim: !on },
       on ? "█" : "│",
     );
   });
@@ -104,7 +126,7 @@ export function ScrollView({
     "box",
     { flexDirection: "row", height, width, onKeyDown, onWheel },
     column,
-    scrollbar ? scrollbarColumn(rows.length, height, clamped) : null,
+    scrollbar ? createElement(Scrollbar, { total: rows.length, height, value: clamped }) : null,
   );
 }
 

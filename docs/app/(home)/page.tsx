@@ -21,6 +21,7 @@ import { Features } from "./_components/features";
 import { Hero } from "./_components/hero";
 import { Quickstart } from "./_components/quickstart";
 import { Runtime } from "./_components/runtime";
+import { Showcase } from "./_components/showcase";
 import { Targets } from "./_components/targets";
 
 export default function HomePage() {
@@ -28,6 +29,7 @@ export default function HomePage() {
     <main className="uv-landing flex flex-1 flex-col overflow-x-clip">
       <Hero />
       <CoreIdea />
+      <Showcase />
       <Targets />
       <Runtime />
       <Directive />

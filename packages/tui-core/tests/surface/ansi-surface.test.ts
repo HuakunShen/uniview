@@ -55,6 +55,21 @@ describe("AnsiCellSurface", () => {
     expect(out).toContain("1");
   });
 
+  it("wraps a non-empty frame in Synchronized Output so it presents atomically", () => {
+    const io = capture();
+    const surface = new AnsiCellSurface({ write: io.write });
+    surface.mount({ width: 5, height: 1 });
+
+    const b = new CellBuffer(5, 1);
+    b.writeText(0, 0, "hi", 0, 0);
+    surface.present(b, buildFrameUpdate(null, b, 1, HIDDEN_CURSOR));
+
+    const out = io.output();
+    expect(out.startsWith("\x1b[?2026h")).toBe(true); // BSU at the very start
+    expect(out.endsWith("\x1b[?2026l")).toBe(true); // ESU at the very end
+    expect(out.indexOf("hi")).toBeGreaterThan(0); // content sits inside the guard
+  });
+
   it("writes nothing for an unchanged frame", () => {
     const io = capture();
     const surface = new AnsiCellSurface({ write: io.write });

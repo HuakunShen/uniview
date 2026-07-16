@@ -24,7 +24,15 @@ export type AlignItems = "start" | "center" | "end" | "stretch";
 export type AlignSelf = "auto" | AlignItems;
 
 /** Border presets; `true` is shorthand for a single-line border. */
-export type BorderValue = boolean | "none" | "single" | "rounded" | "double";
+export type BorderValue =
+  | boolean
+  | "none"
+  | "single"
+  | "rounded"
+  | "double"
+  | "thick"
+  | "quadrant-inside"
+  | "quadrant-outside";
 
 /**
  * A Yoga-flavored, terminal-cell layout + visual style. Lengths are in cells;

@@ -1,5 +1,6 @@
 import { createRoot } from "solid-js";
 import {
+  createComponent,
   HandlerRegistry,
   getRootNode,
   render as solidRender,
@@ -9,20 +10,31 @@ import {
   setUpdateCallback,
   type SolidNode,
 } from "@uniview/solid-renderer";
+import { FrameClock } from "@uniview/tui-core";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
+import { TuiRuntimeContext } from "./input";
+import { connectSolidDevTools } from "./devtools";
+import { setActiveTuiClock } from "./animation";
 import type {
   CellSurface,
+  CommittedOutput,
+  LayoutEngine,
   Size,
   StyleTable,
   TuiInputEvent,
 } from "@uniview/tui-core";
 
-export { BarChart, Gauge, Histogram, LineChart, Scatter, Sparkline } from "./charts";
+export { BarChart, Gauge, Histogram, LineChart, LineGauge, Scatter, Sparkline } from "./charts";
+export { Canvas } from "./canvas";
+export type { CanvasProps } from "./canvas";
+export { Image } from "./image";
+export type { ImageProps } from "./image";
 export type {
   BarChartProps,
   GaugeProps,
   HistogramProps,
   LineChartProps,
+  LineGaugeProps,
   ScatterProps,
   SparklineProps,
 } from "./charts";
@@ -40,14 +52,20 @@ export {
   CommandPalette,
   filterCommands,
   Hoverable,
+  Scrollbar,
   ScrollView,
 } from "./interactive";
 export type {
   Command,
   CommandPaletteProps,
   HoverableProps,
+  ScrollbarProps,
   ScrollViewProps,
 } from "./interactive";
+export { Tree, DirectoryTree } from "./tree";
+export type { TreeProps, TreeNode, TreeRowMeta, DirectoryTreeProps } from "./tree";
+export { Calendar, isoDate } from "./calendar";
+export type { CalendarProps } from "./calendar";
 export { List, listCounter } from "./list";
 export type { ListProps } from "./list";
 export { Select } from "./select";
@@ -63,6 +81,25 @@ export type {
   TextProps,
   TuiCommonProps,
 } from "./primitives";
+export { Masked } from "./masked";
+export type { MaskedProps } from "./masked";
+export { Spacer, Newline, Transform } from "./layout-primitives";
+export type { NewlineProps, TransformProps } from "./layout-primitives";
+export { Static } from "./static";
+export type { StaticProps } from "./static";
+export { TextInput } from "./text-input";
+export type { TextInputProps } from "./text-input";
+export { Tabs } from "./tabs";
+export type { TabsProps, TabItem } from "./tabs";
+export { Table } from "./table";
+export type { Column, TableProps, ColumnAlign, SortDirection, SortState } from "./table";
+export { useInput, usePaste, TuiRuntimeContext } from "./input";
+export { TuiErrorBoundary, ErrorOverview } from "./error-boundary";
+export type { TuiErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
+export { connectSolidDevTools } from "./devtools";
+export type { DevToolsOptions } from "./devtools";
+export { useAnimation, animate, getActiveTuiClock, setActiveTuiClock } from "./animation";
+export type { AnimationState, AnimateOptions } from "./animation";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
@@ -70,11 +107,21 @@ export interface TuiSolidRootOptions {
   surface: CellSurface;
   size: Size;
   styles?: StyleTable;
+  /** Optional committed-output channel backing <Static> (append-only scrollback). */
+  committed?: CommittedOutput;
+  /** When true, connect Solid DevTools (dynamically imported behind the flag). */
+  devtools?: boolean;
+  /** Frame driver for useAnimation/animate. Defaults to a performance.now()-paced clock. */
+  clock?: FrameClock;
+  /** Layout engine; defaults to the zero-dependency customLayoutEngine. Pass `yogaLayoutEngine` to opt in. */
+  layoutEngine?: LayoutEngine;
 }
 
 export interface TuiSolidRoot {
   /** The underlying terminal host. */
   readonly host: TuiHost;
+  /** The frame driver backing useAnimation/animate. */
+  readonly clock: FrameClock;
   /** Mount a Solid root component. */
   render(App: () => unknown): void;
   /** Route a normalized terminal input event to the Solid tree. */
@@ -99,11 +146,26 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     surface: options.surface,
     size: options.size,
     styles: options.styles,
+    committed: options.committed,
+    layoutEngine: options.layoutEngine,
     onInvokeHandler: (handlerId, payload) => {
       void registry.execute(handlerId, payload);
     },
   });
   const router = new InputRouter(host);
+
+  const clock =
+    options.clock ??
+    new FrameClock({
+      now: () => performance.now(),
+      requestFrame: (frame) => {
+        setTimeout(frame, 16);
+      },
+      diagnostics: host.renderer.diagnostics,
+    });
+  setActiveTuiClock(clock);
+
+  if (options.devtools) void connectSolidDevTools({ enabled: true });
 
   const sync = (): void => {
     const container = getRootNode();
@@ -119,6 +181,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
 
   return {
     host,
+    clock,
 
     render(App: () => unknown): void {
       resetIdCounter();
@@ -132,7 +195,16 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       };
       setRootNode(container);
       dispose = createRoot((disposeRoot) => {
-        solidRender(() => App() as SolidNode, container);
+        solidRender(
+          () =>
+            createComponent(TuiRuntimeContext.Provider, {
+              value: router,
+              get children() {
+                return App() as SolidNode;
+              },
+            }) as SolidNode,
+          container,
+        );
         return disposeRoot;
       });
       sync();
@@ -146,6 +218,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       dispose?.();
       dispose = null;
       setUpdateCallback(() => {});
+      setActiveTuiClock(null);
       host.destroy();
     },
   };

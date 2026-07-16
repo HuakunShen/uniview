@@ -1,9 +1,6 @@
 import { CellBuffer } from "../buffer/cell-buffer";
-import {
-  computeLayout,
-  type LayoutInput,
-  type LayoutResult,
-} from "../layout/layout";
+import type { LayoutInput, LayoutResult } from "../layout/layout";
+import { customLayoutEngine, type LayoutEngine } from "../layout/engine";
 import { StyleTable, type CellStyle, type Color } from "../style/style-table";
 import { stringCellWidth } from "../text/graphemes";
 import { styledLineWidth, type StyledSpan } from "../text/styled-text";
@@ -147,13 +144,18 @@ function drawBorder(
     buffer.writeText(x, y, g, styleId, ownerId, undefined, x + 1);
   };
 
+  const hTop = glyphs.horizontalTop ?? glyphs.horizontal;
+  const hBottom = glyphs.horizontalBottom ?? glyphs.horizontal;
+  const vLeft = glyphs.verticalLeft ?? glyphs.vertical;
+  const vRight = glyphs.verticalRight ?? glyphs.vertical;
+
   for (let x = left; x <= right; x += 1) {
-    put(x, top, glyphs.horizontal);
-    put(x, bottom, glyphs.horizontal);
+    put(x, top, hTop);
+    put(x, bottom, hBottom);
   }
   for (let y = top; y <= bottom; y += 1) {
-    put(left, y, glyphs.vertical);
-    put(right, y, glyphs.vertical);
+    put(left, y, vLeft);
+    put(right, y, vRight);
   }
   put(left, top, glyphs.topLeft);
   put(right, top, glyphs.topRight);
@@ -286,8 +288,9 @@ export function renderToBuffer(
   root: RenderNode,
   size: Size,
   styles: StyleTable = new StyleTable(),
+  layoutEngine: LayoutEngine = customLayoutEngine,
 ): RenderOutput {
-  const layout = computeLayout(toLayoutInput(root), size);
+  const layout = layoutEngine.computeLayout(toLayoutInput(root), size);
   const buffer = new CellBuffer(size.width, size.height);
   const owners = new OwnerTable();
   paintNode(root, layout, buffer, styles, owners, {

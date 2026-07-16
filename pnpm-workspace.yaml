@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - examples/*
+  - examples/tui/*
   - vendors/kkrpc/packages/kkrpc
   - docs
 

@@ -6,11 +6,14 @@ import type {
   UINode,
 } from "@uniview/protocol";
 import {
+  CommittedOutput,
   hitTest,
   StyleTable,
   TuiRenderer,
   type CellSurface,
+  type LayoutEngine,
   type Size,
+  type StyledLine,
 } from "@uniview/tui-core";
 import { extractHandlers, uinodeToRenderNode } from "./convert";
 import { MutableTree } from "./mutable-tree";
@@ -31,6 +34,10 @@ export interface TuiHostOptions {
   onInvokeHandler?: (handlerId: HandlerId, payload?: JSONValue) => void;
   /** Injectable flush scheduler (deterministic tests). */
   schedule?: (flush: () => void) => void;
+  /** Optional committed-output channel for <Static> (append-only scrollback). */
+  committed?: CommittedOutput;
+  /** Layout engine; defaults to the zero-dependency customLayoutEngine. */
+  layoutEngine?: LayoutEngine;
 }
 
 /**
@@ -46,14 +53,19 @@ export class TuiHost {
   private readonly onInvokeHandler: TuiHostOptions["onInvokeHandler"];
   private handlers = new Map<string, Partial<Record<EventPropName, HandlerId>>>();
   private readonly invocations: { id: HandlerId; payload?: JSONValue }[] = [];
+  private readonly committed: CommittedOutput | undefined;
+  private readonly staticCounts = new Map<string, number>();
+  private focusedId: string | null = null;
 
   constructor(options: TuiHostOptions) {
     this.onInvokeHandler = options.onInvokeHandler;
+    this.committed = options.committed;
     this.renderer = new TuiRenderer({
       surface: options.surface,
       size: options.size,
       styles: options.styles ?? new StyleTable(),
       schedule: options.schedule,
+      layoutEngine: options.layoutEngine,
     });
   }
 
@@ -73,8 +85,55 @@ export class TuiHost {
   render(): void {
     const root = this.tree.getRoot();
     this.handlers = extractHandlers(root);
-    this.renderer.setRoot(root ? uinodeToRenderNode(root) : null);
+    this.flushStatic(root);
+    this.renderer.setRoot(root ? uinodeToRenderNode(root, this.focusedId) : null);
     this.renderer.flush();
+  }
+
+  /**
+   * Record which node currently holds focus and repaint if it changed. The
+   * {@link InputRouter} calls this after every focus move so the text-field
+   * caret (resolved in {@link uinodeToRenderNode}) tracks focus without a
+   * plugin re-render — focus stays host-local (the plan's principle 3).
+   */
+  setFocusedId(id: string | null): void {
+    if (id === this.focusedId) return;
+    this.focusedId = id;
+    this.render();
+  }
+
+  /** Imperatively append finalized lines to the committed-output channel (direct mode). */
+  commitStatic(lines: readonly StyledLine[]): void {
+    this.committed?.commit(lines);
+  }
+
+  /**
+   * Commit the `staticLines` of every `role="log"` node, deduped per node id —
+   * only lines beyond that node's high-water mark are written, so appending
+   * items re-commits only the new ones and a plain re-render writes nothing.
+   */
+  private flushStatic(root: UINode | null): void {
+    const committed = this.committed;
+    if (!committed || !root) return;
+    const visit = (node: UINode): void => {
+      const lines = node.props.staticLines;
+      if (Array.isArray(lines)) {
+        const already = this.staticCounts.get(node.id) ?? 0;
+        if (lines.length > already) {
+          const fresh: StyledLine[] = [];
+          for (let i = already; i < lines.length; i += 1) {
+            const value = lines[i];
+            if (typeof value === "string") fresh.push([{ text: value }]);
+          }
+          committed.commit(fresh);
+          this.staticCounts.set(node.id, lines.length);
+        }
+      }
+      for (const child of node.children) {
+        if (typeof child !== "string") visit(child);
+      }
+    };
+    visit(root);
   }
 
   /** Node ids (in tree order) that have a handler for `event`. */
@@ -97,13 +156,14 @@ export class TuiHost {
    * Disabled nodes are excluded, matching how HTML `disabled` removes an
    * element from the tab order rather than merely styling it.
    */
-  focusableTargets(): { id: string; textbox: boolean }[] {
-    const targets: { id: string; textbox: boolean }[] = [];
+  focusableTargets(): { id: string; textbox: boolean; autoFocus: boolean }[] {
+    const targets: { id: string; textbox: boolean; autoFocus: boolean }[] = [];
     for (const [id, map] of this.handlers) {
       if (this.isDisabled(id)) continue;
       const textbox = map.onChange !== undefined;
       if (map.onClick !== undefined || map.onKeyDown !== undefined || textbox) {
-        targets.push({ id, textbox });
+        const autoFocus = this.tree.getNode(id)?.props.autoFocus === true;
+        targets.push({ id, textbox, autoFocus });
       }
     }
     return targets;

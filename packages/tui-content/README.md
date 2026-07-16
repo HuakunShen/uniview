@@ -30,4 +30,4 @@ are semantic (`keyword`, `string`, `comment`, …) via `@uniview/tui-core`'s
 
 For React authoring (`<Markdown>`, `<Code>`, `<Diff>`, `<StreamingMarkdown>`),
 see `@uniview/tui-react`. For a runnable demo, see
-`examples/tui-content-demo`.
+`examples/tui/content-demo`.

@@ -4,12 +4,14 @@ import {
   renderGauge,
   renderHistogram,
   renderLineChart,
+  renderLineGauge,
   renderScatter,
   renderSparkline,
   type BarChartOptions,
   type BarDatum,
   type GaugeOptions,
   type HistogramOptions,
+  type LineGaugeOptions,
   type LineSeries,
   type PlotOptions,
   type SparklineOptions,
@@ -76,6 +78,18 @@ export interface GaugeProps {
 /** A single-line horizontal gauge. */
 export function Gauge(props: GaugeProps): JSX.Element {
   const node = createMemo(() => renderGauge(props.fraction, props.options));
+  return <>{renderNodeToElement(node())}</>;
+}
+
+/** Props for {@link LineGauge} — mirrors {@link renderLineGauge}'s parameters. */
+export interface LineGaugeProps {
+  fraction: number;
+  options?: LineGaugeOptions;
+}
+
+/** A single-line labelled progress bar (label · bar · percent). */
+export function LineGauge(props: LineGaugeProps): JSX.Element {
+  const node = createMemo(() => renderLineGauge(props.fraction, props.options));
   return <>{renderNodeToElement(node())}</>;
 }
 

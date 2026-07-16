@@ -4,12 +4,14 @@ import {
   renderGauge,
   renderHistogram,
   renderLineChart,
+  renderLineGauge,
   renderScatter,
   renderSparkline,
   type BarChartOptions,
   type BarDatum,
   type GaugeOptions,
   type HistogramOptions,
+  type LineGaugeOptions,
   type LineSeries,
   type PlotOptions,
   type SparklineOptions,
@@ -68,6 +70,20 @@ export interface GaugeProps {
 export function Gauge({ fraction, options }: GaugeProps): ReactElement {
   return useMemo(
     () => renderNodeToElement(renderGauge(fraction, options)),
+    [fraction, options],
+  );
+}
+
+/** Props for {@link LineGauge} — mirrors {@link renderLineGauge}'s parameters. */
+export interface LineGaugeProps {
+  fraction: number;
+  options?: LineGaugeOptions;
+}
+
+/** Memoized wrapper around {@link renderLineGauge}: a single-line labelled progress bar. */
+export function LineGauge({ fraction, options }: LineGaugeProps): ReactElement {
+  return useMemo(
+    () => renderNodeToElement(renderLineGauge(fraction, options)),
     [fraction, options],
   );
 }

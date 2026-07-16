@@ -40,9 +40,9 @@ prop interpretation is host-side, shared by both.
 
 ## Working demos
 
-- [`examples/tui-lazygit-demo`](../../examples/tui-lazygit-demo) — a lazygit clone.
-- [`examples/tui-charts-demo`](../../examples/tui-charts-demo) — an oha-style chart dashboard.
-- [`examples/tui-opencode-demo`](../../examples/tui-opencode-demo) — a multi-page chat UI.
+- [`examples/tui/lazygit-demo`](../../examples/tui/lazygit-demo) — a lazygit clone.
+- [`examples/tui/charts-demo`](../../examples/tui/charts-demo) — an oha-style chart dashboard.
+- [`examples/tui/opencode-demo`](../../examples/tui/opencode-demo) — a multi-page chat UI.
 
 ## Notes
 

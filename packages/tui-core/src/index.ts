@@ -11,6 +11,7 @@ export {
   styledLineText,
 } from "./text/styled-text";
 export type { StyledSpan, StyledLine } from "./text/styled-text";
+export { maskText, DEFAULT_MASK } from "./text/mask";
 
 // Cell buffer
 export { CellBuffer, CellFlags } from "./buffer/cell-buffer";
@@ -108,6 +109,9 @@ export type {
 } from "./layout/layout";
 export { customLayoutEngine } from "./layout/engine";
 export type { LayoutEngine } from "./layout/engine";
+// The Yoga adapter pulls in the yoga-layout WASM; keep it off the engine.ts /
+// paint.ts path so the zero-dependency custom engine stays WASM-free.
+export { yogaLayoutEngine } from "./layout/yoga-engine";
 
 // Render loop
 export { TuiRenderer } from "./renderer/tui-renderer";
@@ -128,6 +132,8 @@ export type {
 // Runnable app (direct mode)
 export { createTuiApp } from "./app/create-tui-app";
 export type { TuiApp, CreateTuiAppOptions } from "./app/create-tui-app";
+export { CommittedOutput } from "./app/committed-output";
+export type { CommittedOutputOptions } from "./app/committed-output";
 
 // Terminal lifecycle
 export { TerminalDriver } from "./terminal/terminal-driver";
@@ -146,11 +152,19 @@ export type {
   MouseMode,
   TerminalModeOptions,
 } from "./terminal/sequences";
+export {
+  withTerminalRestore,
+  withTerminalRestoreAsync,
+  installCrashGuard,
+} from "./terminal/crash-guard";
+export type { Restorable, ProcessLike } from "./terminal/crash-guard";
 
 // Input
 export { InputParser } from "./input/parser";
 export { keyEvent, NO_MODIFIERS } from "./input/events";
 export type { TuiInputEvent, KeyModifiers } from "./input/events";
+export { toInputKey } from "./input/input-key";
+export type { KeyMeta } from "./input/input-key";
 
 // Virtualization
 export {
@@ -183,6 +197,29 @@ export { CheckboxMachine } from "./components/checkbox-machine";
 export type { CheckboxEffect, CheckboxInit } from "./components/checkbox-machine";
 export { TabsMachine } from "./components/tabs-machine";
 export type { TabsEffect, TabsInit } from "./components/tabs-machine";
+export { SelectionMachine } from "./components/selection-machine";
+export type { SelectionEffect, SelectionInit } from "./components/selection-machine";
+export { TreeMachine } from "./components/tree-machine";
+export type { TreeEffect, TreeInit, TreeSourceNode, FlatTreeRow } from "./components/tree-machine";
+export { CalendarMachine } from "./components/calendar-machine";
+export type { CalendarEffect, CalendarInit, CalendarCell, YearMonthDay } from "./components/calendar-machine";
+export {
+  resolveColumnWidths,
+  formatCell,
+  cycleSort,
+  orderRows,
+} from "./components/table-columns";
+export type {
+  Column,
+  TableProps,
+  ColumnAlign,
+  ColumnSpec,
+  ResolvedColumn,
+  SortDirection,
+  SortState,
+} from "./components/table-columns";
+export { textInputSlices } from "./components/text-input-view";
+export type { TextInputSlices, TextInputSliceOptions } from "./components/text-input-view";
 
 // Framework-agnostic UI event types & pure helpers (shared by tui-react/tui-solid)
 export {
@@ -190,6 +227,7 @@ export {
   filterCommands,
   listCounter,
   nextFocus,
+  scrollbarThumb,
 } from "./ui/events";
 export type {
   TuiEventHandlers,
@@ -209,6 +247,18 @@ export type { BorderGlyphs } from "./paint/border";
 // Canvas rasterizers (charts)
 export { VERTICAL_BLOCKS, HORIZONTAL_BLOCKS, verticalBarColumn, horizontalBarCells } from "./canvas/blocks";
 export { SubcellCanvas } from "./canvas/subcell";
+export { dataToPixel } from "./canvas/coords";
+// Public Canvas & shapes engine (Phase 7) — emits styled lines like charts
+export { DrawContext, renderCanvas } from "./canvas/draw";
+export type { Marker, DrawStyle, CanvasDraw, CanvasDrawOptions } from "./canvas/draw";
+export { drawWorldMap, WORLD_MAP_POINTS } from "./canvas/world-map";
+export {
+  imageToHalfBlockLines,
+  resizeImage,
+  fitDimensions,
+  renderImage,
+} from "./canvas/image";
+export type { RgbaImage, ImageHalfBlockOptions, RenderImageOptions } from "./canvas/image";
 
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";
@@ -227,3 +277,29 @@ export type {
   DiagnosticsSource,
   WaitForIdleOptions,
 } from "./scheduler/diagnostics";
+// Animation engine (easings)
+export {
+  bounceIn,
+  bounceInOut,
+  bounceOut,
+  cubicIn,
+  cubicInOut,
+  cubicOut,
+  easings,
+  expoIn,
+  expoInOut,
+  expoOut,
+  linear,
+  quadIn,
+  quadInOut,
+  quadOut,
+  resolveEasing,
+  sineIn,
+  sineInOut,
+  sineOut,
+} from "./scheduler/ease";
+export type { EasingFn, EasingName } from "./scheduler/ease";
+export { Timeline } from "./scheduler/timeline";
+export type { TimelineOptions } from "./scheduler/timeline";
+export { FrameClock } from "./scheduler/frame-clock";
+export type { FrameClockOptions, FrameInfo, FrameListener } from "./scheduler/frame-clock";

@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Index, Show, type Accessor, type JSX } from "solid-js";
-import { clampScroll, filterCommands } from "@uniview/tui-core";
+import { clampScroll, filterCommands, scrollbarThumb } from "@uniview/tui-core";
 import type { RenderNode } from "@uniview/tui-core";
 import { renderNodeToElement } from "./content";
 import { Text } from "./primitives";
@@ -26,23 +26,33 @@ export interface ScrollViewProps {
   onScrollChange?: (scrollTop: number) => void;
 }
 
-function Scrollbar(props: { rowCount: number; height: number; scrollTop: number }): JSX.Element {
-  const thumb = createMemo(() =>
-    props.rowCount <= props.height
-      ? props.height
-      : Math.max(1, Math.round((props.height * props.height) / props.rowCount)),
-  );
-  const start = createMemo(() => {
-    const maxScroll = Math.max(0, props.rowCount - props.height);
-    return maxScroll <= 0 ? 0 : Math.round((props.scrollTop / maxScroll) * (props.height - thumb()));
-  });
+export interface ScrollbarProps {
+  /** Total number of rows in the scrollable content. */
+  total: number;
+  /** Scrollbar length in rows (the viewport height). */
+  height: number;
+  /** Current scroll offset in rows (index of the top visible row). */
+  value: number;
+  /** Color of the thumb (filled) cells. Defaults to "white". */
+  thumbColor?: string;
+  /** Color of the track (empty) cells. Defaults to "gray". */
+  trackColor?: string;
+}
+
+/**
+ * A vertical scrollbar: a 1-cell-wide column of `height` rows with a thumb sized
+ * and positioned by {@link scrollbarThumb}. Reusable on its own or inside
+ * {@link ScrollView}.
+ */
+export function Scrollbar(props: ScrollbarProps): JSX.Element {
+  const geometry = createMemo(() => scrollbarThumb(props.total, props.height, props.value));
   return (
     <box flexDirection="column" width={1}>
       <Index each={Array.from({ length: props.height })}>
         {(_, i) => {
-          const on = createMemo(() => i >= start() && i < start() + thumb());
+          const on = createMemo(() => i >= geometry().start && i < geometry().start + geometry().thumb);
           return (
-            <Text color={on() ? "white" : "gray"} dim={!on()}>
+            <Text color={on() ? (props.thumbColor ?? "white") : (props.trackColor ?? "gray")} dim={!on()}>
               {on() ? "█" : "│"}
             </Text>
           );
@@ -112,7 +122,7 @@ export function ScrollView(props: ScrollViewProps): JSX.Element {
         <For each={visible()}>{(row) => renderNodeToElement(row)}</For>
       </box>
       <Show when={showScrollbar()}>
-        <Scrollbar rowCount={rows().length} height={props.height} scrollTop={clamped()} />
+        <Scrollbar total={rows().length} height={props.height} value={clamped()} />
       </Show>
     </box>
   );

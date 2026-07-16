@@ -60,6 +60,8 @@ const TEXT_STYLE_FLAGS: readonly (keyof CellStyle)[] = [
   "underline",
   "strikethrough",
   "inverse",
+  "blink",
+  "hidden",
 ];
 
 function propsToStyle(props: Record<string, JSONValue>): TuiStyle {
@@ -144,8 +146,25 @@ function joinText(node: UINode): string {
  * {@link RenderNode} for @uniview/tui-core. Text elements flatten their text
  * children; box elements recurse. The node id is preserved so painted cells map
  * back to plugin nodes for hit-testing and event dispatch.
+ *
+ * `focusedId` resolves the text-field caret host-side (the plan's principle 3:
+ * focus is local, never streamed to the plugin). A `<text caret>` cell renders
+ * as an inverse, terminal-blinking block **only** while its enclosing textbox
+ * is the focused node, and as a plain cell otherwise — so exactly one caret
+ * blinks, on the field the user is actually editing.
  */
-export function uinodeToRenderNode(node: UINode | string): RenderNode | null {
+export function uinodeToRenderNode(
+  node: UINode | string,
+  focusedId: string | null = null,
+): RenderNode | null {
+  return convert(node, focusedId, false);
+}
+
+function convert(
+  node: UINode | string,
+  focusedId: string | null,
+  inFocused: boolean,
+): RenderNode | null {
   if (typeof node === "string") return { type: "text", text: node };
   if (node.type === TEXT_NODE_TYPE) return { type: "text", text: node.text ?? "" };
 
@@ -164,21 +183,29 @@ export function uinodeToRenderNode(node: UINode | string): RenderNode | null {
   }
 
   if (TEXT_TYPES.has(node.type)) {
+    const textStyle = propsToTextStyle(node.props);
+    // A caret cell lights up (inverse + native blink) only on the focused field.
+    if (node.props.caret === true && inFocused) {
+      textStyle.inverse = true;
+      textStyle.blink = true;
+    }
     return {
       type: "text",
       id: node.id,
       text: joinText(node),
-      textStyle: propsToTextStyle(node.props),
+      textStyle,
       style,
     };
   }
 
+  // Everything at or below the focused node paints in its "focused" variant.
+  const childInFocused = inFocused || (focusedId !== null && node.id === focusedId);
   const rendered: RenderNode = {
     type: node.type,
     id: node.id,
     style,
     children: node.children
-      .map(uinodeToRenderNode)
+      .map((child) => convert(child, focusedId, childInFocused))
       .filter((c): c is RenderNode => c !== null),
   };
   const bg = asColor(node.props.backgroundColor);
