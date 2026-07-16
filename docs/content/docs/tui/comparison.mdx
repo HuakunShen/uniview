@@ -70,9 +70,11 @@ general knowledge of these projects, which drifts across versions.
 
 | Feature | uniview | ink | opentui | Textual |
 | --- | --- | --- | --- | --- |
-| Bar chart / histogram | ✅ eighth-block glyphs (▁-█, 8 steps/row) | ❌ | ❌ (no chart renderables in `renderables/index.ts`) | ❌ (`Sparkline` widget only) |
+| Bar chart / histogram | ✅ eighth-block glyphs (▁-█, 8 steps/row); **grouped & stacked** multi-series (`BarDatum.value` accepts a per-series array) | ❌ | ❌ (no chart renderables in `renderables/index.ts`) | ❌ (`Sparkline` widget only) |
 | Sparkline | ✅ | ❌ | ❌ | ✅ `Sparkline` widget |
 | Gauge | ✅ `<Gauge>` (centered label on bar) + `<LineGauge>` (ratatui-style label · bar · percent on one line) | ❌ | ❌ | ❌ |
+| Chart axes (ticks, numeric labels, axis titles) | ✅ `frameChart`/`axisTicks` — Y gutter + X rule + tick labels + `xTitle`/`yTitle`, wired into `<LineChart>`/`<Scatter>` via `options.axes` | ❌ | ❌ | ❌ |
+| Chart legend (swatch + series name, positionable) | ✅ `renderLegend` — horizontal/vertical, top/bottom, colored swatch, via `options.legend` | ❌ | ❌ | ❌ |
 | Line chart / scatter plot | ✅ braille 2×4 sub-cell canvas (`SubcellCanvas`, 8x character-grid resolution) | ❌ | ❌ | ❌ |
 | Sub-cell / braille rendering | ✅ (`packages/tui-core/src/canvas/subcell.ts`) | ❌ | ❌ (no braille/subcell canvas found in `core/src`) | ❌ |
 | 2D/3D scene rendering, sprites, particles, physics | ❌ | ❌ | ✅ `packages/core/src/3d/` — WebGL-in-terminal: sprites, textures, phong lighting, rapier/planck physics demos | ❌ |
