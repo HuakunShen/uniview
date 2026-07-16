@@ -77,6 +77,7 @@ general knowledge of these projects, which drifts across versions.
 | Chart legend (swatch + series name, positionable) | ✅ `renderLegend` — horizontal/vertical, top/bottom, colored swatch, via `options.legend` | ❌ | ❌ | ❌ |
 | Line chart / scatter plot | ✅ braille 2×4 sub-cell canvas (`SubcellCanvas`, 8x character-grid resolution) | ❌ | ❌ | ❌ |
 | Sub-cell / braille rendering | ✅ (`packages/tui-core/src/canvas/subcell.ts`) | ❌ | ❌ (no braille/subcell canvas found in `core/src`) | ❌ |
+| Public `<Canvas>` / shapes API (ratatui `Canvas`) | ✅ `<Canvas>` (React + Solid) with a `draw(cv)` callback — `line`/`rect`/`circle`/`points`, `braille`/`dot`/`block`/`half-block` markers, `cv.project` (shared `dataToPixel`), optional world `Map`; emits styled lines (no new primitive) | ❌ | ❌ | ❌ |
 | 2D/3D scene rendering, sprites, particles, physics | ❌ | ❌ | ✅ `packages/core/src/3d/` — WebGL-in-terminal: sprites, textures, phong lighting, rapier/planck physics demos | ❌ |
 | Raster images (Kitty graphics / Sixel / iTerm inline images) | ❌ — grepped `tui-core`/`tui-react`/`tui-solid`/`host-tui` for `sixel`/`kitty`/`image protocol`: no hits | ⚠️ detects the Kitty **keyboard** protocol but has no image rendering path | ⚠️ `terminal-capability-detection.ts` parses Kitty **graphics** protocol responses (capability probing), but no image renderable was found in `renderables/index.ts` | ❌ no built-in image widget in core (third-party `textual-image` exists, out of scope here) |
 
