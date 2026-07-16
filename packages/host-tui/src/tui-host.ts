@@ -6,11 +6,13 @@ import type {
   UINode,
 } from "@uniview/protocol";
 import {
+  CommittedOutput,
   hitTest,
   StyleTable,
   TuiRenderer,
   type CellSurface,
   type Size,
+  type StyledLine,
 } from "@uniview/tui-core";
 import { extractHandlers, uinodeToRenderNode } from "./convert";
 import { MutableTree } from "./mutable-tree";
@@ -31,6 +33,8 @@ export interface TuiHostOptions {
   onInvokeHandler?: (handlerId: HandlerId, payload?: JSONValue) => void;
   /** Injectable flush scheduler (deterministic tests). */
   schedule?: (flush: () => void) => void;
+  /** Optional committed-output channel for <Static> (append-only scrollback). */
+  committed?: CommittedOutput;
 }
 
 /**
@@ -46,9 +50,12 @@ export class TuiHost {
   private readonly onInvokeHandler: TuiHostOptions["onInvokeHandler"];
   private handlers = new Map<string, Partial<Record<EventPropName, HandlerId>>>();
   private readonly invocations: { id: HandlerId; payload?: JSONValue }[] = [];
+  private readonly committed: CommittedOutput | undefined;
+  private readonly staticCounts = new Map<string, number>();
 
   constructor(options: TuiHostOptions) {
     this.onInvokeHandler = options.onInvokeHandler;
+    this.committed = options.committed;
     this.renderer = new TuiRenderer({
       surface: options.surface,
       size: options.size,
@@ -73,8 +80,42 @@ export class TuiHost {
   render(): void {
     const root = this.tree.getRoot();
     this.handlers = extractHandlers(root);
+    this.flushStatic(root);
     this.renderer.setRoot(root ? uinodeToRenderNode(root) : null);
     this.renderer.flush();
+  }
+
+  /** Imperatively append finalized lines to the committed-output channel (direct mode). */
+  commitStatic(lines: readonly StyledLine[]): void {
+    this.committed?.commit(lines);
+  }
+
+  /**
+   * Commit the `staticLines` of every `role="log"` node, deduped per node id —
+   * only lines beyond that node's high-water mark are written, so appending
+   * items re-commits only the new ones and a plain re-render writes nothing.
+   */
+  private flushStatic(root: UINode | null): void {
+    if (!this.committed || !root) return;
+    const visit = (node: UINode): void => {
+      const lines = node.props.staticLines;
+      if (Array.isArray(lines)) {
+        const already = this.staticCounts.get(node.id) ?? 0;
+        if (lines.length > already) {
+          const fresh: StyledLine[] = [];
+          for (let i = already; i < lines.length; i += 1) {
+            const value = lines[i];
+            if (typeof value === "string") fresh.push([{ text: value }]);
+          }
+          this.committed.commit(fresh);
+          this.staticCounts.set(node.id, lines.length);
+        }
+      }
+      for (const child of node.children) {
+        if (typeof child !== "string") visit(child);
+      }
+    };
+    visit(root);
   }
 
   /** Node ids (in tree order) that have a handler for `event`. */

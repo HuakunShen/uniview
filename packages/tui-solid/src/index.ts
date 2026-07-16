@@ -12,6 +12,7 @@ import {
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import type {
   CellSurface,
+  CommittedOutput,
   Size,
   StyleTable,
   TuiInputEvent,
@@ -67,6 +68,8 @@ export { Masked } from "./masked";
 export type { MaskedProps } from "./masked";
 export { Spacer, Newline, Transform } from "./layout-primitives";
 export type { NewlineProps, TransformProps } from "./layout-primitives";
+export { Static } from "./static";
+export type { StaticProps } from "./static";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
 
@@ -74,6 +77,8 @@ export interface TuiSolidRootOptions {
   surface: CellSurface;
   size: Size;
   styles?: StyleTable;
+  /** Optional committed-output channel backing <Static> (append-only scrollback). */
+  committed?: CommittedOutput;
 }
 
 export interface TuiSolidRoot {
@@ -103,6 +108,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     surface: options.surface,
     size: options.size,
     styles: options.styles,
+    committed: options.committed,
     onInvokeHandler: (handlerId, payload) => {
       void registry.execute(handlerId, payload);
     },

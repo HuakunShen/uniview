@@ -10,6 +10,7 @@ import {
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import type {
   CellSurface,
+  CommittedOutput,
   Size,
   StyleTable,
   TuiInputEvent,
@@ -31,6 +32,8 @@ export { Masked } from "./masked";
 export type { MaskedProps } from "./masked";
 export { Spacer, Newline, Transform } from "./layout-primitives";
 export type { NewlineProps, TransformProps } from "./layout-primitives";
+export { Static } from "./static";
+export type { StaticProps } from "./static";
 export type {
   BoxProps,
   TextProps,
@@ -72,6 +75,8 @@ export interface TuiReactRootOptions {
   surface: CellSurface;
   size: Size;
   styles?: StyleTable;
+  /** Optional committed-output channel backing <Static> (append-only scrollback). */
+  committed?: CommittedOutput;
   /**
    * "full" (default) re-serializes the tree each commit; "incremental" feeds
    * React's mutation batches to the host (the protocol's incremental path).
@@ -105,6 +110,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     surface: options.surface,
     size: options.size,
     styles: options.styles,
+    committed: options.committed,
     onInvokeHandler: (handlerId, payload) => {
       void registry.execute(handlerId, payload);
     },

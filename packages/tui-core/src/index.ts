@@ -129,6 +129,8 @@ export type {
 // Runnable app (direct mode)
 export { createTuiApp } from "./app/create-tui-app";
 export type { TuiApp, CreateTuiAppOptions } from "./app/create-tui-app";
+export { CommittedOutput } from "./app/committed-output";
+export type { CommittedOutputOptions } from "./app/committed-output";
 
 // Terminal lifecycle
 export { TerminalDriver } from "./terminal/terminal-driver";
