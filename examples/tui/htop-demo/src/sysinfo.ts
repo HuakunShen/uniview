@@ -42,6 +42,22 @@ export function computeCpuPercent(prev: readonly CpuInfo[], cur: readonly CpuInf
   return Math.max(0, Math.min(100, (1 - idle / total) * 100));
 }
 
+/** Per-core busy percentage between two snapshots (one entry per core). */
+export function computeCorePercents(prev: readonly CpuInfo[], cur: readonly CpuInfo[]): number[] {
+  const n = Math.min(prev.length, cur.length);
+  const out: number[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const p = prev[i]!.times;
+    const c = cur[i]!.times;
+    const pt = p.user + p.nice + p.sys + p.idle + p.irq;
+    const ct = c.user + c.nice + c.sys + c.idle + c.irq;
+    const idle = c.idle - p.idle;
+    const total = ct - pt;
+    out.push(total > 0 ? Math.max(0, Math.min(100, (1 - idle / total) * 100)) : 0);
+  }
+  return out;
+}
+
 /** Used-memory percentage from the OS free/total counters. */
 export function memoryPercent(): number {
   const total = totalmem();
@@ -130,12 +146,16 @@ export function sampleProcesses(): Process[] {
 }
 
 export interface Snapshot {
-  cpu: number;
-  mem: number;
-  cores: number;
+  cpu: number; // overall busy %
+  cores: number[]; // per-core busy %
+  mem: number; // used memory %
+  memUsedGB: number;
+  memTotalGB: number;
   load1: number;
   processes: Process[];
 }
+
+const GIB = 1024 ** 3;
 
 /**
  * A sampler closure: each `sample()` reads live counters and returns a snapshot,
@@ -147,12 +167,17 @@ export function createSampler(): { sample: () => Snapshot } {
     sample(): Snapshot {
       const curCpus = cpus();
       const cpu = computeCpuPercent(prevCpus, curCpus);
+      const cores = computeCorePercents(prevCpus, curCpus);
       prevCpus = curCpus;
       const procs = sampleProcesses();
+      const total = totalmem();
+      const free = freemem();
       return {
         cpu,
-        mem: memoryPercent(),
-        cores: curCpus.length,
+        cores,
+        mem: total > 0 ? (1 - free / total) * 100 : 0,
+        memUsedGB: (total - free) / GIB,
+        memTotalGB: total / GIB,
         load1: loadavg()[0] ?? 0,
         processes: procs.length > 0 ? procs : syntheticProcesses(),
       };

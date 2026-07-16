@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CpuInfo } from "node:os";
 import {
   commandName,
+  computeCorePercents,
   computeCpuPercent,
   parseEtime,
   parsePs,
@@ -35,6 +36,19 @@ describe("computeCpuPercent", () => {
     const prev = [core(0, 0, 0), core(0, 0, 0)];
     const cur = [core(10, 0, 0), core(0, 0, 10)]; // one core 100% busy, one 100% idle
     expect(computeCpuPercent(prev, cur)).toBeCloseTo(50, 6);
+  });
+});
+
+describe("computeCorePercents", () => {
+  it("returns one busy percentage per core", () => {
+    const prev = [core(0, 0, 0), core(0, 0, 0)];
+    const cur = [core(10, 0, 0), core(0, 0, 10)]; // core 0 fully busy, core 1 fully idle
+    expect(computeCorePercents(prev, cur)).toEqual([100, 0]);
+  });
+
+  it("handles a partial-busy core", () => {
+    const [pct] = computeCorePercents([core(0, 0, 0)], [core(2, 0, 8)]);
+    expect(pct).toBeCloseTo(20, 6);
   });
 });
 

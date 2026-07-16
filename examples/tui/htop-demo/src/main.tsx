@@ -14,7 +14,6 @@ import { createSampler } from "./sysinfo";
  *
  * (↑/↓ PgUp/PgDn move · C/M/T/P/N sort by cpu/mem/time/pid/name · q/Ctrl-C quit)
  */
-const HISTORY = 60; // samples kept for the plot
 const INTERVAL_MS = 1500;
 
 const ONCE = !process.stdout.isTTY || process.env.UNIVIEW_DEMO_ONCE === "1";
@@ -25,8 +24,6 @@ let dim = { width: process.stdout.columns ?? 80, height: process.stdout.rows ?? 
 const root = createTuiReactRoot({ surface, styles, size: dim });
 
 const sampler = createSampler();
-const cpuHist: number[] = [];
-const memHist: number[] = [];
 let frame: Frame | null = null;
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -44,12 +41,7 @@ const paint = (): void => {
 };
 
 const takeSample = (): void => {
-  const snap = sampler.sample();
-  cpuHist.push(snap.cpu);
-  memHist.push(snap.mem);
-  if (cpuHist.length > HISTORY) cpuHist.shift();
-  if (memHist.length > HISTORY) memHist.shift();
-  frame = { ...snap, cpuHist: [...cpuHist], memHist: [...memHist] };
+  frame = sampler.sample();
   paint();
 };
 
