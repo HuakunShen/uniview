@@ -96,7 +96,8 @@ export class TuiHost {
    * items re-commits only the new ones and a plain re-render writes nothing.
    */
   private flushStatic(root: UINode | null): void {
-    if (!this.committed || !root) return;
+    const committed = this.committed;
+    if (!committed || !root) return;
     const visit = (node: UINode): void => {
       const lines = node.props.staticLines;
       if (Array.isArray(lines)) {
@@ -107,7 +108,7 @@ export class TuiHost {
             const value = lines[i];
             if (typeof value === "string") fresh.push([{ text: value }]);
           }
-          this.committed.commit(fresh);
+          committed.commit(fresh);
           this.staticCounts.set(node.id, lines.length);
         }
       }

@@ -27,7 +27,7 @@ async function reactSvg(): Promise<string> {
       { flexDirection: "column", border: "thick", width: WIDTH, height: HEIGHT },
       h(RBox, { flexDirection: "row" }, h(RText, { blink: true }, "L"), h(RSpacer), h(RMasked, { value: "pw" })),
       h(RNewline, { count: 1 }),
-      h(RTransform, { transform: (line: string) => line.toUpperCase() }, "done"),
+      h(RTransform, { transform: (line: string) => line.toUpperCase(), children: "done" }),
     ),
   );
   await tick();

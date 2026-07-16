@@ -49,7 +49,7 @@ describe("Newline (React)", () => {
 describe("Transform (React)", () => {
   it("maps each line through the transform", async () => {
     const { root, surface } = mount(
-      h(Transform, { transform: (line: string) => line.toUpperCase() }, "ab\ncd"),
+      h(Transform, { transform: (line: string) => line.toUpperCase(), children: "ab\ncd" }),
       4,
       2,
     );
