@@ -154,6 +154,8 @@ export type {
 export { InputParser } from "./input/parser";
 export { keyEvent, NO_MODIFIERS } from "./input/events";
 export type { TuiInputEvent, KeyModifiers } from "./input/events";
+export { toInputKey } from "./input/input-key";
+export type { KeyMeta } from "./input/input-key";
 
 // Virtualization
 export {
