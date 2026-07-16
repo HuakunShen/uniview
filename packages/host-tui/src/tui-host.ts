@@ -55,6 +55,7 @@ export class TuiHost {
   private readonly invocations: { id: HandlerId; payload?: JSONValue }[] = [];
   private readonly committed: CommittedOutput | undefined;
   private readonly staticCounts = new Map<string, number>();
+  private focusedId: string | null = null;
 
   constructor(options: TuiHostOptions) {
     this.onInvokeHandler = options.onInvokeHandler;
@@ -85,8 +86,20 @@ export class TuiHost {
     const root = this.tree.getRoot();
     this.handlers = extractHandlers(root);
     this.flushStatic(root);
-    this.renderer.setRoot(root ? uinodeToRenderNode(root) : null);
+    this.renderer.setRoot(root ? uinodeToRenderNode(root, this.focusedId) : null);
     this.renderer.flush();
+  }
+
+  /**
+   * Record which node currently holds focus and repaint if it changed. The
+   * {@link InputRouter} calls this after every focus move so the text-field
+   * caret (resolved in {@link uinodeToRenderNode}) tracks focus without a
+   * plugin re-render — focus stays host-local (the plan's principle 3).
+   */
+  setFocusedId(id: string | null): void {
+    if (id === this.focusedId) return;
+    this.focusedId = id;
+    this.render();
   }
 
   /** Imperatively append finalized lines to the committed-output channel (direct mode). */

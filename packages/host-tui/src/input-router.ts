@@ -58,6 +58,13 @@ export class InputRouter {
     if (this.hoveredId && this.host.nearestTarget(this.hoveredId, HOVER_EVENTS) !== this.hoveredId) {
       this.hoveredId = null;
     }
+    // Focus may have been cleared (its node was removed) — keep the caret in sync.
+    this.syncFocus();
+  }
+
+  /** Mirror the current focus into the host so the caret repaints where focus went. */
+  private syncFocus(): void {
+    this.host.setFocusedId(this.focus.focused);
   }
 
   /** Update hover: leave the previous target, enter the new one under (x, y). */
@@ -128,7 +135,10 @@ export class InputRouter {
           // is usually a leaf (the label inside a row), which is not focusable,
           // and focusing it is a silent no-op that strands focus elsewhere.
           const focusTarget = this.host.nearestFocusable(id);
-          if (focusTarget) this.focus.focus(focusTarget, "pointer");
+          if (focusTarget) {
+            this.focus.focus(focusTarget, "pointer");
+            this.syncFocus();
+          }
           if (!this.isTextbox(id)) {
             this.host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
           }
@@ -139,6 +149,7 @@ export class InputRouter {
 
     if (event.type === "key" && event.key === "Tab") {
       this.focus.move(event.shift ? "previous" : "next");
+      this.syncFocus();
       return;
     }
 

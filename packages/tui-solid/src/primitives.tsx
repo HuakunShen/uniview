@@ -46,6 +46,12 @@ export interface TextProps extends TuiCommonProps {
   inverse?: boolean;
   blink?: boolean;
   hidden?: boolean;
+  /**
+   * Internal: marks this cell as a text-field caret. The host renders it
+   * inverse + blinking only while the enclosing textbox is focused, so a single
+   * caret blinks on the field being edited. Used by {@link TextInput}.
+   */
+  caret?: boolean;
 }
 
 /** Props for {@link RichText}. */

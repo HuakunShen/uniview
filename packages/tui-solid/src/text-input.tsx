@@ -53,7 +53,7 @@ export function TextInput(props: TextInputProps): JSX.Element {
           <>
             <Text>{slices().head}</Text>
             <Show when={showCursor()}>
-              <Text inverse>{slices().caret}</Text>
+              <Text caret>{slices().caret}</Text>
             </Show>
             <Text>{slices().tail}</Text>
           </>

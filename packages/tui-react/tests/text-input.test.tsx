@@ -41,6 +41,51 @@ describe("TextInput", () => {
     root.destroy();
   });
 
+  it("blinks a single caret — on the focused field only", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 2 } });
+    function Two() {
+      const [a, setA] = useState("aa");
+      const [b, setB] = useState("bb");
+      return h(
+        "box",
+        { flexDirection: "column" },
+        h(TextInput, { key: "a", value: a, onChange: setA }),
+        h(TextInput, { key: "b", value: b, onChange: setB }),
+      );
+    }
+    root.render(h(Two));
+    await tick();
+
+    // The caret sits just past each 2-char value → column 2 on each row.
+    const caret = (row: number) => {
+      const frame = surface.cells()!;
+      return styles.get(frame.cells[row]![2]!.styleId);
+    };
+
+    // Nothing focused yet: neither caret is drawn (no inverse block, no blink).
+    expect(caret(0).inverse).toBeFalsy();
+    expect(caret(1).inverse).toBeFalsy();
+
+    // Focus the first field: exactly one blinking caret, on row 0.
+    root.dispatchInput(key("Tab"));
+    await tick();
+    expect(caret(0).inverse).toBe(true);
+    expect(caret(0).blink).toBe(true);
+    expect(caret(1).inverse).toBeFalsy();
+    expect(caret(1).blink).toBeFalsy();
+
+    // Move focus to the second field: the caret follows, still just one.
+    root.dispatchInput(key("Tab"));
+    await tick();
+    expect(caret(0).inverse).toBeFalsy();
+    expect(caret(0).blink).toBeFalsy();
+    expect(caret(1).inverse).toBe(true);
+    expect(caret(1).blink).toBe(true);
+    root.destroy();
+  });
+
   it("fires onSubmit on Enter", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });

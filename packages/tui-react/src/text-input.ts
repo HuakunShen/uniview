@@ -41,7 +41,9 @@ export function TextInput(props: TextInputProps): ReactElement {
     placeholderColor = "gray",
   } = props;
   const s = textInputSlices(value, { cursor, mask, showCursor, placeholder });
-  const caretCell = showCursor ? h("text", { key: "c", inverse: true }, s.caret) : null;
+  // The host paints this cell inverse + blinking only while the field is
+  // focused (see uinodeToRenderNode) — so exactly one caret blinks at a time.
+  const caretCell = showCursor ? h("text", { key: "c", caret: true }, s.caret) : null;
   return h(
     "box",
     { role: "textbox", value, onChange, onSubmit, flexDirection: "row", width },

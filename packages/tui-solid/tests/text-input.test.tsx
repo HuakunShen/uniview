@@ -34,6 +34,43 @@ describe("TextInput (Solid)", () => {
     root.destroy();
   });
 
+  it("blinks a single caret — on the focused field only", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 2 } });
+    const [a, setA] = createSignal("aa");
+    const [b, setB] = createSignal("bb");
+    root.render(() => (
+      <box flexDirection="column">
+        <TextInput value={a()} onChange={setA} />
+        <TextInput value={b()} onChange={setB} />
+      </box>
+    ));
+    await tick();
+
+    const caret = (row: number) => {
+      const frame = surface.cells()!;
+      return styles.get(frame.cells[row]![2]!.styleId);
+    };
+
+    // Nothing focused: no caret drawn on either field.
+    expect(caret(0).inverse).toBeFalsy();
+    expect(caret(1).inverse).toBeFalsy();
+
+    root.dispatchInput(key("Tab"));
+    await tick();
+    expect(caret(0).inverse).toBe(true);
+    expect(caret(0).blink).toBe(true);
+    expect(caret(1).inverse).toBeFalsy();
+
+    root.dispatchInput(key("Tab"));
+    await tick();
+    expect(caret(0).inverse).toBeFalsy();
+    expect(caret(1).inverse).toBe(true);
+    expect(caret(1).blink).toBe(true);
+    root.destroy();
+  });
+
   it("fires onSubmit on Enter", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
