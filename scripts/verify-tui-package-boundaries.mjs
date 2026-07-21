@@ -39,6 +39,10 @@ export function extractModuleSpecifiers(source, file = "artifact.mjs") {
   );
   const specifiers = [];
 
+  for (const directive of sourceFile.typeReferenceDirectives) {
+    specifiers.push(directive.fileName);
+  }
+
   function visit(node) {
     if (
       (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
@@ -66,6 +70,18 @@ export function extractModuleSpecifiers(source, file = "artifact.mjs") {
       ts.isStringLiteralLike(node.argument.literal)
     ) {
       specifiers.push(node.argument.literal.text);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.arguments.length >= 1 &&
+      ts.isStringLiteralLike(node.arguments[0]) &&
+      ((ts.isIdentifier(node.expression) &&
+        node.expression.text === "require") ||
+        (ts.isPropertyAccessExpression(node.expression) &&
+          ts.isIdentifier(node.expression.expression) &&
+          node.expression.expression.text === "require" &&
+          node.expression.name.text === "resolve"))
+    ) {
+      specifiers.push(node.arguments[0].text);
     }
     ts.forEachChild(node, visit);
   }
@@ -91,6 +107,13 @@ export function validateSource({ file, source, declaredRuntime }) {
       `${file}: undeclared runtime import ${name}`,
     );
   }
+}
+
+export function validatePortableCoreDeclaration({ file, source }) {
+  assert.ok(
+    !/\bBuffer\b/.test(source),
+    `${file}: public declaration leaks Node Buffer`,
+  );
 }
 
 export function validateManifest(binding, manifest) {
@@ -129,6 +152,13 @@ async function verifyBinding(binding) {
 }
 
 export async function main() {
+  for (const file of await filesBelow(join(root, "packages/tui-core/dist"))) {
+    if (!file.endsWith(".d.mts") && !file.endsWith(".d.ts")) continue;
+    validatePortableCoreDeclaration({
+      file,
+      source: await readFile(file, "utf8"),
+    });
+  }
   for (const binding of bindings) await verifyBinding(binding);
   console.log("TUI package boundaries verified");
 }

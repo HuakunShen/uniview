@@ -6,6 +6,17 @@ import { createRenderBridge, type RenderBridge } from "./bridge";
 
 const reconciler = ReactReconciler(hostConfig);
 
+interface SynchronousReconciler {
+  flushSyncFromReconciler<Result>(callback: () => Result): Result;
+  flushPassiveEffects(): boolean;
+}
+
+// react-reconciler 0.33 exposes this runtime API while the matching Definitely
+// Typed declaration still calls it `flushSync`. Keep the compatibility seam
+// narrow and typed until the upstream declaration catches up.
+const synchronousReconciler: SynchronousReconciler =
+  reconciler as typeof reconciler & SynchronousReconciler;
+
 interface RendererHandle extends RenderBridge {
   _container?: ReturnType<typeof reconciler.createContainer>;
 }
@@ -51,8 +62,14 @@ export function render(element: ReactElement, handle: RendererHandle): void {
  * while timers/effects/subscriptions in the plugin kept running forever.
  */
 export function unmount(handle: RendererHandle): void {
-  if (handle._container) {
-    reconciler.updateContainer(null, handle._container, null, () => {});
+  const container = handle._container;
+  if (container) {
+    synchronousReconciler.flushSyncFromReconciler(() => {
+      reconciler.updateContainer(null, container, null, () => {});
+    });
+    while (synchronousReconciler.flushPassiveEffects()) {
+      // Passive cleanups may schedule more passive work; drain it completely.
+    }
     handle._container = undefined;
   }
   handle.rootInstance = null;

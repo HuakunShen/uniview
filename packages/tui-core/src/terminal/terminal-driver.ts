@@ -15,8 +15,8 @@ export interface TtyInput {
   setRawMode?(mode: boolean): void;
   resume?(): void;
   pause?(): void;
-  on(event: "data", listener: (chunk: Buffer) => void): void;
-  off(event: "data", listener: (chunk: Buffer) => void): void;
+  on(event: "data", listener: (chunk: Uint8Array | string) => void): void;
+  off(event: "data", listener: (chunk: Uint8Array | string) => void): void;
 }
 
 /** The subset of a Node writable TTY the driver needs (injectable). */
@@ -77,7 +77,7 @@ export class TerminalDriver {
     };
   }
 
-  private readonly onData = (chunk: Buffer): void => {
+  private readonly onData = (chunk: Uint8Array | string): void => {
     this.clearEscapeTimer();
     this.parser.push(chunk);
     this.emitEvents();

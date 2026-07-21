@@ -45,11 +45,11 @@ function scheduleUpdate() {
 	});
 }
 
-export function setUpdateCallback(cb: (root: SolidNode | null) => void): void {
+export function setUpdateCallback(cb: ((root: SolidNode | null) => void) | null): void {
 	updateCallback = cb;
 }
 
-export function setMutationUpdateCallback(cb: (mutations: Mutation[]) => void): void {
+export function setMutationUpdateCallback(cb: ((mutations: Mutation[]) => void) | null): void {
 	mutationUpdateCallback = cb;
 }
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
-import { createTuiSolidRoot } from "../src/index";
+import { getRootNode } from "@uniview/solid-renderer";
+import { createTuiSolidRoot, getActiveTuiClock } from "../src/index";
 
 import { tick } from "./tick";
 
@@ -66,5 +67,57 @@ describe("createTuiSolidRoot", () => {
     await tick();
     expect(surface.lines({ trimRight: true })[0]).toBe("Count: 1");
     root.destroy();
+  });
+
+  it("disposes the active reactive root before replacing it", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
+    const cleanups: string[] = [];
+
+    root.render(() => {
+      onCleanup(() => cleanups.push("first"));
+      return <text>First</text>;
+    });
+    root.render(() => {
+      onCleanup(() => cleanups.push("second"));
+      return <text>Second</text>;
+    });
+
+    expect(cleanups).toEqual(["first"]);
+    expect(surface.text({ trimRight: true })).toContain("Second");
+
+    root.destroy();
+    expect(cleanups).toEqual(["first", "second"]);
+  });
+
+  it("clears renderer globals and is idempotent when destroyed", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
+    let cleanupCount = 0;
+
+    root.render(() => {
+      onCleanup(() => {
+        cleanupCount += 1;
+      });
+      return <text>Mounted</text>;
+    });
+    expect(getRootNode()).not.toBeNull();
+
+    root.destroy();
+    root.destroy();
+
+    expect(cleanupCount).toBe(1);
+    expect(getRootNode()).toBeNull();
+    expect(() => getActiveTuiClock()).toThrow(/active clock/);
   });
 });

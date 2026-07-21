@@ -2,6 +2,24 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status:** Implemented and final-review hardened on 2026-07-22. The packages have not
+been published.
+
+## Final implementation record
+
+- Public byte-facing terminal APIs use `Uint8Array | string`; consuming the declarations
+does not require Node's `Uint8Array | string` type or borrowed monorepo type roots.
+- `pnpm check-types:tui-release` permanently covers protocol, core, host, both renderers,
+  content, charts, style, and both bindings. `verify:tui-packages` and
+  `smoke:tui-packages` invoke it.
+- The packed core fixture remains the low-level memory-surface check. Packed React and Solid
+  fixtures use each binding's public high-level `render()` with injected fake TTY streams and
+  assert ANSI output, listener/raw-mode teardown, synchronous framework cleanup, replacement,
+  and idempotent destruction.
+- The isolated Solid TSX consumer declares only `@uniview/tui-solid` and `solid-js` as direct
+  runtime dependencies. It uses the repository's TypeScript executable only as compiler
+  tooling and does not inject `@types/node`, `typeRoots`, or internal packages.
+
 **Goal:** Make `@uniview/tui-core`, `@uniview/tui-react`, and `@uniview/tui-solid` the only packages required for the TUI npm release, with one-package installation for React or Solid users.
 
 **Architecture:** Keep the framework-neutral terminal engine external as `@uniview/tui-core`. Bundle the host, framework renderer, content, charts, protocol, and style workspace modules into each framework binding's JavaScript and declaration output. Keep React/Solid as peers and keep only third-party imports plus `tui-core` as runtime dependencies.
@@ -55,7 +73,7 @@
 - Consumes: `createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot`.
 - Produces: `render(element: ReactElement, options?: TuiReactRenderOptions): TuiReactApp` and re-exported core surface/lifecycle APIs.
 
-- [ ] **Step 1: Add a failing public-facade test**
+- [x] **Step 1: Add a failing public-facade test**
 
 Create `packages/tui-react/tests/public-api.test.tsx` with injected TTY fakes. Assert that the main entry exports `AnsiCellSurface`, `MemoryCellSurface`, `SvgCellSurface`, `StyleTable`, `TerminalDriver`, `FrameClock`, and `yogaLayoutEngine`. Call the new `render()` with the fakes, await the existing `tick()`, assert ANSI output contains `Hello`, then destroy and assert raw mode changed from `true` to `false`.
 
@@ -79,12 +97,12 @@ import { tick } from "./tick";
 class FakeInput implements TtyInput {
   isTTY = true;
   readonly rawModes: boolean[] = [];
-  private readonly listeners = new Set<(chunk: Buffer) => void>();
+  private readonly listeners = new Set<(chunk: Uint8Array | string) => void>();
   setRawMode(mode: boolean): void { this.rawModes.push(mode); }
   resume(): void {}
   pause(): void {}
-  on(_event: "data", listener: (chunk: Buffer) => void): void { this.listeners.add(listener); }
-  off(_event: "data", listener: (chunk: Buffer) => void): void { this.listeners.delete(listener); }
+  on(_event: "data", listener: (chunk: Uint8Array | string) => void): void { this.listeners.add(listener); }
+  off(_event: "data", listener: (chunk: Uint8Array | string) => void): void { this.listeners.delete(listener); }
 }
 
 class FakeOutput implements TtyOutput {
@@ -116,13 +134,13 @@ describe("public React TUI facade", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify the missing API failure**
+- [x] **Step 2: Run the test and verify the missing API failure**
 
 Run: `pnpm --filter @uniview/tui-react test -- public-api.test.tsx`
 
 Expected: FAIL because the main entry does not export `render` or the core facilities.
 
-- [ ] **Step 3: Add the React facade**
+- [x] **Step 3: Add the React facade**
 
 In `packages/tui-react/src/index.ts`, make `StyleTable`, `AnsiCellSurface`, and
 `TerminalDriver` runtime imports, import the TTY types, and add these public interfaces:
@@ -194,7 +212,7 @@ Re-export the common facilities and all root-option types needed by consumers fr
 `@uniview/tui-core`. Leave `compat.ts` behavior unchanged; its tests protect the legacy
 `createTuiRoot()` entry while the new facade becomes the main-package default.
 
-- [ ] **Step 4: Verify React API and compatibility**
+- [x] **Step 4: Verify React API and compatibility**
 
 Run:
 
@@ -205,7 +223,7 @@ pnpm --filter @uniview/tui-react check-types
 
 Expected: all selected tests and type-check pass.
 
-- [ ] **Step 5: Commit the React facade**
+- [x] **Step 5: Commit the React facade**
 
 ```bash
 git add packages/tui-react/src/index.ts packages/tui-react/tests/public-api.test.tsx
@@ -224,7 +242,7 @@ git commit -m "feat(tui-react): add one-package terminal facade"
 - Consumes: `createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot`.
 - Produces: `render(App: () => unknown, options?: TuiSolidRenderOptions): TuiSolidApp` and the same core re-exports as React.
 
-- [ ] **Step 1: Add the Solid facade test**
+- [x] **Step 1: Add the Solid facade test**
 
 Create `packages/tui-solid/tests/public-api.test.tsx`:
 
@@ -246,12 +264,12 @@ import {
 class FakeInput implements TtyInput {
   isTTY = true;
   readonly rawModes: boolean[] = [];
-  private readonly listeners = new Set<(chunk: Buffer) => void>();
+  private readonly listeners = new Set<(chunk: Uint8Array | string) => void>();
   setRawMode(mode: boolean): void { this.rawModes.push(mode); }
   resume(): void {}
   pause(): void {}
-  on(_event: "data", listener: (chunk: Buffer) => void): void { this.listeners.add(listener); }
-  off(_event: "data", listener: (chunk: Buffer) => void): void { this.listeners.delete(listener); }
+  on(_event: "data", listener: (chunk: Uint8Array | string) => void): void { this.listeners.add(listener); }
+  off(_event: "data", listener: (chunk: Uint8Array | string) => void): void { this.listeners.delete(listener); }
 }
 
 class FakeOutput implements TtyOutput {
@@ -282,13 +300,13 @@ describe("public Solid TUI facade", () => {
 });
 ```
 
-- [ ] **Step 2: Run the Solid test and verify it fails**
+- [x] **Step 2: Run the Solid test and verify it fails**
 
 Run: `pnpm --filter @uniview/tui-solid test -- public-api.test.tsx`
 
 Expected: FAIL because the Solid entry has no high-level `render` or core re-exports.
 
-- [ ] **Step 3: Implement the Solid facade**
+- [x] **Step 3: Implement the Solid facade**
 
 Add these Solid-specific interfaces:
 
@@ -311,7 +329,7 @@ Implement `render(App, options)` with `StyleTable`, `AnsiCellSurface`, and
 a wrapper whose `destroy()` always stops the driver. Re-export the same core facilities and
 consumer-facing types.
 
-- [ ] **Step 4: Verify Solid API and parity**
+- [x] **Step 4: Verify Solid API and parity**
 
 Run:
 
@@ -322,7 +340,7 @@ pnpm --filter @uniview/tui-solid check-types
 
 Expected: all selected tests and type-check pass.
 
-- [ ] **Step 5: Commit the Solid facade**
+- [x] **Step 5: Commit the Solid facade**
 
 ```bash
 git add packages/tui-solid/src/index.ts packages/tui-solid/tests/public-api.test.tsx
@@ -346,7 +364,7 @@ git commit -m "feat(tui-solid): add one-package terminal facade"
 - Consumes: tsdown 0.22.2 `deps.alwaysBundle` and `deps.dts.alwaysBundle`.
 - Produces: binding artifacts whose only allowed external `@uniview/*` import is `@uniview/tui-core`.
 
-- [ ] **Step 1: Write the artifact verifier**
+- [x] **Step 1: Write the artifact verifier**
 
 Create `scripts/verify-tui-package-boundaries.mjs`. Recursively read `.mjs`, `.js`, `.d.mts`,
 and `.d.ts` files under both binding `dist` directories. Extract package specifiers from
@@ -414,13 +432,13 @@ for (const binding of bindings) {
 console.log("TUI package boundaries verified");
 ```
 
-- [ ] **Step 2: Prove the current build violates the boundary**
+- [x] **Step 2: Prove the current build violates the boundary**
 
 Run: `node scripts/verify-tui-package-boundaries.mjs`
 
 Expected: FAIL on imports such as `@uniview/host-tui` or `@uniview/react-renderer`.
 
-- [ ] **Step 3: Configure tsdown bundling**
+- [x] **Step 3: Configure tsdown bundling**
 
 In the React config, define an array matching `host-tui`, `react-renderer`, `tui-content`,
 `tui-charts`, `protocol`, and `style`; pass it to both `deps.alwaysBundle` and
@@ -442,7 +460,7 @@ deps: {
 },
 ```
 
-- [ ] **Step 4: Correct the binding manifests**
+- [x] **Step 4: Correct the binding manifests**
 
 For React, keep `@uniview/tui-core`, `react-reconciler`, `marked`, and `lowlight` in
 `dependencies`; keep React as peer+dev; move the six bundled workspace packages to
@@ -454,7 +472,7 @@ peer+dev; move its six bundled workspace packages to `devDependencies`. Retain R
 
 Run `pnpm install --lockfile-only` to update importers without changing versions.
 
-- [ ] **Step 5: Build and verify the emitted boundary**
+- [x] **Step 5: Build and verify the emitted boundary**
 
 Run:
 
@@ -467,7 +485,7 @@ node scripts/verify-tui-package-boundaries.mjs
 
 Expected: all builds pass and the verifier prints `TUI package boundaries verified`.
 
-- [ ] **Step 6: Expose the verifier as a root command**
+- [x] **Step 6: Expose the verifier as a root command**
 
 Add:
 
@@ -475,7 +493,7 @@ Add:
 "verify:tui-packages": "pnpm --filter @uniview/tui-core build && pnpm --filter @uniview/tui-react build && pnpm --filter @uniview/tui-solid build && node scripts/verify-tui-package-boundaries.mjs"
 ```
 
-- [ ] **Step 7: Commit the bundle boundary**
+- [x] **Step 7: Commit the bundle boundary**
 
 ```bash
 git add package.json pnpm-lock.yaml scripts/verify-tui-package-boundaries.mjs packages/tui-react/package.json packages/tui-react/tsdown.config.ts packages/tui-solid/package.json packages/tui-solid/tsdown.config.ts
@@ -498,7 +516,7 @@ git commit -m "build(tui): bundle internal package implementation"
 - Consumes: public APIs from Tasks 1–2.
 - Produces: complete npm package pages with one-binding installation instructions.
 
-- [ ] **Step 1: Add package metadata**
+- [x] **Step 1: Add package metadata**
 
 Add Node `>=18`, repository URL `git+https://github.com/HuakunShen/uniview.git`, and the
 correct package directory to all three manifests. Preserve MIT, public access, exports, types,
@@ -515,7 +533,7 @@ and `files: ["dist"]`.
 
 Use the matching directory for core and Solid.
 
-- [ ] **Step 2: Rewrite npm-facing installation examples**
+- [x] **Step 2: Rewrite npm-facing installation examples**
 
 React README installs only `@uniview/tui-react react`; Solid README installs only
 `@uniview/tui-solid solid-js`. Their first examples import `render`, components, and common
@@ -525,7 +543,7 @@ core exports only from the binding. Add an Advanced section that installs/import
 Correct the core README's inaccurate “dependency-free” wording to “framework-neutral”; its
 manifest intentionally depends on terminal-width and Yoga packages.
 
-- [ ] **Step 3: Validate manifests and READMEs**
+- [x] **Step 3: Validate manifests and READMEs**
 
 Run:
 
@@ -538,7 +556,7 @@ git diff --check
 
 Expected: all checks pass and no whitespace errors appear.
 
-- [ ] **Step 4: Commit package metadata/docs**
+- [x] **Step 4: Commit package metadata/docs**
 
 ```bash
 git add packages/tui-core/package.json packages/tui-core/README.md packages/tui-react/package.json packages/tui-react/README.md packages/tui-solid/package.json packages/tui-solid/README.md
@@ -562,7 +580,7 @@ git commit -m "docs(tui): prepare public npm package pages"
 - Consumes: installation and public exports established in Tasks 1–4.
 - Produces: public documentation that mentions only the three supported TUI packages as consumer dependencies.
 
-- [ ] **Step 1: Update Getting Started**
+- [x] **Step 1: Update Getting Started**
 
 Change install commands to one binding plus its framework. Make the first React and Solid
 examples use their binding's `render()` and re-exported primitives. Keep low-level
@@ -570,7 +588,7 @@ examples use their binding's `render()` and re-exported primitives. Keep low-lev
 but import common core facilities from the binding unless the section explicitly teaches
 direct core usage.
 
-- [ ] **Step 2: Remove stale implementation-package guidance**
+- [x] **Step 2: Remove stale implementation-package guidance**
 
 Replace `docs/content/docs/guides/terminal-ui.mdx`'s old `@uniview/tui-renderer` guide with a
 short current overview linking to `/docs/tui/getting-started` and using
@@ -584,7 +602,7 @@ Change `build-a-monitor.mdx` imports so its public tutorial obtains core facilit
 `@uniview/tui-react`. Update the package table in `docs/content/docs/index.mdx` and the root
 README to list core, React, and Solid instead of the legacy renderer.
 
-- [ ] **Step 3: Scan for invalid public package references**
+- [x] **Step 3: Scan for invalid public package references**
 
 Run:
 
@@ -595,7 +613,7 @@ rg -n '@uniview/(tui-renderer|host-tui|tui-content|tui-charts|react-renderer|sol
 Expected: no installation/import examples use these packages. Architecture prose may mention
 an implementation module only when it explicitly labels it internal.
 
-- [ ] **Step 4: Validate Fumadocs content**
+- [x] **Step 4: Validate Fumadocs content**
 
 Run:
 
@@ -606,7 +624,7 @@ pnpm --filter docs build
 
 Expected: MDX generation, TypeScript checking, and the static docs build pass.
 
-- [ ] **Step 5: Commit public documentation**
+- [x] **Step 5: Commit public documentation**
 
 ```bash
 git add README.md docs/content/docs
@@ -625,139 +643,22 @@ git commit -m "docs(tui): document three-package npm release"
 - Consumes: built public package artifacts and local pnpm store.
 - Produces: repeatable proof that packed manifests and clean-project resolution work.
 
-- [ ] **Step 1: Create the tarball smoke script**
+- [x] **Step 1: Create the tarball smoke script**
 
-Create `scripts/smoke-tui-tarballs.mjs`:
+Create `scripts/smoke-tui-tarballs.mjs` so it:
 
-```js
-import assert from "node:assert/strict"
-import { mkdtemp, mkdir, readdir, realpath, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { dirname, join, resolve } from "node:path"
-import { spawnSync } from "node:child_process"
-import { fileURLToPath } from "node:url"
+- packs exactly core, React, and Solid and validates their packed manifests and exports;
+- keeps a low-level core-only memory-surface fixture;
+- installs React with only the packed binding plus React as direct runtime dependencies, then
+  exercises the public high-level `render()` through an injected fake TTY;
+- installs Solid with only the packed binding plus `solid-js` as direct runtime dependencies,
+  then exercises public `render()`, replacement, cleanup, and the public compiler subpaths;
+- asserts ANSI output, raw mode, data/resize listener registration and removal, synchronous
+  framework cleanup, and idempotent destruction;
+- type-checks an isolated Solid TSX consumer without internal packages, borrowed
+  `@types/node`, `typeRoots`, or a `types` injection.
 
-const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const publicPackages = {
-  core: join(repo, "packages/tui-core"),
-  react: join(repo, "packages/tui-react"),
-  solid: join(repo, "packages/tui-solid"),
-}
-
-function run(command, args, cwd) {
-  const result = spawnSync(command, args, {
-    cwd,
-    encoding: "utf8",
-    env: { ...process.env, CI: "1" },
-  })
-  if (result.status !== 0) {
-    throw new Error([`$ ${command} ${args.join(" ")}`, result.stdout, result.stderr]
-      .filter(Boolean).join("\n"))
-  }
-  return result.stdout.trim()
-}
-
-async function packedManifest(tarball) {
-  return JSON.parse(run("tar", ["-xOf", tarball, "package/package.json"], repo))
-}
-
-async function createProject(directory, dependencies, source) {
-  await mkdir(directory, { recursive: true })
-  await writeFile(join(directory, "package.json"), JSON.stringify({
-    private: true,
-    type: "module",
-    dependencies,
-  }, null, 2) + "\n")
-  await writeFile(join(directory, "smoke.mjs"), source)
-  run("pnpm", ["install", "--offline", "--ignore-scripts"], directory)
-  run("node", ["smoke.mjs"], directory)
-}
-
-const temporaryRoot = await mkdtemp(join(tmpdir(), "uniview-tui-release-"))
-try {
-  const tarballDirectory = join(temporaryRoot, "tarballs")
-  await mkdir(tarballDirectory)
-  for (const packageDirectory of Object.values(publicPackages)) {
-    run("pnpm", ["pack", "--pack-destination", tarballDirectory], packageDirectory)
-  }
-
-  const names = await readdir(tarballDirectory)
-  const tarballNamed = (prefix) => {
-    const name = names.find((candidate) => candidate.startsWith(prefix))
-    assert.ok(name, `missing tarball: ${prefix}`)
-    return join(tarballDirectory, name)
-  }
-  const tarballs = {
-    core: tarballNamed("uniview-tui-core-"),
-    react: tarballNamed("uniview-tui-react-"),
-    solid: tarballNamed("uniview-tui-solid-"),
-  }
-  for (const tarball of Object.values(tarballs)) assert.ok(tarball.endsWith(".tgz"))
-
-  const coreManifest = await packedManifest(tarballs.core)
-  const reactManifest = await packedManifest(tarballs.react)
-  const solidManifest = await packedManifest(tarballs.solid)
-  assert.equal(reactManifest.version, coreManifest.version)
-  assert.equal(solidManifest.version, coreManifest.version)
-  assert.equal(reactManifest.dependencies["@uniview/tui-core"], coreManifest.version)
-  assert.equal(solidManifest.dependencies["@uniview/tui-core"], coreManifest.version)
-  assert.ok(reactManifest.peerDependencies.react)
-  assert.ok(solidManifest.peerDependencies["solid-js"])
-
-  const localReact = await realpath(join(repo, "packages/tui-react/node_modules/react"))
-  const localSolid = await realpath(join(repo, "packages/tui-solid/node_modules/solid-js"))
-  await createProject(join(temporaryRoot, "core"), {
-    "@uniview/tui-core": `file:${tarballs.core}`,
-  }, `
-import assert from "node:assert/strict"
-import { MemoryCellSurface, StyleTable, stringCellWidth } from "@uniview/tui-core"
-const styles = new StyleTable()
-const surface = new MemoryCellSurface({ styles })
-assert.ok(surface)
-assert.equal(stringCellWidth("界"), 2)
-`)
-
-  await createProject(join(temporaryRoot, "react"), {
-    "@uniview/tui-core": `file:${tarballs.core}`,
-    "@uniview/tui-react": `file:${tarballs.react}`,
-    react: `file:${localReact}`,
-  }, `
-import assert from "node:assert/strict"
-import { createElement } from "react"
-import { createTuiReactRoot, MemoryCellSurface, StyleTable, Text } from "@uniview/tui-react"
-const styles = new StyleTable()
-const surface = new MemoryCellSurface({ styles })
-const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 2 } })
-root.render(createElement(Text, null, "Hello React"))
-await new Promise((resolve) => setImmediate(resolve))
-await new Promise((resolve) => setImmediate(resolve))
-assert.match(surface.text({ trimRight: true }), /Hello React/)
-root.destroy()
-`)
-
-  await createProject(join(temporaryRoot, "solid"), {
-    "@uniview/tui-core": `file:${tarballs.core}`,
-    "@uniview/tui-solid": `file:${tarballs.solid}`,
-    "solid-js": `file:${localSolid}`,
-  }, `
-import assert from "node:assert/strict"
-import { createComponent } from "solid-js"
-import { createTuiSolidRoot, MemoryCellSurface, StyleTable, Text } from "@uniview/tui-solid"
-const styles = new StyleTable()
-const surface = new MemoryCellSurface({ styles })
-const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 2 } })
-root.render(() => createComponent(Text, { children: "Hello Solid" }))
-assert.match(surface.text({ trimRight: true }), /Hello Solid/)
-root.destroy()
-`)
-
-  console.log("TUI tarball smoke tests passed")
-} finally {
-  await rm(temporaryRoot, { recursive: true, force: true })
-}
-```
-
-- [ ] **Step 2: Expose the smoke command**
+- [x] **Step 2: Expose the smoke command**
 
 Add the smoke command and an explicit three-package publish allowlist:
 
@@ -769,14 +670,14 @@ Add the smoke command and an explicit three-package publish allowlist:
 The implementation and verification work must not execute `publish:tui`; it exists for the
 later user-authorized registry release and prevents a broad workspace publish.
 
-- [ ] **Step 3: Run the isolated smoke suite**
+- [x] **Step 3: Run the isolated smoke suite**
 
 Run: `pnpm smoke:tui-packages`
 
 Expected: builds succeed, boundary verification succeeds, all offline installs succeed, and
 the script prints `TUI tarball smoke tests passed`.
 
-- [ ] **Step 4: Commit release smoke automation**
+- [x] **Step 4: Commit release smoke automation**
 
 ```bash
 git add package.json scripts/smoke-tui-tarballs.mjs
@@ -794,7 +695,7 @@ git commit -m "test(tui): verify packed npm artifacts"
 - Consumes: all preceding deliverables.
 - Produces: evidence that the three tarballs are release candidates; does not publish them.
 
-- [ ] **Step 1: Run targeted package tests**
+- [x] **Step 1: Run targeted package tests**
 
 ```bash
 pnpm --filter @uniview/tui-core test
@@ -804,18 +705,17 @@ pnpm --filter @uniview/tui-solid test
 
 Expected: all tests pass, including React/Solid parity suites.
 
-- [ ] **Step 2: Run type and build checks**
+- [x] **Step 2: Run type and build checks**
 
 ```bash
-pnpm --filter @uniview/tui-core check-types
-pnpm --filter @uniview/tui-react check-types
-pnpm --filter @uniview/tui-solid check-types
+pnpm check-types:tui-release
 pnpm verify:tui-packages
 ```
 
-Expected: all commands pass.
+Expected: all commands pass. The release type-check command covers protocol, core, host,
+React/Solid renderers, content, charts, style, and both public bindings.
 
-- [ ] **Step 3: Run docs and tarball checks**
+- [x] **Step 3: Run docs and tarball checks**
 
 ```bash
 pnpm --filter docs types:check
@@ -825,7 +725,7 @@ pnpm smoke:tui-packages
 
 Expected: all commands pass.
 
-- [ ] **Step 4: Inspect repository scope**
+- [x] **Step 4: Inspect repository scope**
 
 ```bash
 git diff --check

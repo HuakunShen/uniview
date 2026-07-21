@@ -287,16 +287,17 @@ async function packedManifest(tarball) {
 async function createProject({
   directory,
   dependencies,
+  expectedDirectDependencies,
   coreTarball,
   offlineOverrides,
   source,
   typeScriptFixture,
 }) {
   await mkdir(directory, { recursive: true });
-  assert.equal(
-    Object.keys(dependencies).length,
-    directory.endsWith("core") ? 1 : 2,
-    `${directory}: unexpected direct dependency count`,
+  assert.deepEqual(
+    Object.keys(dependencies).sort(),
+    [...expectedDirectDependencies].sort(),
+    `${directory}: unexpected direct runtime dependencies`,
   );
   await writeJson(join(directory, "package.json"), {
     private: true,
@@ -329,6 +330,12 @@ async function createProject({
       "--no-frozen-lockfile",
     ],
     directory,
+  );
+  const fixtureManifest = await readJson(join(directory, "package.json"));
+  assert.deepEqual(
+    Object.keys(fixtureManifest.dependencies ?? {}).sort(),
+    [...expectedDirectDependencies].sort(),
+    `${directory}: install fixture gained a direct runtime dependency`,
   );
   run(process.execPath, ["smoke.mjs"], directory);
   if (typeScriptFixture) {
@@ -437,9 +444,6 @@ try {
   const localSolid = await realpath(
     join(repo, "packages/tui-solid/node_modules/solid-js"),
   );
-  const localNodeTypesRoot = dirname(
-    await realpath(join(repo, "packages/tui-solid/node_modules/@types/node")),
-  );
   const coreOfflineOverrides = await collectOfflineOverrides([
     publicPackages.core.directory,
   ]);
@@ -460,6 +464,7 @@ try {
     dependencies: {
       "@uniview/tui-core": `file:${packs.core.filename}`,
     },
+    expectedDirectDependencies: ["@uniview/tui-core"],
     coreTarball: packs.core.filename,
     offlineOverrides: coreOfflineOverrides,
     source: `
@@ -479,20 +484,68 @@ assert.equal(stringCellWidth("界"), 2)
       "@uniview/tui-react": `file:${packs.react.filename}`,
       react: `file:${localReact}`,
     },
+    expectedDirectDependencies: ["@uniview/tui-react", "react"],
     coreTarball: packs.core.filename,
     offlineOverrides: reactOfflineOverrides,
     source: `
 import assert from "node:assert/strict"
-import { createElement } from "react"
-import { createTuiReactRoot, MemoryCellSurface, StyleTable, Text } from "@uniview/tui-react"
-const styles = new StyleTable()
-const surface = new MemoryCellSurface({ styles })
-const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 2 } })
-root.render(createElement(Text, null, "Hello React"))
+import { createElement, useEffect } from "react"
+import { Text, render } from "@uniview/tui-react"
+
+class FakeInput {
+  isTTY = true
+  rawModes = []
+  dataListeners = new Set()
+  setRawMode(mode) { this.rawModes.push(mode) }
+  resume() {}
+  pause() {}
+  on(event, listener) {
+    assert.equal(event, "data")
+    this.dataListeners.add(listener)
+  }
+  off(event, listener) {
+    assert.equal(event, "data")
+    this.dataListeners.delete(listener)
+  }
+}
+class FakeOutput {
+  columns = 20
+  rows = 2
+  chunks = []
+  resizeListeners = new Set()
+  write(chunk) { this.chunks.push(chunk) }
+  on(event, listener) {
+    assert.equal(event, "resize")
+    this.resizeListeners.add(listener)
+  }
+  off(event, listener) {
+    assert.equal(event, "resize")
+    this.resizeListeners.delete(listener)
+  }
+}
+
+const input = new FakeInput()
+const output = new FakeOutput()
+let cleanupCount = 0
+function App() {
+  useEffect(() => () => { cleanupCount += 1 }, [])
+  return createElement(Text, null, "Hello React")
+}
+const app = render(createElement(App), { input, output })
 await new Promise((resolve) => setImmediate(resolve))
 await new Promise((resolve) => setImmediate(resolve))
-assert.match(surface.text({ trimRight: true }), /Hello React/)
-root.destroy()
+assert.match(output.chunks.join(""), /Hello React/)
+assert.deepEqual(input.rawModes, [true])
+assert.equal(input.dataListeners.size, 1)
+assert.equal(output.resizeListeners.size, 1)
+app.destroy()
+assert.equal(cleanupCount, 1)
+assert.deepEqual(input.rawModes, [true, false])
+assert.equal(input.dataListeners.size, 0)
+assert.equal(output.resizeListeners.size, 0)
+app.destroy()
+assert.equal(cleanupCount, 1)
+assert.deepEqual(input.rawModes, [true, false])
 `,
   });
 
@@ -503,12 +556,13 @@ root.destroy()
       "@uniview/tui-solid": `file:${packs.solid.filename}`,
       "solid-js": `file:${localSolid}`,
     },
+    expectedDirectDependencies: ["@uniview/tui-solid", "solid-js"],
     coreTarball: packs.core.filename,
     offlineOverrides: solidOfflineOverrides,
     source: `
 import assert from "node:assert/strict"
-import { createComponent } from "solid-js"
-import { createTuiSolidRoot, MemoryCellSurface, StyleTable, Text } from "@uniview/tui-solid"
+import { createComponent, onCleanup } from "solid-js"
+import { Text, render } from "@uniview/tui-solid"
 import * as renderer from "@uniview/tui-solid/renderer"
 import "@uniview/tui-solid/jsx-runtime"
 import { univiewSolid } from "@uniview/tui-solid/vite"
@@ -522,12 +576,64 @@ assert.ok(transformed)
 assert.match(transformed.code, /@uniview\\/tui-solid\\/renderer/)
 assert.doesNotMatch(transformed.code, /@uniview\\/(?!tui-solid\\/renderer)/)
 
-const styles = new StyleTable()
-const surface = new MemoryCellSurface({ styles })
-const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 2 } })
-root.render(() => createComponent(Text, { children: "Hello Solid" }))
-assert.match(surface.text({ trimRight: true }), /Hello Solid/)
-root.destroy()
+class FakeInput {
+  isTTY = true
+  rawModes = []
+  dataListeners = new Set()
+  setRawMode(mode) { this.rawModes.push(mode) }
+  resume() {}
+  pause() {}
+  on(event, listener) {
+    assert.equal(event, "data")
+    this.dataListeners.add(listener)
+  }
+  off(event, listener) {
+    assert.equal(event, "data")
+    this.dataListeners.delete(listener)
+  }
+}
+class FakeOutput {
+  columns = 20
+  rows = 2
+  chunks = []
+  resizeListeners = new Set()
+  write(chunk) { this.chunks.push(chunk) }
+  on(event, listener) {
+    assert.equal(event, "resize")
+    this.resizeListeners.add(listener)
+  }
+  off(event, listener) {
+    assert.equal(event, "resize")
+    this.resizeListeners.delete(listener)
+  }
+}
+
+const input = new FakeInput()
+const output = new FakeOutput()
+let firstCleanup = 0
+let secondCleanup = 0
+const app = render(() => {
+  onCleanup(() => { firstCleanup += 1 })
+  return createComponent(Text, { children: "Hello Solid" })
+}, { input, output })
+assert.match(output.chunks.join(""), /Hello Solid/)
+assert.deepEqual(input.rawModes, [true])
+assert.equal(input.dataListeners.size, 1)
+assert.equal(output.resizeListeners.size, 1)
+app.render(() => {
+  onCleanup(() => { secondCleanup += 1 })
+  return createComponent(Text, { children: "Solid replacement" })
+})
+assert.equal(firstCleanup, 1)
+assert.match(output.chunks.join(""), /replacement/)
+app.destroy()
+assert.equal(secondCleanup, 1)
+assert.deepEqual(input.rawModes, [true, false])
+assert.equal(input.dataListeners.size, 0)
+assert.equal(output.resizeListeners.size, 0)
+app.destroy()
+assert.equal(secondCleanup, 1)
+assert.deepEqual(input.rawModes, [true, false])
 `,
     typeScriptFixture: {
       source: `
@@ -557,8 +663,6 @@ void plugin
           noEmit: true,
           strict: true,
           target: "ES2022",
-          typeRoots: [localNodeTypesRoot],
-          types: ["node"],
         },
         include: ["smoke.tsx"],
       },

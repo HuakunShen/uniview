@@ -1,5 +1,4 @@
 import "./jsx-runtime";
-import { createRoot } from "solid-js";
 import {
   createComponent,
   HandlerRegistry,
@@ -8,6 +7,8 @@ import {
   resetIdCounter,
   serializeTree,
   setRootNode,
+  setMutationCollector,
+  setMutationUpdateCallback,
   setUpdateCallback,
   type SolidNode,
 } from "@uniview/solid-renderer";
@@ -254,12 +255,25 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
   setUpdateCallback(sync);
 
   let dispose: (() => void) | null = null;
+  let destroyed = false;
+
+  const disposeMount = (): void => {
+    const activeDispose = dispose;
+    dispose = null;
+    activeDispose?.();
+    registry.clear();
+    setRootNode(null);
+  };
 
   return {
     host,
     clock,
 
     render(App: () => unknown): void {
+      if (destroyed) {
+        throw new Error("Cannot render into a destroyed TUI Solid root");
+      }
+      disposeMount();
       resetIdCounter();
       const container: SolidNode = {
         _type: "element",
@@ -270,8 +284,8 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
         parent: null,
       };
       setRootNode(container);
-      dispose = createRoot((disposeRoot) => {
-        solidRender(
+      try {
+        dispose = solidRender(
           () =>
             createComponent(TuiRuntimeContext.Provider, {
               value: router,
@@ -281,8 +295,12 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
             }) as SolidNode,
           container,
         );
-        return disposeRoot;
-      });
+      } catch (error) {
+        disposeMount();
+        host.setRoot(null);
+        router.onRender();
+        throw error;
+      }
       sync();
     },
 
@@ -291,9 +309,12 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     },
 
     destroy(): void {
-      dispose?.();
-      dispose = null;
-      setUpdateCallback(() => {});
+      if (destroyed) return;
+      destroyed = true;
+      disposeMount();
+      setUpdateCallback(null);
+      setMutationUpdateCallback(null);
+      setMutationCollector(null);
       setActiveTuiClock(null);
       host.destroy();
     },

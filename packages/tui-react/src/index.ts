@@ -227,12 +227,16 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
   } else {
     unsubscribe = handle.subscribe(syncFull);
   }
+  let destroyed = false;
 
   return {
     host,
     clock,
 
     render(element: ReactElement): void {
+      if (destroyed) {
+        throw new Error("Cannot render into a destroyed TUI React root");
+      }
       // React (ConcurrentRoot) commits asynchronously; `sync` runs from the
       // bridge subscription on every commit, painting each frame. The Providers
       // render no host node, so `serializeTree(rootInstance)` is unchanged.
@@ -251,8 +255,11 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     },
 
     destroy(): void {
+      if (destroyed) return;
+      destroyed = true;
       unsubscribe();
       unmount(handle);
+      registry.clear();
       host.destroy();
     },
   };

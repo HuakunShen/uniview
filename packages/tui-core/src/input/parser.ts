@@ -214,7 +214,7 @@ export class InputParser {
   private readonly events: TuiInputEvent[] = [];
 
   /** Feed a chunk of input; emitted events accumulate for {@link takeEvents}. */
-  push(chunk: Buffer | string): void {
+  push(chunk: Uint8Array | string): void {
     this.pending += typeof chunk === "string" ? chunk : this.decoder.write(chunk);
     this.drain();
   }

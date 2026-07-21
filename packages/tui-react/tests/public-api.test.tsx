@@ -1,4 +1,4 @@
-import { createElement as h } from "react";
+import { createElement as h, useEffect } from "react";
 import { describe, expect, it } from "vitest";
 import type { TtyInput, TtyOutput } from "@uniview/tui-core";
 import {
@@ -18,7 +18,7 @@ import { tick } from "./tick";
 class FakeInput implements TtyInput {
   isTTY = true;
   readonly rawModes: boolean[] = [];
-  private readonly listeners = new Set<(chunk: Buffer) => void>();
+  readonly listeners = new Set<(chunk: Uint8Array | string) => void>();
 
   setRawMode(mode: boolean): void {
     this.rawModes.push(mode);
@@ -27,11 +27,11 @@ class FakeInput implements TtyInput {
   resume(): void {}
   pause(): void {}
 
-  on(_event: "data", listener: (chunk: Buffer) => void): void {
+  on(_event: "data", listener: (chunk: Uint8Array | string) => void): void {
     this.listeners.add(listener);
   }
 
-  off(_event: "data", listener: (chunk: Buffer) => void): void {
+  off(_event: "data", listener: (chunk: Uint8Array | string) => void): void {
     this.listeners.delete(listener);
   }
 }
@@ -40,7 +40,7 @@ class FakeOutput implements TtyOutput {
   columns = 20;
   rows = 3;
   readonly chunks: string[] = [];
-  private readonly listeners = new Set<() => void>();
+  readonly listeners = new Set<() => void>();
 
   write(chunk: string): void {
     this.chunks.push(chunk);
@@ -78,6 +78,36 @@ describe("public React TUI facade", () => {
     expect(output.chunks.join("")).toContain("Hello");
     expect(input.rawModes).toEqual([true]);
     app.destroy();
+    expect(input.rawModes).toEqual([true, false]);
+  });
+
+  it("finishes passive-effect cleanup before destroy returns", async () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    let mounted = false;
+    let cleanupCount = 0;
+
+    function EffectfulApp() {
+      useEffect(() => {
+        mounted = true;
+        return () => {
+          cleanupCount += 1;
+        };
+      }, []);
+      return h(Text, null, "Effectful");
+    }
+
+    const app = render(h(EffectfulApp), { input, output });
+    await tick();
+    expect(mounted).toBe(true);
+
+    app.destroy();
+    expect(cleanupCount).toBe(1);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    app.destroy();
+    expect(cleanupCount).toBe(1);
     expect(input.rawModes).toEqual([true, false]);
   });
 });

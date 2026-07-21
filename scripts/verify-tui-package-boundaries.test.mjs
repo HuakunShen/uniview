@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   extractModuleSpecifiers,
   validateManifest,
+  validatePortableCoreDeclaration,
   validateSource,
 } from "./verify-tui-package-boundaries.mjs";
 
@@ -37,6 +38,44 @@ test("extracts multiline static, side-effect, re-export, and dynamic imports", (
     "declared-dynamic-attributes",
     "declared-import-equals",
   ]);
+});
+
+test("extracts literal CommonJS and triple-slash type dependencies", () => {
+  const source = `
+    /// <reference types="declared-reference-types" />
+    const loaded = require("declared-require");
+    const resolved = require.resolve("declared-require-resolve");
+  `;
+
+  assert.deepEqual(extractModuleSpecifiers(source, "fixture.d.ts"), [
+    "declared-reference-types",
+    "declared-require",
+    "declared-require-resolve",
+  ]);
+});
+
+test("rejects forbidden packages referenced through require.resolve", () => {
+  assert.throws(
+    () =>
+      validateSource({
+        file: "fixture.mjs",
+        source: `require.resolve("@uniview/hidden")`,
+        declaredRuntime: new Set(["@uniview/hidden"]),
+      }),
+    /fixture\.mjs: @uniview\/hidden/,
+  );
+});
+
+test("rejects undeclared triple-slash type dependencies", () => {
+  assert.throws(
+    () =>
+      validateSource({
+        file: "fixture.d.ts",
+        source: `/// <reference types="undeclared-types" />`,
+        declaredRuntime: new Set(),
+      }),
+    /fixture\.d\.ts: undeclared runtime import undeclared-types/,
+  );
 });
 
 test("rejects a forbidden internal package hidden in a multiline import", () => {
@@ -132,5 +171,16 @@ test("rejects React peer-range drift below the reconciler requirement", () => {
         },
       ),
     /packages\/tui-react: react peer must be exactly \^19\.2\.0/,
+  );
+});
+
+test("rejects Node Buffer leakage from core declarations", () => {
+  assert.throws(
+    () =>
+      validatePortableCoreDeclaration({
+        file: "index.d.mts",
+        source: `interface Input { push(chunk: Buffer | string): void }`,
+      }),
+    /index\.d\.mts: public declaration leaks Node Buffer/,
   );
 });

@@ -14,7 +14,10 @@ export interface UniviewSolidVitePlugin {
     code: string,
     id: string,
   ): Promise<UniviewSolidTransformResult | null>;
-  config(): {
+  config(
+    config: Record<string, unknown>,
+    environment: { command: "build" | "serve"; mode: string },
+  ): {
     resolve: { conditions: string[] };
     ssr: { noExternal: string[] };
   };
@@ -49,10 +52,11 @@ export function univiewSolid(): UniviewSolidVitePlugin {
       if (!result?.code) return null;
       return { code: result.code, map: result.map };
     },
-    config() {
+    config(_config, _environment) {
       return {
         resolve: {
-          conditions: ["development", "browser"],
+          // Vite supplies the mode-specific development/production condition.
+          conditions: ["browser"],
         },
         ssr: {
           noExternal: [

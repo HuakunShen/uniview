@@ -1,7 +1,7 @@
 # TUI npm Package Boundaries — Design Spec
 
 **Date:** 2026-07-22
-**Status:** Approved direction — awaiting written-spec review
+**Status:** Implemented and final-review hardened — not published
 
 ## 1. Goal
 

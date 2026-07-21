@@ -9,9 +9,8 @@ import { describe, expect, test } from "vitest";
 import { createRenderer, render, unmount } from "../src";
 import { flush } from "./flush";
 
-
 describe("unmount", () => {
-  test("runs effect cleanups and clears the tree", async () => {
+  test("runs effect cleanups and clears the tree synchronously", async () => {
     let mounted = 0;
     let cleaned = 0;
     function App() {
@@ -31,7 +30,6 @@ describe("unmount", () => {
     expect(renderer.rootInstance).not.toBeNull();
 
     unmount(renderer);
-    await flush();
     expect(cleaned).toBe(1);
     expect(renderer.rootInstance).toBeNull();
   });

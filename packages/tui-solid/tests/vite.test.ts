@@ -12,4 +12,13 @@ describe("univiewSolid", () => {
     expect(output?.code).toContain('from "@uniview/tui-solid/renderer"');
     expect(output?.code).not.toContain("@uniview/solid-renderer");
   });
+
+  it("does not force development resolution in production builds", () => {
+    const plugin = univiewSolid();
+    const config = plugin.config({}, { command: "build", mode: "production" });
+
+    expect(config.resolve.conditions).toEqual(["browser"]);
+    expect(config.resolve.conditions).not.toContain("development");
+    expect(config.resolve.conditions).not.toContain("production");
+  });
 });
