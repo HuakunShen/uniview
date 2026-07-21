@@ -18,5 +18,10 @@
   },
   "devDependencies": {
     "playwright-chromium": "^1.61.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "zod": "4.4.3"
+    }
   }
 }

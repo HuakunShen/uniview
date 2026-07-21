@@ -31,7 +31,7 @@
     "react-reconciler": "catalog:"
   },
   "peerDependencies": {
-    "react": "^19.0.0"
+    "react": "^19.2.0"
   },
   "optionalDependencies": {
     "react-devtools-core": "^7.0.1"

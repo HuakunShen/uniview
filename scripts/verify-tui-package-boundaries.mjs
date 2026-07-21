@@ -1,18 +1,17 @@
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const bindings = [
-  { dir: "packages/tui-react", peer: "react" },
-  { dir: "packages/tui-solid", peer: "solid-js" },
+  { dir: "packages/tui-react", peer: "react", peerRange: "^19.2.0" },
+  { dir: "packages/tui-solid", peer: "solid-js", peerRange: "^1.9.0" },
 ];
 const allowedUniview = new Set(["@uniview/tui-core"]);
 const sourceExtensions = new Set([".mjs", ".js", ".mts", ".ts"]);
 const bundledZodPattern = /node_modules\/\.pnpm\/zod@|vendor:\s*["']zod["']/;
-const importPattern =
-  /(?:^\s*import\s*["']|(?:^|[;\n])\s*(?:import|export)\b[^;\n]*?\bfrom\s*["']|\bimport\s*\(\s*["'])(@?[^"']+)["']/gm;
 
 async function filesBelow(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -31,7 +30,77 @@ function packageName(specifier) {
     : specifier.split("/")[0];
 }
 
-for (const binding of bindings) {
+export function extractModuleSpecifiers(source, file = "artifact.mjs") {
+  const sourceFile = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const specifiers = [];
+
+  function visit(node) {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteralLike(node.moduleSpecifier)
+    ) {
+      specifiers.push(node.moduleSpecifier.text);
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length >= 1 &&
+      ts.isStringLiteralLike(node.arguments[0])
+    ) {
+      specifiers.push(node.arguments[0].text);
+    } else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      node.moduleReference.expression &&
+      ts.isStringLiteralLike(node.moduleReference.expression)
+    ) {
+      specifiers.push(node.moduleReference.expression.text);
+    }
+    ts.forEachChild(node, visit);
+  }
+
+  visit(sourceFile);
+  return specifiers;
+}
+
+export function validateSource({ file, source, declaredRuntime }) {
+  assert.ok(
+    !bundledZodPattern.test(source),
+    `${file}: bundled zod implementation`,
+  );
+  for (const specifier of extractModuleSpecifiers(source, file)) {
+    if (specifier.startsWith(".") || specifier.startsWith("node:")) continue;
+    const name = packageName(specifier);
+    if (name.startsWith("@uniview/")) {
+      assert.ok(allowedUniview.has(name), `${file}: ${name}`);
+    }
+    assert.notEqual(name, "zod", `${file}: zod must not be imported`);
+    assert.ok(
+      declaredRuntime.has(name),
+      `${file}: undeclared runtime import ${name}`,
+    );
+  }
+}
+
+export function validateManifest(binding, manifest) {
+  const internalRuntime = Object.keys(manifest.dependencies ?? {}).filter(
+    (name) => name.startsWith("@uniview/"),
+  );
+  assert.deepEqual(internalRuntime, ["@uniview/tui-core"]);
+  assert.equal(
+    manifest.peerDependencies?.[binding.peer],
+    binding.peerRange,
+    `${binding.dir}: ${binding.peer} peer must be exactly ${binding.peerRange}`,
+  );
+  assert.ok(!manifest.inlinedDependencies?.zod, `${binding.dir}: inlined zod`);
+}
+
+async function verifyBinding(binding) {
   const packageDir = join(root, binding.dir);
   const manifest = JSON.parse(
     await readFile(join(packageDir, "package.json"), "utf8"),
@@ -47,31 +116,20 @@ for (const binding of bindings) {
       continue;
     }
     const source = await readFile(file, "utf8");
-    assert.ok(
-      !bundledZodPattern.test(source),
-      `${file}: bundled zod implementation`,
-    );
-    for (const match of source.matchAll(importPattern)) {
-      const specifier = match[1];
-      if (specifier.startsWith(".") || specifier.startsWith("node:")) continue;
-      const name = packageName(specifier);
-      if (name.startsWith("@uniview/")) {
-        assert.ok(allowedUniview.has(name), `${file}: ${name}`);
-      }
-      assert.notEqual(name, "zod", `${file}: zod must not be imported`);
-      assert.ok(
-        declaredRuntime.has(name),
-        `${file}: undeclared runtime import ${name}`,
-      );
-    }
+    validateSource({ file, source, declaredRuntime });
   }
 
-  const internalRuntime = Object.keys(manifest.dependencies ?? {}).filter(
-    (name) => name.startsWith("@uniview/"),
-  );
-  assert.deepEqual(internalRuntime, ["@uniview/tui-core"]);
-  assert.ok(manifest.peerDependencies?.[binding.peer]);
-  assert.ok(!manifest.inlinedDependencies?.zod, `${binding.dir}: inlined zod`);
+  validateManifest(binding, manifest);
 }
 
-console.log("TUI package boundaries verified");
+export async function main() {
+  for (const binding of bindings) await verifyBinding(binding);
+  console.log("TUI package boundaries verified");
+}
+
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  await main();
+}
