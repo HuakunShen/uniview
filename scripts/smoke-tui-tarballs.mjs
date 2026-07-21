@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -177,6 +178,29 @@ function assertInternalRuntimeDependencies(manifest, expected) {
   );
 }
 
+function assertRuntimeContract(manifest, expected) {
+  assert.deepEqual(
+    manifest.dependencies ?? {},
+    expected.dependencies,
+    `${manifest.name} dependencies`,
+  );
+  assert.deepEqual(
+    manifest.optionalDependencies ?? {},
+    expected.optionalDependencies,
+    `${manifest.name} optionalDependencies`,
+  );
+  assert.deepEqual(
+    manifest.peerDependencies ?? {},
+    expected.peerDependencies,
+    `${manifest.name} peerDependencies`,
+  );
+  assert.deepEqual(
+    manifest.peerDependenciesMeta ?? {},
+    expected.peerDependenciesMeta,
+    `${manifest.name} peerDependenciesMeta`,
+  );
+}
+
 function assertPackedPackage(pack, manifest, definition) {
   assert.equal(pack.name, definition.name);
   assert.equal(manifest.name, definition.name);
@@ -227,6 +251,37 @@ async function installedManifest(projectDirectory, packageName) {
       "utf8",
     ),
   );
+}
+
+function tarString(archive, offset, length) {
+  const field = archive.subarray(offset, offset + length);
+  const terminator = field.indexOf(0);
+  return field
+    .subarray(0, terminator === -1 ? field.length : terminator)
+    .toString("utf8")
+    .trim();
+}
+
+async function packedManifest(tarball) {
+  const archive = gunzipSync(await readFile(tarball));
+  let offset = 0;
+  while (offset + 512 <= archive.length) {
+    const name = tarString(archive, offset, 100);
+    if (!name) break;
+    const prefix = tarString(archive, offset + 345, 155);
+    const path = prefix ? `${prefix}/${name}` : name;
+    const sizeField = tarString(archive, offset + 124, 12);
+    const size = Number.parseInt(sizeField || "0", 8);
+    assert.ok(Number.isSafeInteger(size), `${tarball}: invalid tar entry size`);
+    const contentStart = offset + 512;
+    if (path === "package/package.json") {
+      return JSON.parse(
+        archive.subarray(contentStart, contentStart + size).toString("utf8"),
+      );
+    }
+    offset = contentStart + Math.ceil(size / 512) * 512;
+  }
+  assert.fail(`${tarball}: missing packed package/package.json`);
 }
 
 async function createProject({
@@ -313,6 +368,68 @@ try {
     3,
     "release smoke must pack exactly three packages",
   );
+
+  // Inspect the real packed manifests before local offline overrides can alter
+  // resolution. Exact objects make dependency-range drift a release failure.
+  const packedManifests = {
+    core: await packedManifest(packs.core.filename),
+    react: await packedManifest(packs.react.filename),
+    solid: await packedManifest(packs.solid.filename),
+  };
+  const releaseVersion = packedManifests.core.version;
+  assert.equal(packedManifests.react.version, releaseVersion);
+  assert.equal(packedManifests.solid.version, releaseVersion);
+  assertRuntimeContract(packedManifests.core, {
+    dependencies: {
+      "get-east-asian-width": "^1.3.0",
+      "yoga-layout": "^3.2.1",
+    },
+    optionalDependencies: {},
+    peerDependencies: {},
+    peerDependenciesMeta: {},
+  });
+  assertRuntimeContract(packedManifests.react, {
+    dependencies: {
+      lowlight: "^3.3.0",
+      marked: "^15.0.0",
+      "react-reconciler": "^0.33.0",
+      "@uniview/tui-core": releaseVersion,
+    },
+    optionalDependencies: {
+      "react-devtools-core": "^7.0.1",
+    },
+    peerDependencies: {
+      react: "^19.2.0",
+    },
+    peerDependenciesMeta: {},
+  });
+  assertRuntimeContract(packedManifests.solid, {
+    dependencies: {
+      "@babel/core": "^7.26.0",
+      "@babel/preset-typescript": "^7.26.0",
+      "babel-preset-solid": "^1.9.0",
+      lowlight: "^3.3.0",
+      marked: "^15.0.0",
+      "@uniview/tui-core": releaseVersion,
+    },
+    optionalDependencies: {
+      "solid-devtools": "^0.34.5",
+    },
+    peerDependencies: {
+      "solid-js": "^1.9.0",
+    },
+    peerDependenciesMeta: {},
+  });
+  assertInternalRuntimeDependencies(packedManifests.core, []);
+  assertInternalRuntimeDependencies(packedManifests.react, [
+    publicPackages.core.name,
+  ]);
+  assertInternalRuntimeDependencies(packedManifests.solid, [
+    publicPackages.core.name,
+  ]);
+  assertPackedPackage(packs.core, packedManifests.core, publicPackages.core);
+  assertPackedPackage(packs.react, packedManifests.react, publicPackages.react);
+  assertPackedPackage(packs.solid, packedManifests.solid, publicPackages.solid);
 
   const localReact = await realpath(
     join(repo, "packages/tui-react/node_modules/react"),
@@ -415,12 +532,17 @@ root.destroy()
     typeScriptFixture: {
       source: `
 import "@uniview/tui-solid/jsx-runtime"
+import { createSignal } from "solid-js"
 import { Text } from "@uniview/tui-solid"
 import { univiewSolid } from "@uniview/tui-solid/vite"
 
+const [count, setCount] = createSignal(1)
+const inferredCount: number = count()
+setCount(inferredCount + 1)
 const intrinsic = <box><text>Hello intrinsic</text></box>
 const component = <Text>Hello component</Text>
 const plugin = univiewSolid()
+void count
 void intrinsic
 void component
 void plugin
@@ -456,24 +578,26 @@ void plugin
     publicPackages.solid.name,
   );
 
-  assert.equal(reactManifest.version, coreManifest.version);
-  assert.equal(solidManifest.version, coreManifest.version);
-  assert.equal(
-    reactManifest.dependencies?.[publicPackages.core.name],
-    coreManifest.version,
-  );
-  assert.equal(
-    solidManifest.dependencies?.[publicPackages.core.name],
-    coreManifest.version,
-  );
-  assert.equal(reactManifest.peerDependencies?.react, "^19.2.0");
-  assert.equal(solidManifest.peerDependencies?.["solid-js"], "^1.9.0");
-  assertInternalRuntimeDependencies(coreManifest, []);
-  assertInternalRuntimeDependencies(reactManifest, [publicPackages.core.name]);
-  assertInternalRuntimeDependencies(solidManifest, [publicPackages.core.name]);
-  assertPackedPackage(packs.core, coreManifest, publicPackages.core);
-  assertPackedPackage(packs.react, reactManifest, publicPackages.react);
-  assertPackedPackage(packs.solid, solidManifest, publicPackages.solid);
+  for (const [key, manifest] of Object.entries({
+    core: coreManifest,
+    react: reactManifest,
+    solid: solidManifest,
+  })) {
+    assert.equal(manifest.name, publicPackages[key].name);
+    assert.equal(manifest.version, packedManifests[key].version);
+    for (const field of [
+      "dependencies",
+      "optionalDependencies",
+      "peerDependencies",
+      "peerDependenciesMeta",
+    ]) {
+      assert.deepEqual(
+        manifest[field] ?? {},
+        packedManifests[key][field] ?? {},
+        `${manifest.name} installed ${field}`,
+      );
+    }
+  }
 
   console.log("TUI tarball smoke tests passed");
 } finally {
