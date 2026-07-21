@@ -10,6 +10,7 @@ import {
   SvgCellSurface,
   TerminalDriver,
   Text,
+  type TuiReactApp,
   yogaLayoutEngine,
 } from "../src/index";
 
@@ -109,5 +110,48 @@ describe("public React TUI facade", () => {
     app.destroy();
     expect(cleanupCount).toBe(1);
     expect(input.rawModes).toEqual([true, false]);
+  });
+
+  it("rejects destroy from a passive effect without stopping the active app", async () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const errors: unknown[] = [];
+    let cleanupCount = 0;
+    let app: TuiReactApp;
+
+    function ReentrantApp() {
+      useEffect(() => {
+        try {
+          app.destroy();
+        } catch (error) {
+          errors.push(error);
+        }
+        return () => {
+          cleanupCount += 1;
+        };
+      }, []);
+      return h(Text, null, "Still active");
+    }
+
+    app = render(h(Text, null, "Initially active"), { input, output });
+    await tick();
+    app.render(h(ReentrantApp));
+    await tick();
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: expect.stringMatching(/queueMicrotask/),
+    });
+    expect(cleanupCount).toBe(0);
+    expect(input.rawModes).toEqual([true]);
+    expect(input.listeners.size).toBe(1);
+    expect(output.listeners.size).toBe(1);
+    expect(output.chunks.length).toBeGreaterThan(0);
+
+    app.destroy();
+    expect(cleanupCount).toBe(1);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
   });
 });

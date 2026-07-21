@@ -155,7 +155,11 @@ export interface TuiReactRoot {
   render(element: ReactElement): void;
   /** Route a normalized terminal input event to the React tree. */
   dispatchInput(event: TuiInputEvent): void;
-  /** Unmount React and tear down the host. */
+  /**
+   * Unmount React and tear down the host. Calling this during React render,
+   * commit, or an effect throws; schedule it outside React work (for example
+   * with `queueMicrotask`) and call it again.
+   */
   destroy(): void;
 }
 
@@ -256,9 +260,9 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
 
     destroy(): void {
       if (destroyed) return;
+      unmount(handle);
       destroyed = true;
       unsubscribe();
-      unmount(handle);
       registry.clear();
       host.destroy();
     },
@@ -310,11 +314,8 @@ export function render(
     render: (next) => root.render(next),
     dispatchInput: (event) => root.dispatchInput(event),
     destroy: () => {
-      try {
-        root.destroy();
-      } finally {
-        driver.stop();
-      }
+      root.destroy();
+      driver.stop();
     },
   };
 }

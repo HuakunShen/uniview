@@ -4,7 +4,7 @@
  * the host disconnected (worst in WebSocket mode, where each host
  * reconnect leaked another live tree).
  */
-import { createElement, useEffect } from "react";
+import { createElement, useEffect, useLayoutEffect } from "react";
 import { describe, expect, test } from "vitest";
 import { createRenderer, render, unmount } from "../src";
 import { flush } from "./flush";
@@ -31,6 +31,58 @@ describe("unmount", () => {
 
     unmount(renderer);
     expect(cleaned).toBe(1);
+    expect(renderer.rootInstance).toBeNull();
+  });
+
+  test("rejects unmount during render and leaves the tree active", async () => {
+    const renderer = createRenderer();
+    let error: unknown;
+
+    function App() {
+      try {
+        unmount(renderer);
+      } catch (caught) {
+        error = caught;
+      }
+      return createElement("div", null, "active");
+    }
+
+    render(createElement(App), renderer);
+    await flush();
+
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/queueMicrotask/),
+    });
+    expect(renderer.rootInstance).not.toBeNull();
+
+    unmount(renderer);
+    expect(renderer.rootInstance).toBeNull();
+  });
+
+  test("rejects unmount during commit and leaves the tree active", async () => {
+    const renderer = createRenderer();
+    let error: unknown;
+
+    function App() {
+      useLayoutEffect(() => {
+        try {
+          unmount(renderer);
+        } catch (caught) {
+          error = caught;
+        }
+      }, []);
+      return createElement("div", null, "active");
+    }
+
+    render(createElement(App), renderer);
+    await flush();
+
+    expect(error).toMatchObject({
+      message: expect.stringMatching(/queueMicrotask/),
+    });
+    expect(renderer.rootInstance).not.toBeNull();
+
+    unmount(renderer);
     expect(renderer.rootInstance).toBeNull();
   });
 });

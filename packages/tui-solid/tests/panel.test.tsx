@@ -1,17 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
-import { createTuiSolidRoot } from "../src/index";
+import { createTuiSolidRoot, type TuiSolidRoot } from "../src/index";
 import { Panel } from "../src/panel";
 import { Text } from "../src/primitives";
 
 import { tick } from "./tick";
+
+const mountedRoots: TuiSolidRoot[] = [];
+
+afterEach(() => {
+  for (const root of mountedRoots.splice(0)) root.destroy();
+});
 
 function mount(App: () => unknown, width: number, height: number) {
   const styles = new StyleTable();
   const surface = new MemoryCellSurface({ styles });
   const root = createTuiSolidRoot({ surface, styles, size: { width, height } });
   root.render(App);
+  mountedRoots.push(root);
   return { root, surface, styles };
 }
 

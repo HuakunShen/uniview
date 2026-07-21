@@ -28,7 +28,10 @@ process.on("SIGINT", () => {
 });
 ```
 
-`app.destroy()` restores the terminal. Call it before an intentional process exit.
+`app.destroy()` restores the terminal. Call it before an intentional process exit. React
+cannot synchronously unmount while it is rendering, committing, or running an effect; if
+teardown originates there, schedule it outside React work, for example with
+`queueMicrotask(() => app.destroy())`.
 
 ## Components
 

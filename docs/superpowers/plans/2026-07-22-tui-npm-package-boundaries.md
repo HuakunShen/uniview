@@ -2,13 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Implemented and final-review hardened on 2026-07-22. The packages have not
-been published.
+**Status:** Implemented and final-reviewed release candidate on 2026-07-22 — not published.
 
 ## Final implementation record
 
 - Public byte-facing terminal APIs use `Uint8Array | string`; consuming the declarations
-does not require Node's `Uint8Array | string` type or borrowed monorepo type roots.
+  does not require Node's `Buffer` type or borrowed monorepo type roots.
 - `pnpm check-types:tui-release` permanently covers protocol, core, host, both renderers,
   content, charts, style, and both bindings. `verify:tui-packages` and
   `smoke:tui-packages` invoke it.

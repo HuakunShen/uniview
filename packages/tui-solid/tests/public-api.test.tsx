@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { onCleanup } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import type { TtyInput, TtyOutput } from "@uniview/tui-core";
 import { getRootNode } from "@uniview/solid-renderer";
 import {
@@ -10,9 +10,13 @@ import {
   SvgCellSurface,
   TerminalDriver,
   Text,
+  createTuiSolidRoot,
+  getActiveTuiClock,
   render,
   yogaLayoutEngine,
 } from "../src/index";
+
+import { tick } from "./tick";
 
 class FakeInput implements TtyInput {
   isTTY = true;
@@ -92,5 +96,38 @@ describe("public Solid TUI facade", () => {
     expect(output.listeners.size).toBe(0);
     expect(cleanupCount).toBe(1);
     expect(getRootNode()).toBeNull();
+  });
+
+  it("restores a rejected second terminal app without disturbing the active owner", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const first = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
+    let setCount: ((value: number) => number) | undefined;
+    first.render(() => {
+      const [count, updateCount] = createSignal(0);
+      setCount = updateCount;
+      return <text>{`First: ${count()}`}</text>;
+    });
+
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    expect(() => render(() => <Text>Second</Text>, { input, output })).toThrow(
+      /another TUI Solid root is active/i,
+    );
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+    expect(output.chunks.join("")).not.toContain("Second");
+
+    setCount?.(1);
+    await tick();
+    expect(surface.text({ trimRight: true })).toContain("First: 1");
+    expect(getRootNode()).not.toBeNull();
+    expect(getActiveTuiClock()).toBe(first.clock);
+    first.destroy();
   });
 });

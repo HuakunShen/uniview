@@ -1,11 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
-import { createTuiSolidRoot } from "../src/index";
+import { createTuiSolidRoot, type TuiSolidRoot } from "../src/index";
 import { List, listCounter } from "../src/list";
 import { Text } from "../src/primitives";
 
 import { tick } from "./tick";
+const mountedRoots: TuiSolidRoot[] = [];
+
+afterEach(() => {
+  for (const root of mountedRoots.splice(0)) root.destroy();
+});
+
 const key = (k: string): TuiInputEvent => ({
   type: "key",
   key: k,
@@ -30,6 +36,7 @@ function mount(App: () => unknown, width: number, height: number) {
   const surface = new MemoryCellSurface({ styles });
   const root = createTuiSolidRoot({ surface, styles, size: { width, height } });
   root.render(App);
+  mountedRoots.push(root);
   return { root, surface, styles };
 }
 

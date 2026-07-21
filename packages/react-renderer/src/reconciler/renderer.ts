@@ -9,6 +9,7 @@ const reconciler = ReactReconciler(hostConfig);
 interface SynchronousReconciler {
   flushSyncFromReconciler<Result>(callback: () => Result): Result;
   flushPassiveEffects(): boolean;
+  isAlreadyRendering(): boolean;
 }
 
 // react-reconciler 0.33 exposes this runtime API while the matching Definitely
@@ -62,14 +63,18 @@ export function render(element: ReactElement, handle: RendererHandle): void {
  * while timers/effects/subscriptions in the plugin kept running forever.
  */
 export function unmount(handle: RendererHandle): void {
+  if (synchronousReconciler.isAlreadyRendering()) {
+    throw new Error(
+      "Cannot destroy a React renderer during React work; schedule destroy outside render, commit, or effects (for example with queueMicrotask)",
+    );
+  }
+
   const container = handle._container;
   if (container) {
     synchronousReconciler.flushSyncFromReconciler(() => {
       reconciler.updateContainer(null, container, null, () => {});
     });
-    while (synchronousReconciler.flushPassiveEffects()) {
-      // Passive cleanups may schedule more passive work; drain it completely.
-    }
+    synchronousReconciler.flushPassiveEffects();
     handle._container = undefined;
   }
   handle.rootInstance = null;

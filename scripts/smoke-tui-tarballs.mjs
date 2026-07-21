@@ -527,9 +527,22 @@ class FakeOutput {
 const input = new FakeInput()
 const output = new FakeOutput()
 let cleanupCount = 0
+let reentrantCleanupCount = 0
+let reentrantDestroyError
 function App() {
   useEffect(() => () => { cleanupCount += 1 }, [])
   return createElement(Text, null, "Hello React")
+}
+function ReentrantApp() {
+  useEffect(() => {
+    try {
+      app.destroy()
+    } catch (error) {
+      reentrantDestroyError = error
+    }
+    return () => { reentrantCleanupCount += 1 }
+  }, [])
+  return createElement(Text, null, "React still active")
 }
 const app = render(createElement(App), { input, output })
 await new Promise((resolve) => setImmediate(resolve))
@@ -538,8 +551,17 @@ assert.match(output.chunks.join(""), /Hello React/)
 assert.deepEqual(input.rawModes, [true])
 assert.equal(input.dataListeners.size, 1)
 assert.equal(output.resizeListeners.size, 1)
-app.destroy()
+app.render(createElement(ReentrantApp))
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.match(reentrantDestroyError?.message ?? "", /queueMicrotask/)
 assert.equal(cleanupCount, 1)
+assert.equal(reentrantCleanupCount, 0)
+assert.deepEqual(input.rawModes, [true])
+assert.equal(input.dataListeners.size, 1)
+assert.equal(output.resizeListeners.size, 1)
+app.destroy()
+assert.equal(reentrantCleanupCount, 1)
 assert.deepEqual(input.rawModes, [true, false])
 assert.equal(input.dataListeners.size, 0)
 assert.equal(output.resizeListeners.size, 0)
@@ -562,7 +584,13 @@ assert.deepEqual(input.rawModes, [true, false])
     source: `
 import assert from "node:assert/strict"
 import { createComponent, onCleanup } from "solid-js"
-import { Text, render } from "@uniview/tui-solid"
+import {
+  MemoryCellSurface,
+  StyleTable,
+  Text,
+  createTuiSolidRoot,
+  render,
+} from "@uniview/tui-solid"
 import * as renderer from "@uniview/tui-solid/renderer"
 import "@uniview/tui-solid/jsx-runtime"
 import { univiewSolid } from "@uniview/tui-solid/vite"
@@ -620,11 +648,45 @@ assert.match(output.chunks.join(""), /Hello Solid/)
 assert.deepEqual(input.rawModes, [true])
 assert.equal(input.dataListeners.size, 1)
 assert.equal(output.resizeListeners.size, 1)
+
+const standbyStyles = new StyleTable()
+const standbySurface = new MemoryCellSurface({ styles: standbyStyles })
+const standby = createTuiSolidRoot({
+  surface: standbySurface,
+  styles: standbyStyles,
+  size: { width: 20, height: 2 },
+})
+assert.throws(
+  () => standby.render(() => createComponent(Text, { children: "Standby" })),
+  /another TUI Solid root is active/i,
+)
+assert.doesNotMatch(standbySurface.text({ trimRight: true }), /Standby/)
+
+const rejectedInput = new FakeInput()
+const rejectedOutput = new FakeOutput()
+assert.throws(
+  () => render(
+    () => createComponent(Text, { children: "Rejected Solid" }),
+    { input: rejectedInput, output: rejectedOutput },
+  ),
+  /another TUI Solid root is active/i,
+)
+assert.deepEqual(rejectedInput.rawModes, [true, false])
+assert.equal(rejectedInput.dataListeners.size, 0)
+assert.equal(rejectedOutput.resizeListeners.size, 0)
+assert.doesNotMatch(rejectedOutput.chunks.join(""), /Rejected Solid/)
+
+const ownerChunkCount = output.chunks.length
+assert.deepEqual(input.rawModes, [true])
+assert.equal(input.dataListeners.size, 1)
+assert.equal(output.resizeListeners.size, 1)
+
 app.render(() => {
   onCleanup(() => { secondCleanup += 1 })
   return createComponent(Text, { children: "Solid replacement" })
 })
 assert.equal(firstCleanup, 1)
+assert.ok(output.chunks.length > ownerChunkCount)
 assert.match(output.chunks.join(""), /replacement/)
 app.destroy()
 assert.equal(secondCleanup, 1)
@@ -634,6 +696,9 @@ assert.equal(output.resizeListeners.size, 0)
 app.destroy()
 assert.equal(secondCleanup, 1)
 assert.deepEqual(input.rawModes, [true, false])
+standby.render(() => createComponent(Text, { children: "Standby" }))
+assert.match(standbySurface.text({ trimRight: true }), /Standby/)
+standby.destroy()
 `,
     typeScriptFixture: {
       source: `

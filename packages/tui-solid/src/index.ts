@@ -35,6 +35,8 @@ import type {
   TtyOutput,
 } from "@uniview/tui-core";
 
+let activeSolidRootOwner: object | null = null;
+
 export {
   AnsiCellSurface,
   FrameClock,
@@ -240,9 +242,11 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       },
       diagnostics: host.renderer.diagnostics,
     });
-  setActiveTuiClock(clock);
 
   if (options.devtools) void connectSolidDevTools({ enabled: true });
+
+  const owner = {};
+  const ownsGlobals = (): boolean => activeSolidRootOwner === owner;
 
   const sync = (): void => {
     const container = getRootNode();
@@ -252,17 +256,44 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     router.onRender();
   };
 
-  setUpdateCallback(sync);
-
   let dispose: (() => void) | null = null;
   let destroyed = false;
+
+  const claimGlobals = (): void => {
+    if (activeSolidRootOwner && !ownsGlobals()) {
+      throw new Error(
+        "Cannot render because another TUI Solid root is active; destroy it before rendering this root",
+      );
+    }
+    if (ownsGlobals()) return;
+
+    activeSolidRootOwner = owner;
+    setRootNode(null);
+    setMutationUpdateCallback(null);
+    setMutationCollector(null);
+    setUpdateCallback(sync);
+    setActiveTuiClock(clock);
+  };
+
+  const releaseGlobals = (): void => {
+    if (!ownsGlobals()) return;
+    setUpdateCallback(null);
+    setMutationUpdateCallback(null);
+    setMutationCollector(null);
+    setRootNode(null);
+    setActiveTuiClock(null);
+    activeSolidRootOwner = null;
+  };
 
   const disposeMount = (): void => {
     const activeDispose = dispose;
     dispose = null;
-    activeDispose?.();
-    registry.clear();
-    setRootNode(null);
+    try {
+      activeDispose?.();
+    } finally {
+      registry.clear();
+      if (ownsGlobals()) setRootNode(null);
+    }
   };
 
   return {
@@ -273,6 +304,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       if (destroyed) {
         throw new Error("Cannot render into a destroyed TUI Solid root");
       }
+      claimGlobals();
       disposeMount();
       resetIdCounter();
       const container: SolidNode = {
@@ -296,9 +328,13 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
           container,
         );
       } catch (error) {
-        disposeMount();
-        host.setRoot(null);
-        router.onRender();
+        try {
+          disposeMount();
+        } finally {
+          releaseGlobals();
+          host.setRoot(null);
+          router.onRender();
+        }
         throw error;
       }
       sync();
@@ -311,12 +347,12 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
-      disposeMount();
-      setUpdateCallback(null);
-      setMutationUpdateCallback(null);
-      setMutationCollector(null);
-      setActiveTuiClock(null);
-      host.destroy();
+      try {
+        if (ownsGlobals()) disposeMount();
+      } finally {
+        releaseGlobals();
+        host.destroy();
+      }
     },
   };
 }

@@ -120,4 +120,78 @@ describe("createTuiSolidRoot", () => {
     expect(getRootNode()).toBeNull();
     expect(() => getActiveTuiClock()).toThrow(/active clock/);
   });
+
+  it("keeps the active owner reactive when another root is constructed and destroyed", async () => {
+    const firstStyles = new StyleTable();
+    const firstSurface = new MemoryCellSurface({ styles: firstStyles });
+    const first = createTuiSolidRoot({
+      surface: firstSurface,
+      styles: firstStyles,
+      size: { width: 20, height: 3 },
+    });
+    let setCount: ((value: number) => number) | undefined;
+
+    first.render(() => {
+      const [count, updateCount] = createSignal(0);
+      setCount = updateCount;
+      return <text>{`Owner: ${count()}`}</text>;
+    });
+
+    const secondStyles = new StyleTable();
+    const secondSurface = new MemoryCellSurface({ styles: secondStyles });
+    const second = createTuiSolidRoot({
+      surface: secondSurface,
+      styles: secondStyles,
+      size: { width: 20, height: 3 },
+    });
+    second.destroy();
+
+    setCount?.(1);
+    await tick();
+    expect(firstSurface.text({ trimRight: true })).toContain("Owner: 1");
+    expect(secondSurface.text({ trimRight: true })).not.toContain("Owner: 1");
+    expect(getActiveTuiClock()).toBe(first.clock);
+
+    first.destroy();
+  });
+
+  it("rejects a competing render without mutation and transfers ownership after destroy", async () => {
+    const firstStyles = new StyleTable();
+    const firstSurface = new MemoryCellSurface({ styles: firstStyles });
+    const first = createTuiSolidRoot({
+      surface: firstSurface,
+      styles: firstStyles,
+      size: { width: 20, height: 3 },
+    });
+    let setCount: ((value: number) => number) | undefined;
+    first.render(() => {
+      const [count, updateCount] = createSignal(0);
+      setCount = updateCount;
+      return <text>{`First: ${count()}`}</text>;
+    });
+
+    const secondStyles = new StyleTable();
+    const secondSurface = new MemoryCellSurface({ styles: secondStyles });
+    const second = createTuiSolidRoot({
+      surface: secondSurface,
+      styles: secondStyles,
+      size: { width: 20, height: 3 },
+    });
+
+    expect(() => second.render(() => <text>Second</text>)).toThrow(
+      /another TUI Solid root is active/i,
+    );
+    expect(firstSurface.text({ trimRight: true })).toContain("First: 0");
+    expect(secondSurface.text({ trimRight: true })).not.toContain("Second");
+
+    setCount?.(1);
+    await tick();
+    expect(firstSurface.text({ trimRight: true })).toContain("First: 1");
+    expect(secondSurface.text({ trimRight: true })).not.toContain("First: 1");
+
+    first.destroy();
+    second.render(() => <text>Second</text>);
+    expect(secondSurface.text({ trimRight: true })).toContain("Second");
+    second.destroy();
+  });
 });
