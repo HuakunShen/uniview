@@ -10,7 +10,15 @@ import {
   setUpdateCallback,
   type SolidNode,
 } from "@uniview/solid-renderer";
-import { FrameClock } from "@uniview/tui-core";
+import {
+  AnsiCellSurface,
+  FrameClock,
+  MemoryCellSurface,
+  StyleTable,
+  SvgCellSurface,
+  TerminalDriver,
+  yogaLayoutEngine,
+} from "@uniview/tui-core";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import { TuiRuntimeContext } from "./input";
 import { connectSolidDevTools } from "./devtools";
@@ -20,11 +28,39 @@ import type {
   CommittedOutput,
   LayoutEngine,
   Size,
-  StyleTable,
   TuiInputEvent,
+  TtyInput,
+  TtyOutput,
 } from "@uniview/tui-core";
 
-export { BarChart, Gauge, Histogram, LineChart, LineGauge, Scatter, Sparkline } from "./charts";
+export {
+  AnsiCellSurface,
+  FrameClock,
+  MemoryCellSurface,
+  StyleTable,
+  SvgCellSurface,
+  TerminalDriver,
+  yogaLayoutEngine,
+};
+export type {
+  CellSurface,
+  CommittedOutput,
+  LayoutEngine,
+  Size,
+  TuiInputEvent,
+  TtyInput,
+  TtyOutput,
+} from "@uniview/tui-core";
+
+export {
+  BarChart,
+  Gauge,
+  Histogram,
+  LineChart,
+  LineGauge,
+  Scatter,
+  Sparkline,
+} from "./charts";
 export { Canvas } from "./canvas";
 export type { CanvasProps } from "./canvas";
 export { Image } from "./image";
@@ -38,7 +74,13 @@ export type {
   ScatterProps,
   SparklineProps,
 } from "./charts";
-export { Code, Diff, Markdown, renderNodeToElement, StreamingMarkdown } from "./content";
+export {
+  Code,
+  Diff,
+  Markdown,
+  renderNodeToElement,
+  StreamingMarkdown,
+} from "./content";
 export type {
   CodeProps,
   DiffProps,
@@ -63,7 +105,12 @@ export type {
   ScrollViewProps,
 } from "./interactive";
 export { Tree, DirectoryTree } from "./tree";
-export type { TreeProps, TreeNode, TreeRowMeta, DirectoryTreeProps } from "./tree";
+export type {
+  TreeProps,
+  TreeNode,
+  TreeRowMeta,
+  DirectoryTreeProps,
+} from "./tree";
 export { Calendar, isoDate } from "./calendar";
 export type { CalendarProps } from "./calendar";
 export { List, listCounter } from "./list";
@@ -92,13 +139,27 @@ export type { TextInputProps } from "./text-input";
 export { Tabs } from "./tabs";
 export type { TabsProps, TabItem } from "./tabs";
 export { Table } from "./table";
-export type { Column, TableProps, ColumnAlign, SortDirection, SortState } from "./table";
+export type {
+  Column,
+  TableProps,
+  ColumnAlign,
+  SortDirection,
+  SortState,
+} from "./table";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { TuiErrorBoundary, ErrorOverview } from "./error-boundary";
-export type { TuiErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
+export type {
+  TuiErrorBoundaryProps,
+  ErrorOverviewProps,
+} from "./error-boundary";
 export { connectSolidDevTools } from "./devtools";
 export type { DevToolsOptions } from "./devtools";
-export { useAnimation, animate, getActiveTuiClock, setActiveTuiClock } from "./animation";
+export {
+  useAnimation,
+  animate,
+  getActiveTuiClock,
+  setActiveTuiClock,
+} from "./animation";
 export type { AnimationState, AnimateOptions } from "./animation";
 export { StatusBar } from "./status-bar";
 export type { StatusBarProps, StatusItem } from "./status-bar";
@@ -128,6 +189,20 @@ export interface TuiSolidRoot {
   dispatchInput(event: TuiInputEvent): void;
   /** Dispose the Solid root and tear down the host. */
   destroy(): void;
+}
+
+export interface TuiSolidRenderOptions extends Omit<
+  TuiSolidRootOptions,
+  "surface" | "size" | "styles"
+> {
+  width?: number;
+  height?: number;
+  input?: TtyInput;
+  output?: TtyOutput;
+}
+
+export interface TuiSolidApp extends TuiSolidRoot {
+  readonly driver: TerminalDriver;
 }
 
 /**
@@ -220,6 +295,59 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       setUpdateCallback(() => {});
       setActiveTuiClock(null);
       host.destroy();
+    },
+  };
+}
+
+export function render(
+  App: () => unknown,
+  options: TuiSolidRenderOptions = {},
+): TuiSolidApp {
+  const input = options.input ?? (process.stdin as unknown as TtyInput);
+  const output = options.output ?? (process.stdout as unknown as TtyOutput);
+  const styles = new StyleTable();
+  const root = createTuiSolidRoot({
+    surface: new AnsiCellSurface({
+      write: (chunk) => output.write(chunk),
+      styles,
+    }),
+    styles,
+    size: {
+      width: options.width ?? output.columns ?? 80,
+      height: options.height ?? output.rows ?? 24,
+    },
+    committed: options.committed,
+    devtools: options.devtools,
+    clock: options.clock,
+    layoutEngine: options.layoutEngine,
+  });
+  const driver = new TerminalDriver({
+    input,
+    output,
+    onEvent: (event) => {
+      if (event.type === "resize") {
+        root.host.renderer.resize({ width: event.width, height: event.height });
+      } else {
+        root.dispatchInput(event);
+      }
+    },
+  });
+
+  driver.start();
+  root.render(App);
+
+  return {
+    host: root.host,
+    clock: root.clock,
+    driver,
+    render: (next) => root.render(next),
+    dispatchInput: (event) => root.dispatchInput(event),
+    destroy: () => {
+      try {
+        root.destroy();
+      } finally {
+        driver.stop();
+      }
     },
   };
 }
