@@ -73,6 +73,50 @@ test("rejects an undeclared external hidden in a multiline re-export", () => {
   );
 });
 
+test("extracts a literal inline import type from declarations", () => {
+  const source = `
+    type Declared = import(
+      "declared-inline-type"
+    ).Declared;
+  `;
+
+  assert.deepEqual(extractModuleSpecifiers(source, "fixture.d.mts"), [
+    "declared-inline-type",
+  ]);
+});
+
+test("rejects a forbidden internal package used by an inline import type", () => {
+  assert.throws(
+    () =>
+      validateSource({
+        file: "fixture.d.mts",
+        source: `
+          type Hidden = import(
+            "@uniview/hidden"
+          ).Hidden;
+        `,
+        declaredRuntime: new Set(["@uniview/hidden"]),
+      }),
+    /fixture\.d\.mts: @uniview\/hidden/,
+  );
+});
+
+test("rejects an undeclared external used by an inline import type", () => {
+  assert.throws(
+    () =>
+      validateSource({
+        file: "fixture.d.ts",
+        source: `
+          type Hidden = import(
+            "undeclared-inline-type"
+          ).Hidden;
+        `,
+        declaredRuntime: new Set(),
+      }),
+    /fixture\.d\.ts: undeclared runtime import undeclared-inline-type/,
+  );
+});
+
 test("rejects React peer-range drift below the reconciler requirement", () => {
   assert.throws(
     () =>

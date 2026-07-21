@@ -60,6 +60,12 @@ export function extractModuleSpecifiers(source, file = "artifact.mjs") {
       ts.isStringLiteralLike(node.moduleReference.expression)
     ) {
       specifiers.push(node.moduleReference.expression.text);
+    } else if (
+      ts.isImportTypeNode(node) &&
+      ts.isLiteralTypeNode(node.argument) &&
+      ts.isStringLiteralLike(node.argument.literal)
+    ) {
+      specifiers.push(node.argument.literal.text);
     }
     ts.forEachChild(node, visit);
   }
