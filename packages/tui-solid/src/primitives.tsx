@@ -21,12 +21,13 @@ import type {
  * They are thin, typed wrappers over the `box` / `text` / `richtext`
  * primitives the Solid renderer renders — capitalized because Solid's
  * lowercase JSX intrinsics are typed only by a catch-all
- * `[tag: string]: Record<string, unknown>` (zero safety). Mirrors
+ * `[tag: string]: unknown` (zero safety). Mirrors
  * `@uniview/tui-react`'s `primitives.ts` convention.
  */
 
 /** Attributes shared by every TUI element: layout ({@link TuiStyle}) + handlers + semantics. */
-export interface TuiCommonProps extends TuiStyle, TuiEventHandlers, TuiSemanticProps {
+export interface TuiCommonProps
+  extends TuiStyle, TuiEventHandlers, TuiSemanticProps {
   children?: JSX.Element;
   /** Fill color for the element's box region (name/CSS string or `{ r, g, b }`). */
   backgroundColor?: Color;

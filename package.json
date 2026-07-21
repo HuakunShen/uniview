@@ -12,6 +12,8 @@
     "test:e2e:baseline": "bun scripts/run-e2e-baseline.ts",
     "test:e2e:cypress": "bun scripts/run-cypress.ts",
     "verify:tui-packages": "pnpm --filter @uniview/protocol build && pnpm --filter @uniview/tui-core build && pnpm --filter @uniview/host-tui build && pnpm --filter @uniview/react-renderer build && pnpm --filter @uniview/solid-renderer build && pnpm --filter @uniview/tui-react build && pnpm --filter @uniview/tui-solid build && node --test scripts/verify-tui-package-boundaries.test.mjs && node scripts/verify-tui-package-boundaries.mjs",
+    "smoke:tui-packages": "pnpm verify:tui-packages && node scripts/smoke-tui-tarballs.mjs",
+    "publish:tui": "pnpm publish -r --filter @uniview/tui-core --filter @uniview/tui-react --filter @uniview/tui-solid",
     "cypress:open": "bun scripts/run-cypress-open.ts",
     "cypress:open:pause": "bun scripts/run-cypress-open.ts --env univiewPauseAtStart=true,univiewVisualDelayMs=0"
   },
