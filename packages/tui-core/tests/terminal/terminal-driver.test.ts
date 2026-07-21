@@ -39,7 +39,8 @@ function fakeTty(columns = 80, rows = 24) {
   return {
     input,
     output,
-    emitData: (s: string) => dataListeners.forEach((l) => l(Buffer.from(s, "utf8"))),
+    emitData: (s: string) =>
+      dataListeners.forEach((l) => l(Buffer.from(s, "utf8"))),
     emitResize: (c: number, r: number) => {
       output.columns = c;
       output.rows = r;
@@ -96,7 +97,11 @@ describe("TerminalDriver — lifecycle", () => {
 
   it("is idempotent on stop", () => {
     const tty = fakeTty();
-    const driver = new TerminalDriver({ input: tty.input, output: tty.output, onEvent: () => {} });
+    const driver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
     driver.start();
     driver.stop();
     expect(() => driver.stop()).not.toThrow();
@@ -105,9 +110,62 @@ describe("TerminalDriver — lifecycle", () => {
 
   it("throws if started twice", () => {
     const tty = fakeTty();
-    const driver = new TerminalDriver({ input: tty.input, output: tty.output, onEvent: () => {} });
+    const driver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
     driver.start();
     expect(() => driver.start()).toThrow();
+  });
+
+  it("rolls back only terminal setup completed before start fails", () => {
+    const rawModes: boolean[] = [];
+    let resumeCount = 0;
+    let pauseCount = 0;
+    let inputOffCount = 0;
+    let outputOffCount = 0;
+    const writes: string[] = [];
+    const startError = new Error("input listener failed");
+    const driver = new TerminalDriver({
+      input: {
+        isTTY: true,
+        setRawMode: (mode) => rawModes.push(mode),
+        resume: () => {
+          resumeCount += 1;
+        },
+        pause: () => {
+          pauseCount += 1;
+        },
+        on: () => {
+          throw startError;
+        },
+        off: () => {
+          inputOffCount += 1;
+        },
+      },
+      output: {
+        write: (chunk) => writes.push(chunk),
+        on: () => {},
+        off: () => {
+          outputOffCount += 1;
+        },
+      },
+      onEvent: () => {},
+    });
+
+    expect(() => driver.start()).toThrow(startError);
+    expect(rawModes).toEqual([true, false]);
+    expect(resumeCount).toBe(1);
+    expect(pauseCount).toBe(1);
+    expect(inputOffCount).toBe(0);
+    expect(outputOffCount).toBe(0);
+    expect(writes).toEqual([]);
+
+    driver.stop();
+    expect(rawModes).toEqual([true, false]);
+    expect(pauseCount).toBe(1);
+    expect(writes).toEqual([]);
   });
 });
 
@@ -126,7 +184,14 @@ describe("TerminalDriver — input", () => {
     tty.emitData("\x1b[A");
     expect(events).toEqual([
       { type: "text", text: "a" },
-      { type: "key", key: "ArrowUp", ctrl: false, alt: false, shift: false, meta: false },
+      {
+        type: "key",
+        key: "ArrowUp",
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+      },
     ]);
   });
 
@@ -144,7 +209,16 @@ describe("TerminalDriver — input", () => {
     expect(events).toHaveLength(0);
     tty.emitData("M");
     expect(events).toEqual([
-      { type: "mouse", action: "down", button: "left", x: 11, y: 3, ctrl: false, alt: false, shift: false },
+      {
+        type: "mouse",
+        action: "down",
+        button: "left",
+        x: 11,
+        y: 3,
+        ctrl: false,
+        alt: false,
+        shift: false,
+      },
     ]);
   });
 
@@ -180,7 +254,14 @@ describe("TerminalDriver — input", () => {
       expect(events).toHaveLength(0); // held — ambiguous
       vi.advanceTimersByTime(25);
       expect(events).toEqual([
-        { type: "key", key: "Escape", ctrl: false, alt: false, shift: false, meta: false },
+        {
+          type: "key",
+          key: "Escape",
+          ctrl: false,
+          alt: false,
+          shift: false,
+          meta: false,
+        },
       ]);
       driver.stop();
     } finally {
@@ -206,7 +287,9 @@ describe("TerminalDriver — input", () => {
       expect(events[0]).toMatchObject({ type: "key", key: "Escape" });
       expect(events[1]).toMatchObject({ type: "mouse" });
       vi.advanceTimersByTime(30);
-      const escapes = events.filter((e) => e.type === "key" && e.key === "Escape");
+      const escapes = events.filter(
+        (e) => e.type === "key" && e.key === "Escape",
+      );
       expect(escapes).toHaveLength(1); // the armed flush was cancelled, not fired
       driver.stop();
     } finally {

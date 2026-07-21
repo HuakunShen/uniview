@@ -22,11 +22,17 @@ class FakeInput implements TtyInput {
   isTTY = true;
   readonly rawModes: boolean[] = [];
   readonly listeners = new Set<(chunk: Uint8Array | string) => void>();
+  resumeCount = 0;
+  pauseCount = 0;
   setRawMode(mode: boolean): void {
     this.rawModes.push(mode);
   }
-  resume(): void {}
-  pause(): void {}
+  resume(): void {
+    this.resumeCount += 1;
+  }
+  pause(): void {
+    this.pauseCount += 1;
+  }
   on(_event: "data", listener: (chunk: Uint8Array | string) => void): void {
     this.listeners.add(listener);
   }
@@ -69,6 +75,8 @@ describe("public Solid TUI facade", () => {
     const output = new FakeOutput();
     const app = render(() => <Text>Hello</Text>, { input, output });
     expect(output.chunks.join("")).toContain("Hello");
+    expect(output.chunks[0]).not.toContain("Hello");
+    expect(output.chunks[1]).toContain("Hello");
     expect(input.rawModes).toEqual([true]);
     app.destroy();
     expect(input.rawModes).toEqual([true, false]);
@@ -98,7 +106,7 @@ describe("public Solid TUI facade", () => {
     expect(getRootNode()).toBeNull();
   });
 
-  it("restores a rejected second terminal app without disturbing the active owner", async () => {
+  it("rejects a second terminal app before starting its driver", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
     const first = createTuiSolidRoot({
@@ -113,21 +121,113 @@ describe("public Solid TUI facade", () => {
       return <text>{`First: ${count()}`}</text>;
     });
 
+    try {
+      const input = new FakeInput();
+      const output = new FakeOutput();
+      expect(() =>
+        render(() => <Text>Second</Text>, { input, output }),
+      ).toThrow(/another TUI Solid root is active/i);
+      expect(input.rawModes).toEqual([]);
+      expect(input.resumeCount).toBe(0);
+      expect(input.pauseCount).toBe(0);
+      expect(input.listeners.size).toBe(0);
+      expect(output.listeners.size).toBe(0);
+      expect(output.chunks).toEqual([]);
+
+      setCount?.(1);
+      await tick();
+      expect(surface.text({ trimRight: true })).toContain("First: 1");
+      expect(getRootNode()).not.toBeNull();
+      expect(getActiveTuiClock()).toBe(first.clock);
+    } finally {
+      first.destroy();
+    }
+  });
+
+  it("rejects a competing terminal app before touching its active owner's streams", async () => {
     const input = new FakeInput();
     const output = new FakeOutput();
-    expect(() => render(() => <Text>Second</Text>, { input, output })).toThrow(
-      /another TUI Solid root is active/i,
+    let setCount: ((value: number) => number) | undefined;
+    const first = render(
+      () => {
+        const [count, updateCount] = createSignal(0);
+        setCount = updateCount;
+        return <Text>{`First: ${count()}`}</Text>;
+      },
+      { input, output },
     );
+
+    try {
+      const beforeCompetition = {
+        rawModes: [...input.rawModes],
+        resumeCount: input.resumeCount,
+        pauseCount: input.pauseCount,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+        chunks: [...output.chunks],
+      };
+
+      expect(() =>
+        render(() => <Text>Second</Text>, { input, output }),
+      ).toThrow(/another TUI Solid root is active/i);
+      expect({
+        rawModes: input.rawModes,
+        resumeCount: input.resumeCount,
+        pauseCount: input.pauseCount,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+        chunks: output.chunks,
+      }).toEqual(beforeCompetition);
+
+      setCount?.(1);
+      await tick();
+      expect(output.chunks.length).toBeGreaterThan(
+        beforeCompetition.chunks.length,
+      );
+      expect(output.chunks.at(-1)).toContain("1");
+      expect(input.rawModes).toEqual([true]);
+      expect(input.resumeCount).toBe(1);
+      expect(input.pauseCount).toBe(0);
+      expect(input.listeners.size).toBe(1);
+      expect(output.listeners.size).toBe(1);
+
+      first.destroy();
+      first.destroy();
+      expect(input.rawModes).toEqual([true, false]);
+      expect(input.resumeCount).toBe(1);
+      expect(input.pauseCount).toBe(1);
+      expect(input.listeners.size).toBe(0);
+      expect(output.listeners.size).toBe(0);
+    } finally {
+      first.destroy();
+    }
+  });
+
+  it("releases its ownership reservation when terminal startup fails", () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const startError = new Error("input listener failed");
+    input.on = () => {
+      throw startError;
+    };
+
+    expect(() =>
+      render(() => <Text>Never mounted</Text>, { input, output }),
+    ).toThrow(startError);
     expect(input.rawModes).toEqual([true, false]);
+    expect(input.resumeCount).toBe(1);
+    expect(input.pauseCount).toBe(1);
     expect(input.listeners.size).toBe(0);
     expect(output.listeners.size).toBe(0);
-    expect(output.chunks.join("")).not.toContain("Second");
+    expect(output.chunks).toEqual([]);
 
-    setCount?.(1);
-    await tick();
-    expect(surface.text({ trimRight: true })).toContain("First: 1");
-    expect(getRootNode()).not.toBeNull();
-    expect(getActiveTuiClock()).toBe(first.clock);
-    first.destroy();
+    const replacementInput = new FakeInput();
+    const replacementOutput = new FakeOutput();
+    const replacement = render(() => <Text>Replacement</Text>, {
+      input: replacementInput,
+      output: replacementOutput,
+    });
+    expect(replacementOutput.chunks.join("")).toContain("Replacement");
+    replacement.destroy();
   });
 });

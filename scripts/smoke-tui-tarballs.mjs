@@ -607,10 +607,12 @@ assert.doesNotMatch(transformed.code, /@uniview\\/(?!tui-solid\\/renderer)/)
 class FakeInput {
   isTTY = true
   rawModes = []
+  resumeCount = 0
+  pauseCount = 0
   dataListeners = new Set()
   setRawMode(mode) { this.rawModes.push(mode) }
-  resume() {}
-  pause() {}
+  resume() { this.resumeCount += 1 }
+  pause() { this.pauseCount += 1 }
   on(event, listener) {
     assert.equal(event, "data")
     this.dataListeners.add(listener)
@@ -645,6 +647,8 @@ const app = render(() => {
   return createComponent(Text, { children: "Hello Solid" })
 }, { input, output })
 assert.match(output.chunks.join(""), /Hello Solid/)
+assert.doesNotMatch(output.chunks[0], /Hello Solid/)
+assert.match(output.chunks[1], /Hello Solid/)
 assert.deepEqual(input.rawModes, [true])
 assert.equal(input.dataListeners.size, 1)
 assert.equal(output.resizeListeners.size, 1)
@@ -662,22 +666,35 @@ assert.throws(
 )
 assert.doesNotMatch(standbySurface.text({ trimRight: true }), /Standby/)
 
-const rejectedInput = new FakeInput()
-const rejectedOutput = new FakeOutput()
+const beforeCompetition = {
+  rawModes: [...input.rawModes],
+  resumeCount: input.resumeCount,
+  pauseCount: input.pauseCount,
+  dataListenerCount: input.dataListeners.size,
+  resizeListenerCount: output.resizeListeners.size,
+  chunks: [...output.chunks],
+}
 assert.throws(
   () => render(
     () => createComponent(Text, { children: "Rejected Solid" }),
-    { input: rejectedInput, output: rejectedOutput },
+    { input, output },
   ),
   /another TUI Solid root is active/i,
 )
-assert.deepEqual(rejectedInput.rawModes, [true, false])
-assert.equal(rejectedInput.dataListeners.size, 0)
-assert.equal(rejectedOutput.resizeListeners.size, 0)
-assert.doesNotMatch(rejectedOutput.chunks.join(""), /Rejected Solid/)
+assert.deepEqual({
+  rawModes: input.rawModes,
+  resumeCount: input.resumeCount,
+  pauseCount: input.pauseCount,
+  dataListenerCount: input.dataListeners.size,
+  resizeListenerCount: output.resizeListeners.size,
+  chunks: output.chunks,
+}, beforeCompetition)
+assert.doesNotMatch(output.chunks.join(""), /Rejected Solid/)
 
 const ownerChunkCount = output.chunks.length
 assert.deepEqual(input.rawModes, [true])
+assert.equal(input.resumeCount, 1)
+assert.equal(input.pauseCount, 0)
 assert.equal(input.dataListeners.size, 1)
 assert.equal(output.resizeListeners.size, 1)
 
@@ -691,11 +708,15 @@ assert.match(output.chunks.join(""), /replacement/)
 app.destroy()
 assert.equal(secondCleanup, 1)
 assert.deepEqual(input.rawModes, [true, false])
+assert.equal(input.resumeCount, 1)
+assert.equal(input.pauseCount, 1)
 assert.equal(input.dataListeners.size, 0)
 assert.equal(output.resizeListeners.size, 0)
 app.destroy()
 assert.equal(secondCleanup, 1)
 assert.deepEqual(input.rawModes, [true, false])
+assert.equal(input.resumeCount, 1)
+assert.equal(input.pauseCount, 1)
 standby.render(() => createComponent(Text, { children: "Standby" }))
 assert.match(standbySurface.text({ trimRight: true }), /Standby/)
 standby.destroy()

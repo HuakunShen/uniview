@@ -52,6 +52,11 @@ export class TerminalDriver {
   private readonly parser = new InputParser();
   private readonly mode;
   private entered = false;
+  private rawModeEnabled = false;
+  private inputResumed = false;
+  private dataListenerAttached = false;
+  private resizeListenerAttached = false;
+  private enterSequenceWritten = false;
   private currentSize: Size;
   private escapeTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -59,8 +64,10 @@ export class TerminalDriver {
     this.mode = {
       screen: options.screen ?? DEFAULT_MODE_OPTIONS.screen,
       mouse: options.mouse ?? DEFAULT_MODE_OPTIONS.mouse,
-      bracketedPaste: options.bracketedPaste ?? DEFAULT_MODE_OPTIONS.bracketedPaste,
-      focusReporting: options.focusReporting ?? DEFAULT_MODE_OPTIONS.focusReporting,
+      bracketedPaste:
+        options.bracketedPaste ?? DEFAULT_MODE_OPTIONS.bracketedPaste,
+      focusReporting:
+        options.focusReporting ?? DEFAULT_MODE_OPTIONS.focusReporting,
       hideCursor: options.hideCursor ?? DEFAULT_MODE_OPTIONS.hideCursor,
     };
     this.currentSize = this.readSize();
@@ -120,11 +127,29 @@ export class TerminalDriver {
     this.entered = true;
 
     const { input, output } = this.options;
-    if (input.isTTY) input.setRawMode?.(true);
-    input.resume?.();
-    input.on("data", this.onData);
-    output.on("resize", this.onResize);
-    output.write(buildEnterSequence(this.mode));
+    try {
+      if (input.isTTY && input.setRawMode) {
+        input.setRawMode(true);
+        this.rawModeEnabled = true;
+      }
+      if (input.resume) {
+        input.resume();
+        this.inputResumed = true;
+      }
+      input.on("data", this.onData);
+      this.dataListenerAttached = true;
+      output.on("resize", this.onResize);
+      this.resizeListenerAttached = true;
+      output.write(buildEnterSequence(this.mode));
+      this.enterSequenceWritten = true;
+    } catch (error) {
+      try {
+        this.stop();
+      } catch {
+        // Preserve the startup error after best-effort rollback.
+      }
+      throw error;
+    }
   }
 
   stop(): void {
@@ -134,12 +159,27 @@ export class TerminalDriver {
 
     const { input, output } = this.options;
     try {
-      output.write(buildLeaveSequence(this.mode));
+      if (this.enterSequenceWritten) {
+        this.enterSequenceWritten = false;
+        output.write(buildLeaveSequence(this.mode));
+      }
     } finally {
-      input.off("data", this.onData);
-      output.off("resize", this.onResize);
-      if (input.isTTY) input.setRawMode?.(false);
-      input.pause?.();
+      if (this.dataListenerAttached) {
+        this.dataListenerAttached = false;
+        input.off("data", this.onData);
+      }
+      if (this.resizeListenerAttached) {
+        this.resizeListenerAttached = false;
+        output.off("resize", this.onResize);
+      }
+      if (this.rawModeEnabled) {
+        this.rawModeEnabled = false;
+        input.setRawMode?.(false);
+      }
+      if (this.inputResumed) {
+        this.inputResumed = false;
+        input.pause?.();
+      }
     }
   }
 }

@@ -37,6 +37,19 @@ import type {
 
 let activeSolidRootOwner: object | null = null;
 
+function reserveSolidRootOwnership(owner: object): void {
+  if (activeSolidRootOwner && activeSolidRootOwner !== owner) {
+    throw new Error(
+      "Cannot render because another TUI Solid root is active; destroy it before rendering this root",
+    );
+  }
+  activeSolidRootOwner = owner;
+}
+
+function releaseSolidRootOwnership(owner: object): void {
+  if (activeSolidRootOwner === owner) activeSolidRootOwner = null;
+}
+
 export {
   AnsiCellSurface,
   FrameClock,
@@ -218,7 +231,10 @@ export interface TuiSolidApp extends TuiSolidRoot {
  * Note: solid-renderer uses a single module-global root, so one Solid root may
  * be active per process at a time.
  */
-export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
+function createTuiSolidRootInternal(
+  options: TuiSolidRootOptions,
+  owner: object,
+): TuiSolidRoot {
   const registry = new HandlerRegistry();
 
   const host = new TuiHost({
@@ -245,7 +261,6 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
 
   if (options.devtools) void connectSolidDevTools({ enabled: true });
 
-  const owner = {};
   const ownsGlobals = (): boolean => activeSolidRootOwner === owner;
 
   const sync = (): void => {
@@ -258,31 +273,43 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
 
   let dispose: (() => void) | null = null;
   let destroyed = false;
+  let globalsInstalled = false;
 
-  const claimGlobals = (): void => {
-    if (activeSolidRootOwner && !ownsGlobals()) {
-      throw new Error(
-        "Cannot render because another TUI Solid root is active; destroy it before rendering this root",
-      );
-    }
-    if (ownsGlobals()) return;
-
-    activeSolidRootOwner = owner;
-    setRootNode(null);
-    setMutationUpdateCallback(null);
-    setMutationCollector(null);
-    setUpdateCallback(sync);
-    setActiveTuiClock(clock);
+  const reserveOwnership = (): void => {
+    reserveSolidRootOwnership(owner);
   };
 
-  const releaseGlobals = (): void => {
+  const releaseOwnership = (): void => {
     if (!ownsGlobals()) return;
-    setUpdateCallback(null);
-    setMutationUpdateCallback(null);
-    setMutationCollector(null);
-    setRootNode(null);
-    setActiveTuiClock(null);
-    activeSolidRootOwner = null;
+    try {
+      if (globalsInstalled) {
+        setUpdateCallback(null);
+        setMutationUpdateCallback(null);
+        setMutationCollector(null);
+        setRootNode(null);
+        setActiveTuiClock(null);
+      }
+    } finally {
+      globalsInstalled = false;
+      releaseSolidRootOwnership(owner);
+    }
+  };
+
+  const installGlobals = (): void => {
+    reserveOwnership();
+    if (globalsInstalled) return;
+
+    globalsInstalled = true;
+    try {
+      setRootNode(null);
+      setMutationUpdateCallback(null);
+      setMutationCollector(null);
+      setUpdateCallback(sync);
+      setActiveTuiClock(clock);
+    } catch (error) {
+      releaseOwnership();
+      throw error;
+    }
   };
 
   const disposeMount = (): void => {
@@ -292,11 +319,11 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       activeDispose?.();
     } finally {
       registry.clear();
-      if (ownsGlobals()) setRootNode(null);
+      if (ownsGlobals() && globalsInstalled) setRootNode(null);
     }
   };
 
-  return {
+  const root: TuiSolidRoot = {
     host,
     clock,
 
@@ -304,7 +331,7 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       if (destroyed) {
         throw new Error("Cannot render into a destroyed TUI Solid root");
       }
-      claimGlobals();
+      installGlobals();
       disposeMount();
       resetIdCounter();
       const container: SolidNode = {
@@ -330,10 +357,19 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       } catch (error) {
         try {
           disposeMount();
-        } finally {
-          releaseGlobals();
+        } catch {
+          // Preserve the component mount error while cleaning up below.
+        }
+        try {
+          releaseOwnership();
+        } catch {
+          // Preserve the component mount error while cleaning up below.
+        }
+        try {
           host.setRoot(null);
           router.onRender();
+        } catch {
+          // Preserve the component mount error after best-effort host cleanup.
         }
         throw error;
       }
@@ -348,13 +384,19 @@ export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
       if (destroyed) return;
       destroyed = true;
       try {
-        if (ownsGlobals()) disposeMount();
+        if (ownsGlobals() && globalsInstalled) disposeMount();
       } finally {
-        releaseGlobals();
+        releaseOwnership();
         host.destroy();
       }
     },
   };
+
+  return root;
+}
+
+export function createTuiSolidRoot(options: TuiSolidRootOptions): TuiSolidRoot {
+  return createTuiSolidRootInternal(options, {});
 }
 
 export function render(
@@ -363,59 +405,78 @@ export function render(
 ): TuiSolidApp {
   const input = options.input ?? (process.stdin as unknown as TtyInput);
   const output = options.output ?? (process.stdout as unknown as TtyOutput);
-  const styles = new StyleTable();
-  const root = createTuiSolidRoot({
-    surface: new AnsiCellSurface({
-      write: (chunk) => output.write(chunk),
-      styles,
-    }),
-    styles,
-    size: {
-      width: options.width ?? output.columns ?? 80,
-      height: options.height ?? output.rows ?? 24,
-    },
-    committed: options.committed,
-    devtools: options.devtools,
-    clock: options.clock,
-    layoutEngine: options.layoutEngine,
-  });
-  const driver = new TerminalDriver({
-    input,
-    output,
-    onEvent: (event) => {
-      if (event.type === "resize") {
-        root.host.renderer.resize({ width: event.width, height: event.height });
-      } else {
-        root.dispatchInput(event);
-      }
-    },
-  });
+  const owner = {};
+  reserveSolidRootOwnership(owner);
 
-  driver.start();
+  let root: TuiSolidRoot | null = null;
+  let driver: TerminalDriver | null = null;
+
   try {
+    driver = new TerminalDriver({
+      input,
+      output,
+      onEvent: (event) => {
+        if (!root) return;
+        if (event.type === "resize") {
+          root.host.renderer.resize({
+            width: event.width,
+            height: event.height,
+          });
+        } else {
+          root.dispatchInput(event);
+        }
+      },
+    });
+    driver.start();
+    const styles = new StyleTable();
+    root = createTuiSolidRootInternal(
+      {
+        surface: new AnsiCellSurface({
+          write: (chunk) => output.write(chunk),
+          styles,
+        }),
+        styles,
+        size: {
+          width: options.width ?? output.columns ?? 80,
+          height: options.height ?? output.rows ?? 24,
+        },
+        committed: options.committed,
+        devtools: options.devtools,
+        clock: options.clock,
+        layoutEngine: options.layoutEngine,
+      },
+      owner,
+    );
     root.render(App);
   } catch (error) {
     try {
-      root.destroy();
+      root?.destroy();
     } catch {
       // Preserve the initial mount error after attempting root cleanup.
-    } finally {
-      driver.stop();
+    }
+    releaseSolidRootOwnership(owner);
+    try {
+      driver?.stop();
+    } catch {
+      // Preserve the initial reservation, startup, or mount error.
     }
     throw error;
   }
 
+  const mountedRoot = root;
+  const activeDriver = driver;
+
   return {
-    host: root.host,
-    clock: root.clock,
-    driver,
-    render: (next) => root.render(next),
-    dispatchInput: (event) => root.dispatchInput(event),
+    host: mountedRoot.host,
+    clock: mountedRoot.clock,
+    driver: activeDriver,
+    render: (next) => mountedRoot.render(next),
+    dispatchInput: (event) => mountedRoot.dispatchInput(event),
     destroy: () => {
       try {
-        root.destroy();
+        mountedRoot.destroy();
       } finally {
-        driver.stop();
+        activeDriver.stop();
       }
     },
   };
