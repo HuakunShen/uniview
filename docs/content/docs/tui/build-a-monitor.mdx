@@ -471,8 +471,12 @@ at play: the **terminal driver** (input + resize) and the **sample timer** (new 
 each sample spawns `ps`. The history ring buffers live here and ride down as props.
 
 ```tsx title="src/main.tsx"
-import { AnsiCellSurface, StyleTable, TerminalDriver } from "@uniview/tui-core";
-import { createTuiReactRoot } from "@uniview/tui-react";
+import {
+  AnsiCellSurface,
+  createTuiReactRoot,
+  StyleTable,
+  TerminalDriver,
+} from "@uniview/tui-react";
 import { App, type AppHost, type Frame } from "./app";
 import { createSampler } from "./sysinfo";
 

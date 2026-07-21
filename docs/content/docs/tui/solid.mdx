@@ -57,55 +57,52 @@ function Panel(props: PanelProps) {
 
 ## Trap 3 — `tsx`/esbuild cannot compile this
 
-Solid JSX has to go through `babel-preset-solid` targeting the **universal** renderer.
+Solid JSX has to go through `babel-preset-solid` targeting Uniview's **universal** renderer.
 esbuild — which `tsx` uses — only knows the React-style transform and would emit
-`React.createElement`-shaped calls. So a runnable Solid app is run with `vite-node`, whose
-config hosts the babel plugin:
+`React.createElement`-shaped calls. Use the public Vite helper, which configures the transform
+and the development/browser conditions for you:
 
 ```ts title="vite.config.ts"
-import { transformAsync } from "@babel/core";
-import ts from "@babel/preset-typescript";
-import solid from "babel-preset-solid";
-import { defineConfig } from "vitest/config";
-
-function solidUniversal() {
-  return {
-    name: "solid-universal",
-    enforce: "pre" as const,
-    async transform(code: string, id: string) {
-      if (!id.endsWith(".tsx")) return null;
-      const out = await transformAsync(code, {
-        filename: id,
-        presets: [
-          [solid, { moduleName: "@uniview/solid-renderer", generate: "universal" }],
-          [ts],
-        ],
-        sourceMaps: true,
-      });
-      return out?.code ? { code: out.code, map: out.map } : null;
-    },
-  };
-}
+import { univiewSolid } from "@uniview/tui-solid/vite";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [solidUniversal()],
-  // Without this, Node resolves Solid's SSR build and nothing ever updates.
-  resolve: { conditions: ["development", "browser"] },
-  ssr: { noExternal: ["solid-js", "@uniview/solid-renderer", "@uniview/tui-solid"] },
+  plugins: [univiewSolid()],
 });
+```
+
+Keep JSX preserved in TypeScript and load the public JSX augmentation. The compiled output is
+then resolved through `@uniview/tui-solid/renderer`, not an internal package path.
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "strict": true
+  },
+  "include": ["src"]
+}
 ```
 
 ```json title="package.json"
 { "scripts": { "dev": "vite-node src/main.tsx" } }
 ```
 
-The same config serves vitest. Your app must also depend on `@uniview/solid-renderer`
-directly, because that is what the compiled JSX imports from.
+The compiled JSX imports the public `@uniview/tui-solid/renderer` entry. It does not require
+an internal Uniview renderer package. Add the public JSX augmentation once so TypeScript sees
+the terminal intrinsic elements:
+
+```ts title="src/uniview-jsx.d.ts"
+import type {} from "@uniview/tui-solid/jsx-runtime";
+```
 
 <Callout type="info">
-Copy the config from `examples/tui/lazygit-solid` or `examples/tui/2048-solid` rather than
-retyping it — the `resolve.conditions` line in particular fails silently if you miss it: the
-app renders once and then never updates again.
+The helper keeps the renderer in Vite's SSR graph and sets the required conditions. Add
+`vite`, `vite-node`, and TypeScript as normal development tooling; they are not terminal-app
+runtime dependencies.
 </Callout>
 
 ## Reactivity notes

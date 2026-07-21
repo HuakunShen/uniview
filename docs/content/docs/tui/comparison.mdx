@@ -140,8 +140,8 @@ category for every framework compared here, not a uniview-specific gap.
 ## What uniview does that the others don't
 
 - **Framework-agnostic host, proven byte-identical.** `@uniview/tui-react` and
-  `@uniview/tui-solid` sit on the same `@uniview/tui-core` + `@uniview/host-tui`, and the
-  SVG output for the same app built in React vs. Solid is byte-identical. ink is
+  `@uniview/tui-solid` sit on the same `@uniview/tui-core` plus the internal host layer, and
+  the SVG output for the same app built in React vs. Solid is byte-identical. ink is
   React-only; opentui ships separate `packages/react` and `packages/solid` bindings but
   they are two independent reconcilers over the same core renderables — there's no
   cross-framework output-identity guarantee comparable to what uniview's test suite

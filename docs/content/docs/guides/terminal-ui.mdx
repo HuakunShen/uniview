@@ -1,65 +1,38 @@
 ---
 title: Terminal UI
-description: Rendering React components directly to terminal with no DOM or browser
+description: Render React or Solid components directly to a terminal
 icon: Terminal
 ---
 
-The `@uniview/tui-renderer` package provides a standalone React reconciler that renders directly to the terminal — no DOM, no browser, no plugin/RPC infrastructure needed.
-
-This is conceptually similar to React Native: React components are rendered to a non-DOM target using a custom reconciler.
-
-## Quick Start
+Uniview's terminal UI bindings render directly to a terminal — no DOM, browser, or
+plugin/RPC infrastructure required. Use one public binding package with its framework:
 
 ```bash
-cd examples/tui/demo
-pnpm dev
+pnpm add @uniview/tui-react react
+# or
+pnpm add @uniview/tui-solid solid-js
 ```
 
-## How It Works
+The bindings share the same framework-neutral terminal engine and expose matching components.
+For the complete installation, first frame, custom-surface, and input examples, see the
+[TUI getting-started guide](/docs/tui/getting-started).
 
-```
-React Components → Custom Reconciler → In-Memory Tree → ANSI Terminal Output
-```
+React and Solid are rendered through their respective reconcilers; both paint terminal cells
+and update only the changed frame regions.
 
-The TUI renderer:
-1. Uses `react-reconciler` to build an in-memory tree of terminal elements
-2. Traverses the tree to compute layout (fixed positioning)
-3. Renders to terminal using ANSI escape codes
-4. Re-renders on state changes (full redraw)
+## Choose a binding
 
-## Available Components
+| Framework | Install | Compiler setup |
+| --- | --- | --- |
+| React | `@uniview/tui-react` + `react` | No DOM renderer required |
+| Solid | `@uniview/tui-solid` + `solid-js` | Use `univiewSolid()` from `@uniview/tui-solid/vite` for TSX |
 
-| Component | Description |
-|---|---|
-| `Box` | Container with optional border and padding |
-| `Text` | Styled text output (bold, color, etc.) |
-| `Button` | Highlighted text, selectable with keyboard |
-| `Input` | Single-line text input |
-| `Newline` | Line break |
+Install `@uniview/tui-core` directly only when building a no-framework terminal UI or a custom
+surface. It is otherwise installed transitively by either binding.
 
-## Example
+## Next steps
 
-```tsx
-import { useState } from "react";
-import { Box, Text, Button } from "@uniview/tui-renderer";
-
-export default function App() {
-  const [count, setCount] = useState(0);
-
-  return (
-    <Box border padding={1}>
-      <Text bold>Counter: {count}</Text>
-      <Button onPress={() => setCount(c => c + 1)}>Increment</Button>
-    </Box>
-  );
-}
-```
-
-## Differences from Uniview Plugin System
-
-The TUI renderer is a **standalone** package — it does not use the uniview plugin/host RPC architecture. It's a direct React-to-terminal renderer, useful for:
-
-- CLI tools built with React
-- Terminal dashboards
-- Learning how custom React reconcilers work
-- Demonstrating that React can target any output surface
+- [Components](/docs/tui/components)
+- [Charts](/docs/tui/charts)
+- [Solid setup and reactivity](/docs/tui/solid)
+- [Build a system monitor](/docs/tui/build-a-monitor)

@@ -10,14 +10,14 @@ icon: Play
 <Tab value="React">
 
 ```bash
-pnpm add @uniview/tui-react @uniview/tui-core react
+pnpm add @uniview/tui-react react
 ```
 
 </Tab>
 <Tab value="Solid">
 
 ```bash
-pnpm add @uniview/tui-solid @uniview/tui-core solid-js
+pnpm add @uniview/tui-solid solid-js
 ```
 
 </Tab>
@@ -29,63 +29,68 @@ pnpm add @uniview/tui-solid @uniview/tui-core solid-js
 <Tab value="React">
 
 ```tsx title="main.tsx"
-import { AnsiCellSurface, StyleTable, TerminalDriver } from "@uniview/tui-core";
-import { createTuiReactRoot, Panel, Text } from "@uniview/tui-react";
+import { Panel, Text, render } from "@uniview/tui-react";
 
-const styles = new StyleTable();
-const surface = new AnsiCellSurface({
-  write: (chunk) => process.stdout.write(chunk),
-  styles,
-});
-const root = createTuiReactRoot({
-  surface,
-  styles,
-  size: { width: process.stdout.columns, height: process.stdout.rows },
-});
-
-root.render(
+const app = render(
   <Panel title="Hello" focused>
     <Text bold>from React</Text>
   </Panel>,
 );
+
+process.on("SIGINT", () => {
+  app.destroy();
+  process.exit(0);
+});
 ```
 
 </Tab>
 <Tab value="Solid">
 
 ```tsx title="main.tsx"
-import { AnsiCellSurface, StyleTable } from "@uniview/tui-core";
-import { createTuiSolidRoot, Panel, Text } from "@uniview/tui-solid";
-
-const styles = new StyleTable();
-const surface = new AnsiCellSurface({
-  write: (chunk) => process.stdout.write(chunk),
-  styles,
-});
-const root = createTuiSolidRoot({
-  surface,
-  styles,
-  size: { width: process.stdout.columns, height: process.stdout.rows },
-});
+import { Panel, Text, render } from "@uniview/tui-solid";
 
 // Mounted once. Signal writes drive every later frame — there is no rerender().
-root.render(() => (
+const app = render(() => (
   <Panel title="Hello" focused>
     <Text bold>from Solid</Text>
   </Panel>
 ));
+
+process.on("SIGINT", () => {
+  app.destroy();
+  process.exit(0);
+});
 ```
 
 </Tab>
 </Tabs>
 
-## Taking input
+## Advanced API: custom input and surfaces
 
-`TerminalDriver` puts the terminal in raw mode and emits normalized events. Feed them to
-the root and they route to whichever component is focused.
+`render()` is the normal path: it creates the ANSI surface and terminal driver for you. Use
+the low-level API only when you need custom terminal behavior or a non-terminal surface. The
+binding re-exports the common core facilities, so the React example still has one dependency.
+
+`TerminalDriver` puts the terminal in raw mode and emits normalized events. Feed them to the
+root and they route to whichever component is focused.
 
 ```tsx
-import { TerminalDriver } from "@uniview/tui-core";
+import {
+  AnsiCellSurface,
+  createTuiReactRoot,
+  StyleTable,
+  TerminalDriver,
+} from "@uniview/tui-react";
+
+const styles = new StyleTable();
+const root = createTuiReactRoot({
+  surface: new AnsiCellSurface({
+    write: (chunk) => process.stdout.write(chunk),
+    styles,
+  }),
+  styles,
+  size: { width: process.stdout.columns ?? 80, height: process.stdout.rows ?? 24 },
+});
 
 const driver = new TerminalDriver({
   input: process.stdin,
@@ -115,7 +120,11 @@ while named keys (`ArrowDown`, `Tab`, `Enter`) arrive as `key` events.
 Swap the surface. `MemoryCellSurface` renders into memory, and you assert on the text:
 
 ```tsx
-import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
+import {
+  createTuiReactRoot,
+  MemoryCellSurface,
+  StyleTable,
+} from "@uniview/tui-react";
 
 const styles = new StyleTable();
 const surface = new MemoryCellSurface({ styles });
@@ -142,7 +151,7 @@ expect(styles.get(corner.styleId).fg).toBe("green");
 these docs is produced, and why they cannot drift from the code.
 
 ```tsx
-import { SvgCellSurface } from "@uniview/tui-core";
+import { SvgCellSurface } from "@uniview/tui-react";
 
 const surface = new SvgCellSurface({ styles });
 // …render…

@@ -36,7 +36,9 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 | [@uniview/solid-runtime](./packages/solid-runtime)   | Solid plugin bootstrap for Worker/WebSocket       |
 | [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                |
 | [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                        |
-| [@uniview/tui-renderer](./packages/tui-renderer)     | Terminal UI renderer (non-DOM, like React Native) |
+| [@uniview/tui-core](./packages/tui-core)             | Framework-neutral terminal engine                 |
+| [@uniview/tui-react](./packages/tui-react)           | Complete React terminal UI binding                |
+| [@uniview/tui-solid](./packages/tui-solid)           | Complete Solid terminal UI binding                |
 
 ## Quick Start
 
@@ -332,7 +334,9 @@ uniview/
 │   ├── solid-runtime/      # Solid plugin bootstrap (worker + ws-client)
 │   ├── host-sdk/           # Host controller logic
 │   ├── host-svelte/        # Svelte 5 adapter
-│   └── tui-renderer/       # Terminal UI renderer (non-DOM)
+│   ├── tui-core/           # Framework-neutral terminal engine
+│   ├── tui-react/          # Complete React terminal UI binding
+│   └── tui-solid/          # Complete Solid terminal UI binding
 ├── examples/
 │   ├── host-svelte-demo/   # Web example (Svelte + Bridge)
 │   ├── host-macos-demo/    # Native macOS app (SwiftUI)
