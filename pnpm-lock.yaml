@@ -472,9 +472,6 @@ importers:
 
   examples/tui/2048-solid:
     dependencies:
-      '@uniview/solid-renderer':
-        specifier: workspace:*
-        version: link:../../../packages/solid-renderer
       '@uniview/tui-core':
         specifier: workspace:*
         version: link:../../../packages/tui-core
@@ -485,18 +482,9 @@ importers:
         specifier: ^1.9.9
         version: 1.9.11
     devDependencies:
-      '@babel/core':
-        specifier: ^7.26.0
-        version: 7.29.0
-      '@babel/preset-typescript':
-        specifier: ^7.26.0
-        version: 7.28.5(@babel/core@7.29.0)
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
-      babel-preset-solid:
-        specifier: ^1.9.0
-        version: 1.9.10(@babel/core@7.29.0)(solid-js@1.9.11)
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -827,9 +815,6 @@ importers:
 
   examples/tui/lazygit-solid:
     dependencies:
-      '@uniview/solid-renderer':
-        specifier: workspace:*
-        version: link:../../../packages/solid-renderer
       '@uniview/tui-core':
         specifier: workspace:*
         version: link:../../../packages/tui-core
@@ -840,18 +825,9 @@ importers:
         specifier: ^1.9.9
         version: 1.9.11
     devDependencies:
-      '@babel/core':
-        specifier: ^7.26.0
-        version: 7.29.0
-      '@babel/preset-typescript':
-        specifier: ^7.26.0
-        version: 7.28.5(@babel/core@7.29.0)
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
-      babel-preset-solid:
-        specifier: ^1.9.0
-        version: 1.9.10(@babel/core@7.29.0)(solid-js@1.9.11)
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -1473,9 +1449,18 @@ importers:
 
   packages/tui-solid:
     dependencies:
+      '@babel/core':
+        specifier: ^7.26.0
+        version: 7.29.0
+      '@babel/preset-typescript':
+        specifier: ^7.26.0
+        version: 7.28.5(@babel/core@7.29.0)
       '@uniview/tui-core':
         specifier: workspace:*
         version: link:../tui-core
+      babel-preset-solid:
+        specifier: ^1.9.0
+        version: 1.9.10(@babel/core@7.29.0)(solid-js@1.9.11)
       lowlight:
         specifier: ^3.3.0
         version: 3.3.0
@@ -1483,12 +1468,6 @@ importers:
         specifier: ^15.0.0
         version: 15.0.12
     devDependencies:
-      '@babel/core':
-        specifier: ^7.26.0
-        version: 7.29.0
-      '@babel/preset-typescript':
-        specifier: ^7.26.0
-        version: 7.28.5(@babel/core@7.29.0)
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.11
@@ -1516,9 +1495,6 @@ importers:
       '@uniview/tui-react':
         specifier: workspace:*
         version: link:../tui-react
-      babel-preset-solid:
-        specifier: ^1.9.0
-        version: 1.9.10(@babel/core@7.29.0)(solid-js@1.9.11)
       react:
         specifier: 'catalog:'
         version: 19.2.4

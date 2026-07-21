@@ -30,11 +30,10 @@ updates only the panels that actually changed. Resize needs no re-render either:
 `renderer.resize()` invalidates layout and schedules its own repaint, and the
 Solid tree is untouched.
 
-**It runs under `vite-node`, not `tsx`.** Solid JSX has to be compiled by
-`babel-preset-solid` targeting the universal renderer. `tsx` uses esbuild, which
-only knows the React-style JSX transform and would emit `React.createElement`
--shaped calls. `vite.config.ts` hosts the babel plugin and serves both
-`vite-node src/main.tsx` and vitest.
+**It runs under `vite-node`, not `tsx`.** The public `univiewSolid()` helper in
+`vite.config.ts` compiles Solid JSX for the terminal renderer and serves both
+`vite-node src/main.tsx` and Vitest. `tsx` uses esbuild alone, which cannot apply
+Solid's universal renderer transform.
 
 ## Tests
 

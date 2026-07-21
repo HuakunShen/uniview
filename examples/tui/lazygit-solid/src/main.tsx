@@ -12,16 +12,23 @@ import { App, createAppState, handleKey, type AppHost } from "./app";
  *
  *   keys: 1-5/0 focus a panel · ↑↓ move the branch/commit selection
  *
- * Note it runs under `vite-node`, not `tsx`: Solid JSX has to go through
- * babel-preset-solid (see vite.config.ts), and esbuild cannot do that.
+ * Note it runs under `vite-node`, not `tsx`: the public `univiewSolid()` Vite
+ * helper lowers Solid JSX for the terminal renderer; esbuild alone cannot.
  */
 const columns = process.stdout.columns ?? 100;
 const rows = process.stdout.rows ?? 30;
 const ONCE = !process.stdout.isTTY || process.env.UNIVIEW_DEMO_ONCE === "1";
 
 const styles = new StyleTable();
-const surface = new AnsiCellSurface({ write: (chunk) => process.stdout.write(chunk), styles });
-const root = createTuiSolidRoot({ surface, styles, size: { width: columns, height: rows } });
+const surface = new AnsiCellSurface({
+  write: (chunk) => process.stdout.write(chunk),
+  styles,
+});
+const root = createTuiSolidRoot({
+  surface,
+  styles,
+  size: { width: columns, height: rows },
+});
 
 const state = createAppState();
 

@@ -9,19 +9,73 @@ Render **Solid** components to a terminal. It is feature-for-feature equivalent 
 pnpm add @uniview/tui-solid solid-js
 ```
 
+The package includes its Solid compiler integration. Vite, `vite-node`, and TypeScript remain
+normal project tooling, not runtime dependencies of your terminal app:
+
+```bash
+pnpm add -D vite vite-node typescript
+```
+
+## Configure Vite and TypeScript
+
+Create `vite.config.ts` with the public helper. It lowers TSX to Uniview's terminal renderer,
+uses the reactive Solid development/browser conditions in Node, and keeps the relevant modules
+inside Vite's SSR graph:
+
+```ts
+import { univiewSolid } from "@uniview/tui-solid/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [univiewSolid()],
+});
+```
+
+Use normal preserved JSX in `tsconfig.json`, then make the public JSX augmentation visible to
+your app. No internal Uniview package or `node_modules` path is required.
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "strict": true
+  },
+  "include": ["src"]
+}
+```
+
+```ts
+// src/uniview-jsx.d.ts
+import type {} from "@uniview/tui-solid/jsx-runtime";
+```
+
 ## Quick start
 
 `render()` creates the terminal surface, starts input handling, and mounts your Solid app.
 Everything in this example comes from the one public binding package.
 
 ```tsx
-import { Panel, Text, render } from "@uniview/tui-solid";
+// src/App.tsx
+import { Panel, Text } from "@uniview/tui-solid";
 
-const app = render(() => (
-  <Panel title="Hello" focused>
-    <Text bold>from Solid</Text>
-  </Panel>
-));
+export function App() {
+  return (
+    <Panel title="Hello" focused>
+      <Text bold>from Solid</Text>
+    </Panel>
+  );
+}
+```
+
+```tsx
+// src/main.tsx
+import { render } from "@uniview/tui-solid";
+import { App } from "./App";
+
+const app = render(() => <App />);
 
 process.on("SIGINT", () => {
   app.destroy();
@@ -96,9 +150,9 @@ type-checks against SVG attributes. Use the exported `Text` component.
 **Never destructure props.** It breaks Solid's reactivity — the value is read once and
 frozen. Use `splitProps` or read `props.x` inline. This is enforced by tests, not style.
 
-**Configure Solid JSX for Uniview.** Use the Solid universal-renderer setup described in the
-TUI documentation. Do not add an implementation package as an application dependency; the
-published `@uniview/tui-solid` binding contains the renderer it needs at runtime.
+**Run TSX through Vite.** `tsx` uses esbuild and cannot apply Solid's universal renderer
+transform. Run with `vite-node src/main.tsx` in development, or use Vite/Vitest with the
+`univiewSolid()` helper above.
 
 ## Development
 

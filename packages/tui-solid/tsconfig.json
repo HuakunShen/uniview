@@ -18,5 +18,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "node_modules/@uniview/solid-renderer/jsx-runtime.d.ts"]
+  "include": ["src", "tests"]
 }

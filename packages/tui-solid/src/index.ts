@@ -1,3 +1,4 @@
+import "./jsx-runtime";
 import { createRoot } from "solid-js";
 import {
   createComponent,

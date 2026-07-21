@@ -38,6 +38,12 @@ function solidUniversal(): TsdownPlugin {
 }
 
 export default defineConfig({
+  entry: [
+    "src/index.ts",
+    "src/renderer.ts",
+    "src/vite.ts",
+    "src/jsx-runtime.ts",
+  ],
   deps: {
     alwaysBundle: bundledWorkspacePackages,
     dts: { alwaysBundle: bundledWorkspacePackages },
