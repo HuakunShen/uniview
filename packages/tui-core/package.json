@@ -4,6 +4,14 @@
   "version": "0.0.1",
   "description": "Framework-neutral TUI core: scene, cell buffer, text engine, layout, paint, diff, surfaces",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HuakunShen/uniview.git",
+    "directory": "packages/tui-core"
+  },
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"

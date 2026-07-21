@@ -2,8 +2,16 @@
   "name": "@uniview/tui-solid",
   "type": "module",
   "version": "0.0.1",
-  "description": "Render Solid plugins to the terminal via @uniview/host-tui and @uniview/tui-core",
+  "description": "Render Solid components to the terminal",
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HuakunShen/uniview.git",
+    "directory": "packages/tui-solid"
+  },
   "exports": {
     ".": "./dist/index.mjs",
     "./package.json": "./package.json"

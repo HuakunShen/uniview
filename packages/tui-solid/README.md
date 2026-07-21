@@ -1,45 +1,84 @@
 # @uniview/tui-solid
 
-Render **Solid** components to a terminal. The Solid half of uniview's TUI stack —
-feature-for-feature equivalent to [`@uniview/tui-react`](../tui-react), on the same
-framework-agnostic host.
+Render **Solid** components to a terminal. It is feature-for-feature equivalent to
+`@uniview/tui-react`, using the same framework-neutral terminal engine.
+
+## Install
 
 ```bash
 pnpm add @uniview/tui-solid solid-js
 ```
 
+## Quick start
+
+`render()` creates the terminal surface, starts input handling, and mounts your Solid app.
+Everything in this example comes from the one public binding package.
+
 ```tsx
-import { AnsiCellSurface, StyleTable } from "@uniview/tui-core";
-import { createTuiSolidRoot, Panel, Text } from "@uniview/tui-solid";
+import { Panel, Text, render } from "@uniview/tui-solid";
 
-const styles = new StyleTable();
-const surface = new AnsiCellSurface({ write: (c) => process.stdout.write(c), styles });
-const root = createTuiSolidRoot({ surface, styles, size: { width: 80, height: 24 } });
-
-root.render(() => (
+const app = render(() => (
   <Panel title="Hello" focused>
     <Text bold>from Solid</Text>
   </Panel>
 ));
+
+process.on("SIGINT", () => {
+  app.destroy();
+  process.exit(0);
+});
 ```
 
 Mount once — signal writes drive every later frame. There is no `rerender()`.
+`app.destroy()` restores the terminal before an intentional process exit.
 
 ## Components
 
-| | |
-|---|---|
-| **Primitives** | `Box` `Text` `RichText` |
-| **Layout** | `Panel` (titled/footered border, focus color) · `StatusBar` |
-| **Lists** | `List` (selection, full-row highlight, scroll-into-view) · `VirtualList` · `Select` |
-| **Interaction** | `ScrollView` · `Hoverable` · `CommandPalette` |
-| **Content** | `Markdown` · `Code` · `Diff` · `StreamingMarkdown` |
-| **Charts** | `BarChart` `Histogram` `Sparkline` `Gauge` `LineChart` `Scatter` |
-| **Helpers** | `createFocusList` · `nextFocus` · `listCounter` · `renderNodeToElement` |
+|                 |                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------- |
+| **Primitives**  | `Box` `Text` `RichText`                                                             |
+| **Layout**      | `Panel` (titled/footered border, focus color) · `StatusBar`                         |
+| **Lists**       | `List` (selection, full-row highlight, scroll-into-view) · `VirtualList` · `Select` |
+| **Interaction** | `ScrollView` · `Hoverable` · `CommandPalette`                                       |
+| **Content**     | `Markdown` · `Code` · `Diff` · `StreamingMarkdown`                                  |
+| **Charts**      | `BarChart` `Histogram` `Sparkline` `Gauge` `LineChart` `Scatter`                    |
+| **Helpers**     | `createFocusList` · `nextFocus` · `listCounter` · `renderNodeToElement`             |
 
-Charts and content components are thin wrappers over the pure builders in
-[`@uniview/tui-charts`](../tui-charts) and [`@uniview/tui-content`](../tui-content),
-so they render identically under React and Solid.
+The components, content, and charts are included in this package's published output. You do
+not need to install Uniview implementation packages separately.
+
+## Advanced: custom surfaces and no-framework UI
+
+The binding re-exports common core facilities, so tests and custom Solid mount flows can
+still use one package:
+
+```ts
+import {
+  createTuiSolidRoot,
+  MemoryCellSurface,
+  StyleTable,
+} from "@uniview/tui-solid";
+
+const styles = new StyleTable();
+const surface = new MemoryCellSurface({ styles });
+const root = createTuiSolidRoot({
+  surface,
+  styles,
+  size: { width: 80, height: 24 },
+});
+```
+
+For a custom terminal surface or a UI with no React/Solid runtime, install core directly:
+
+```bash
+pnpm add @uniview/tui-core
+```
+
+```ts
+import { createTuiApp } from "@uniview/tui-core";
+
+const app = createTuiApp({ input: process.stdin, output: process.stdout });
+```
 
 ## Working demos
 
@@ -51,18 +90,15 @@ so they render identically under React and Solid.
 ## Three things that will bite you
 
 **Never write literal `<text>` JSX.** solid-js ships an SVG `text` intrinsic that shadows
-our tag (an explicit member beats the renderer's catch-all index signature), so
-`<text>` type-checks against SVG attributes. Use the exported `Text` component.
+our tag (an explicit member beats the renderer's catch-all index signature), so `<text>`
+type-checks against SVG attributes. Use the exported `Text` component.
 
 **Never destructure props.** It breaks Solid's reactivity — the value is read once and
 frozen. Use `splitProps` or read `props.x` inline. This is enforced by tests, not style.
 
-**`tsx`/esbuild cannot compile this.** Solid JSX must go through `babel-preset-solid`
-targeting the universal renderer (`moduleName: "@uniview/solid-renderer"`,
-`generate: "universal"`). Runnable apps use `vite-node` with a `vite.config.ts` that
-hosts the babel plugin, plus `resolve.conditions: ["development", "browser"]` — without
-that, Node resolves Solid's SSR build and nothing ever updates. Copy the config from
-either demo.
+**Configure Solid JSX for Uniview.** Use the Solid universal-renderer setup described in the
+TUI documentation. Do not add an implementation package as an application dependency; the
+published `@uniview/tui-solid` binding contains the renderer it needs at runtime.
 
 ## Development
 

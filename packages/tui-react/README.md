@@ -1,42 +1,82 @@
 # @uniview/tui-react
 
-Render **React** components to a terminal, via a custom reconciler — no `react-dom`.
+Render **React** components to a terminal with a custom reconciler — no `react-dom`.
+
+## Install
 
 ```bash
 pnpm add @uniview/tui-react react
 ```
 
+## Quick start
+
+`render()` creates the terminal surface, starts input handling, and mounts your React tree.
+Everything in this example comes from the one public binding package.
+
 ```tsx
-import { AnsiCellSurface, StyleTable } from "@uniview/tui-core";
-import { createTuiReactRoot, Panel, Text } from "@uniview/tui-react";
+import { Panel, Text, render } from "@uniview/tui-react";
 
-const styles = new StyleTable();
-const surface = new AnsiCellSurface({ write: (c) => process.stdout.write(c), styles });
-const root = createTuiReactRoot({ surface, styles, size: { width: 80, height: 24 } });
-
-root.render(
+const app = render(
   <Panel title="Hello" focused>
     <Text bold>from React</Text>
   </Panel>,
 );
+
+process.on("SIGINT", () => {
+  app.destroy();
+  process.exit(0);
+});
 ```
+
+`app.destroy()` restores the terminal. Call it before an intentional process exit.
 
 ## Components
 
-| | |
-|---|---|
-| **Primitives** | `Box` `Text` `RichText` |
-| **Layout** | `Panel` (titled/footered border, focus color) · `StatusBar` |
-| **Lists** | `List` (selection, full-row highlight, scroll-into-view) · `VirtualList` · `Select` |
-| **Interaction** | `ScrollView` · `Hoverable` · `CommandPalette` |
-| **Content** | `Markdown` · `Code` · `Diff` · `StreamingMarkdown` |
-| **Charts** | `BarChart` `Histogram` `Sparkline` `Gauge` `LineChart` `Scatter` |
+|                     |                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Primitives**      | `Box` `Text` `RichText`                                                                                 |
+| **Layout**          | `Panel` (titled/footered border, focus color) · `StatusBar`                                             |
+| **Lists**           | `List` (selection, full-row highlight, scroll-into-view) · `VirtualList` · `Select`                     |
+| **Interaction**     | `ScrollView` · `Hoverable` · `CommandPalette`                                                           |
+| **Content**         | `Markdown` · `Code` · `Diff` · `StreamingMarkdown`                                                      |
+| **Charts**          | `BarChart` `Histogram` `Sparkline` `Gauge` `LineChart` `Scatter`                                        |
 | **Hooks / helpers** | `useFocusList` · `nextFocus` · `listCounter` · `clampScroll` · `filterCommands` · `renderNodeToElement` |
 
-Charts and content components wrap the pure builders in
-[`@uniview/tui-charts`](../tui-charts) and [`@uniview/tui-content`](../tui-content).
-The same components exist in [`@uniview/tui-solid`](../tui-solid) and render identically —
-prop interpretation is host-side, shared by both.
+The components, content, and charts are included in this package's published output. You do
+not need to install Uniview implementation packages separately.
+
+## Advanced: custom surfaces and no-framework UI
+
+The binding re-exports common core facilities, so tests and custom React mount flows can
+still use one package:
+
+```ts
+import {
+  createTuiReactRoot,
+  MemoryCellSurface,
+  StyleTable,
+} from "@uniview/tui-react";
+
+const styles = new StyleTable();
+const surface = new MemoryCellSurface({ styles });
+const root = createTuiReactRoot({
+  surface,
+  styles,
+  size: { width: 80, height: 24 },
+});
+```
+
+For a custom terminal surface or a UI with no React/Solid runtime, install core directly:
+
+```bash
+pnpm add @uniview/tui-core
+```
+
+```ts
+import { createTuiApp } from "@uniview/tui-core";
+
+const app = createTuiApp({ input: process.stdin, output: process.stdout });
+```
 
 ## Working demos
 
