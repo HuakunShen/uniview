@@ -343,7 +343,7 @@ git commit -m "feat(tui-solid): add one-package terminal facade"
 - Create: `scripts/verify-tui-package-boundaries.mjs`
 
 **Interfaces:**
-- Consumes: tsdown `deps.alwaysBundle`, `deps.dts.alwaysBundle`, and `deps.onlyImport`.
+- Consumes: tsdown 0.22.2 `deps.alwaysBundle` and `deps.dts.alwaysBundle`.
 - Produces: binding artifacts whose only allowed external `@uniview/*` import is `@uniview/tui-core`.
 
 - [ ] **Step 1: Write the artifact verifier**
@@ -392,13 +392,21 @@ for (const binding of bindings) {
     .filter((name) => name.startsWith("@uniview/"));
   assert.deepEqual(internalRuntime, ["@uniview/tui-core"]);
   assert.ok(manifest.peerDependencies?.[binding.peer]);
+  const declaredRuntime = new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.peerDependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {}),
+  ]);
 
   for (const file of await filesBelow(join(packageDir, "dist"))) {
     if (!sourceExtensions.has(extname(file)) && !file.endsWith(".d.mts")) continue;
     const source = await readFile(file, "utf8");
     for (const match of source.matchAll(importPattern)) {
-      const name = packageName(match[1]);
+      const specifier = match[1];
+      if (specifier.startsWith(".") || specifier.startsWith("node:")) continue;
+      const name = packageName(specifier);
       if (name.startsWith("@uniview/")) assert.ok(allowedUniview.has(name), `${file}: ${name}`);
+      assert.ok(declaredRuntime.has(name), `${file}: undeclared runtime import ${name}`);
     }
   }
 }
@@ -416,11 +424,12 @@ Expected: FAIL on imports such as `@uniview/host-tui` or `@uniview/react-rendere
 
 In the React config, define an array matching `host-tui`, `react-renderer`, `tui-content`,
 `tui-charts`, `protocol`, and `style`; pass it to both `deps.alwaysBundle` and
-`deps.dts.alwaysBundle`. Set `deps.onlyImport` to React, `@uniview/tui-core`,
-`react-reconciler`, `marked`, and `lowlight`.
+`deps.dts.alwaysBundle`.
 
 In the Solid config, apply the same pattern with `solid-renderer` instead of
-`react-renderer`; allow only Solid, `@uniview/tui-core`, `marked`, and `lowlight` imports.
+`react-renderer`. The post-build verifier, rather than tsdown, enforces that every emitted
+third-party import is declared as a runtime or peer dependency because pinned tsdown 0.22.2
+does not yet expose the newer `deps.onlyImport` option.
 
 ```ts
 const bundledWorkspacePackages = [
@@ -430,7 +439,6 @@ const bundledWorkspacePackages = [
 deps: {
   alwaysBundle: bundledWorkspacePackages,
   dts: { alwaysBundle: bundledWorkspacePackages },
-  onlyImport: ["react", "@uniview/tui-core", "react-reconciler", "marked", "lowlight"],
 },
 ```
 
