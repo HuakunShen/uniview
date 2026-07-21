@@ -7,7 +7,15 @@ import {
   serializeTree,
   unmount,
 } from "@uniview/react-renderer";
-import { FrameClock } from "@uniview/tui-core";
+import {
+  AnsiCellSurface,
+  FrameClock,
+  MemoryCellSurface,
+  StyleTable,
+  SvgCellSurface,
+  TerminalDriver,
+  yogaLayoutEngine,
+} from "@uniview/tui-core";
 import { InputRouter, TuiHost } from "@uniview/host-tui";
 import { TuiRuntimeContext } from "./input";
 import { TuiClockContext } from "./animation";
@@ -17,8 +25,28 @@ import type {
   CommittedOutput,
   LayoutEngine,
   Size,
-  StyleTable,
   TuiInputEvent,
+  TtyInput,
+  TtyOutput,
+} from "@uniview/tui-core";
+
+export {
+  AnsiCellSurface,
+  FrameClock,
+  MemoryCellSurface,
+  StyleTable,
+  SvgCellSurface,
+  TerminalDriver,
+  yogaLayoutEngine,
+};
+export type {
+  CellSurface,
+  CommittedOutput,
+  LayoutEngine,
+  Size,
+  TuiInputEvent,
+  TtyInput,
+  TtyOutput,
 } from "@uniview/tui-core";
 
 export { VirtualList } from "./virtual-list";
@@ -131,6 +159,20 @@ export interface TuiReactRoot {
   destroy(): void;
 }
 
+export interface TuiReactRenderOptions extends Omit<
+  TuiReactRootOptions,
+  "surface" | "size" | "styles"
+> {
+  width?: number;
+  height?: number;
+  input?: TtyInput;
+  output?: TtyOutput;
+}
+
+export interface TuiReactApp extends TuiReactRoot {
+  readonly driver: TerminalDriver;
+}
+
 /**
  * Render a React plugin to a terminal {@link CellSurface}. React commits are
  * serialized to UINode and fed to a {@link TuiHost}; an {@link InputRouter}
@@ -212,6 +254,60 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
       unsubscribe();
       unmount(handle);
       host.destroy();
+    },
+  };
+}
+
+export function render(
+  element: ReactElement,
+  options: TuiReactRenderOptions = {},
+): TuiReactApp {
+  const input = options.input ?? (process.stdin as unknown as TtyInput);
+  const output = options.output ?? (process.stdout as unknown as TtyOutput);
+  const styles = new StyleTable();
+  const root = createTuiReactRoot({
+    surface: new AnsiCellSurface({
+      write: (chunk) => output.write(chunk),
+      styles,
+    }),
+    styles,
+    size: {
+      width: options.width ?? output.columns ?? 80,
+      height: options.height ?? output.rows ?? 24,
+    },
+    committed: options.committed,
+    devtools: options.devtools,
+    clock: options.clock,
+    layoutEngine: options.layoutEngine,
+    mode: options.mode,
+  });
+  const driver = new TerminalDriver({
+    input,
+    output,
+    onEvent: (event) => {
+      if (event.type === "resize") {
+        root.host.renderer.resize({ width: event.width, height: event.height });
+      } else {
+        root.dispatchInput(event);
+      }
+    },
+  });
+
+  driver.start();
+  root.render(element);
+
+  return {
+    host: root.host,
+    clock: root.clock,
+    driver,
+    render: (next) => root.render(next),
+    dispatchInput: (event) => root.dispatchInput(event),
+    destroy: () => {
+      try {
+        root.destroy();
+      } finally {
+        driver.stop();
+      }
     },
   };
 }
