@@ -14,7 +14,7 @@ import { App, createAppState } from "../src/app";
  */
 const OUT = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../docs/public/tui/lazygit-solid.svg",
+  "../../../../docs/public/tui/lazygit-solid.svg",
 );
 
 const styles = new StyleTable();
