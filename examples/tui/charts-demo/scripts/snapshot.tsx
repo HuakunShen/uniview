@@ -14,7 +14,7 @@ import { App, createState, tick, type AppHost } from "../src/app";
  */
 const OUT = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../docs/public/tui/charts-react.svg",
+  "../../../../docs/public/tui/charts-react.svg",
 );
 
 const styles = new StyleTable();

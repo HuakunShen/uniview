@@ -20,7 +20,7 @@ import type { Rng } from "../src/vendor/board";
  */
 const OUT = resolve(
   dirname(fileURLToPath(import.meta.url)),
-  "../../../docs/public/tui/2048-solid.svg",
+  "../../../../docs/public/tui/2048-solid.svg",
 );
 
 /** Seeded so the committed image is stable — a rerun must not churn the diff. */

@@ -4,6 +4,7 @@ packages:
   - examples/tui/*
   - vendors/kkrpc/packages/kkrpc
   - docs
+  - slides
 
 catalog:
   kkrpc: ^2.0.0
