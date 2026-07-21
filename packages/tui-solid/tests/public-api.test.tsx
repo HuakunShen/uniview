@@ -67,4 +67,20 @@ describe("public Solid TUI facade", () => {
     app.destroy();
     expect(input.rawModes).toEqual([true, false]);
   });
+
+  it("stops the driver when the initial app mount throws", () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const error = new Error("initial mount failed");
+
+    expect(() =>
+      render(
+        () => {
+          throw error;
+        },
+        { input, output },
+      ),
+    ).toThrow(error);
+    expect(input.rawModes).toEqual([true, false]);
+  });
 });

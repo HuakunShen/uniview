@@ -334,7 +334,18 @@ export function render(
   });
 
   driver.start();
-  root.render(App);
+  try {
+    root.render(App);
+  } catch (error) {
+    try {
+      root.destroy();
+    } catch {
+      // Preserve the initial mount error after attempting root cleanup.
+    } finally {
+      driver.stop();
+    }
+    throw error;
+  }
 
   return {
     host: root.host,
