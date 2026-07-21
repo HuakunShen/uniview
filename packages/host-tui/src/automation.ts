@@ -1,4 +1,4 @@
-import type { HandlerId, JSONValue } from "@uniview/protocol";
+import type { HandlerId, JSONValue } from "@uniview/protocol/core";
 import type { TuiHost } from "./tui-host";
 import type { RoleQuery, SemanticNode } from "./semantics";
 

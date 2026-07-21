@@ -8,7 +8,7 @@ import {
   type HandlerId,
   type JSONValue,
   type UINode,
-} from "@uniview/protocol";
+} from "@uniview/protocol/core";
 import type { CellStyle, Color, RenderNode, StyledSpan, TuiStyle } from "@uniview/tui-core";
 
 /** Element types treated as inline text (their text children are flattened). */

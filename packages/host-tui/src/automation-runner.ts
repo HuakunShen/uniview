@@ -1,4 +1,4 @@
-import type { JSONValue } from "@uniview/protocol";
+import type { JSONValue } from "@uniview/protocol/core";
 import type { AutomationSession, SemanticTarget } from "./automation";
 
 /** Versioned so agents can negotiate the action schema. */

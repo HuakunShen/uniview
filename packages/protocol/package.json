@@ -1,11 +1,13 @@
 {
   "name": "@uniview/protocol",
   "type": "module",
+  "sideEffects": false,
   "version": "0.0.1",
   "description": "Protocol types and schemas for the Uniview plugin system",
   "license": "MIT",
   "exports": {
     ".": "./dist/index.mjs",
+    "./core": "./dist/core.mjs",
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
@@ -24,7 +26,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

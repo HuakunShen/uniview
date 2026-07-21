@@ -1,4 +1,4 @@
-import type { EventPropName } from "@uniview/protocol";
+import type { EventPropName } from "@uniview/protocol/core";
 import {
   FocusManager,
   TextInputMachine,

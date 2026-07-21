@@ -1,4 +1,4 @@
-import { TEXT_NODE_TYPE } from "@uniview/protocol";
+import { TEXT_NODE_TYPE } from "@uniview/protocol/core";
 import type {
 	AppendChildMutation,
 	InsertBeforeMutation,
@@ -8,7 +8,7 @@ import type {
 	SetRootMutation,
 	SetTextMutation,
 	UINode,
-} from "@uniview/protocol";
+} from "@uniview/protocol/core";
 import type { HandlerRegistry } from "../serialization/handler-registry";
 import { serializeProps } from "../serialization/serialize-props";
 import type { AnyNode, SolidNode, SolidSlotNode, SolidTextNode } from "../renderer/types";

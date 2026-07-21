@@ -1,4 +1,4 @@
-import { isHandlerIdProp, textContent, type UINode } from "@uniview/protocol";
+import { isHandlerIdProp, textContent, type UINode } from "@uniview/protocol/core";
 
 /** A serializable accessibility node derived from the UINode tree. */
 export interface SemanticNode {

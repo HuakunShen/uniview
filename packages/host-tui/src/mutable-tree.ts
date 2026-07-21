@@ -1,4 +1,4 @@
-import type { Mutation, UINode } from "@uniview/protocol";
+import type { Mutation, UINode } from "@uniview/protocol/core";
 
 function isElement(child: UINode | string): child is UINode {
   return typeof child !== "string";

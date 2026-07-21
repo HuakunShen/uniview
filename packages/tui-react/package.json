@@ -25,18 +25,26 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@uniview/host-tui": "workspace:*",
-    "@uniview/react-renderer": "workspace:*",
-    "@uniview/tui-charts": "workspace:*",
-    "@uniview/tui-content": "workspace:*",
-    "@uniview/tui-core": "workspace:*"
+    "@uniview/tui-core": "workspace:*",
+    "lowlight": "^3.3.0",
+    "marked": "^15.0.0",
+    "react-reconciler": "catalog:"
   },
   "peerDependencies": {
     "react": "^19.0.0"
   },
+  "optionalDependencies": {
+    "react-devtools-core": "^7.0.1"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",
+    "@uniview/host-tui": "workspace:*",
+    "@uniview/protocol": "workspace:*",
+    "@uniview/react-renderer": "workspace:*",
+    "@uniview/style": "workspace:*",
+    "@uniview/tui-charts": "workspace:*",
+    "@uniview/tui-content": "workspace:*",
     "react": "catalog:",
     "tsdown": "0.22.2",
     "typescript": "^5.7.0",

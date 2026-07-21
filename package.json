@@ -11,6 +11,7 @@
     "test:e2e": "bun scripts/run-e2e.ts",
     "test:e2e:baseline": "bun scripts/run-e2e-baseline.ts",
     "test:e2e:cypress": "bun scripts/run-cypress.ts",
+    "verify:tui-packages": "pnpm --filter @uniview/protocol build && pnpm --filter @uniview/tui-core build && pnpm --filter @uniview/host-tui build && pnpm --filter @uniview/react-renderer build && pnpm --filter @uniview/solid-renderer build && pnpm --filter @uniview/tui-react build && pnpm --filter @uniview/tui-solid build && node scripts/verify-tui-package-boundaries.mjs",
     "cypress:open": "bun scripts/run-cypress-open.ts",
     "cypress:open:pause": "bun scripts/run-cypress-open.ts --env univiewPauseAtStart=true,univiewVisualDelayMs=0"
   },
@@ -30,7 +31,8 @@
   },
   "pnpm": {
     "overrides": {
-      "@types/react": "19.2.14"
+      "@types/react": "19.2.14",
+      "zod": "4.4.3"
     },
     "onlyBuiltDependencies": [
       "esbuild",

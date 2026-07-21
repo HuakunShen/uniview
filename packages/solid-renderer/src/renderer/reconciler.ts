@@ -1,4 +1,4 @@
-import type { Mutation } from "@uniview/protocol";
+import type { Mutation } from "@uniview/protocol/core";
 import type { AnyNode, SolidNode, SolidTextNode, SolidSlotNode } from "./types";
 import { generateId } from "./types";
 import { createRenderer } from "./universal";

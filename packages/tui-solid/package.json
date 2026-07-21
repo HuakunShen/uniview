@@ -24,20 +24,27 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@uniview/host-tui": "workspace:*",
-    "@uniview/solid-renderer": "workspace:*",
-    "@uniview/tui-charts": "workspace:*",
-    "@uniview/tui-content": "workspace:*",
-    "@uniview/tui-core": "workspace:*"
+    "@uniview/tui-core": "workspace:*",
+    "lowlight": "^3.3.0",
+    "marked": "^15.0.0"
   },
   "peerDependencies": {
     "solid-js": "^1.9.0"
+  },
+  "optionalDependencies": {
+    "solid-devtools": "^0.34.5"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
     "@babel/preset-typescript": "^7.26.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",
+    "@uniview/host-tui": "workspace:*",
+    "@uniview/protocol": "workspace:*",
+    "@uniview/solid-renderer": "workspace:*",
+    "@uniview/style": "workspace:*",
+    "@uniview/tui-charts": "workspace:*",
+    "@uniview/tui-content": "workspace:*",
     "@uniview/tui-react": "workspace:*",
     "babel-preset-solid": "^1.9.0",
     "react": "catalog:",

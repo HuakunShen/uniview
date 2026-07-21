@@ -1,4 +1,4 @@
-import type { JSONValue } from "@uniview/protocol";
+import type { JSONValue } from "@uniview/protocol/core";
 import { resolveStyleIR } from "@uniview/style";
 import type { HandlerRegistry } from "./handler-registry";
 

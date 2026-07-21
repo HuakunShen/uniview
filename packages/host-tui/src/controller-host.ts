@@ -1,4 +1,4 @@
-import type { HandlerId, JSONValue, UINode } from "@uniview/protocol";
+import type { HandlerId, JSONValue, UINode } from "@uniview/protocol/core";
 import type { CellSurface, Size, StyleTable, TuiInputEvent } from "@uniview/tui-core";
 import { InputRouter } from "./input-router";
 import { TuiHost } from "./tui-host";

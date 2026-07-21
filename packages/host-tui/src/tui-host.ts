@@ -4,7 +4,7 @@ import type {
   JSONValue,
   Mutation,
   UINode,
-} from "@uniview/protocol";
+} from "@uniview/protocol/core";
 import {
   CommittedOutput,
   hitTest,

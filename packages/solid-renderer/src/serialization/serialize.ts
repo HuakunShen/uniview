@@ -1,4 +1,4 @@
-import { TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
+import { TEXT_NODE_TYPE, type UINode } from "@uniview/protocol/core";
 import type { AnyNode, SolidNode, SolidTextNode, SolidSlotNode } from "../renderer/types";
 import type { HandlerRegistry } from "./handler-registry";
 import { serializeProps } from "./serialize-props";

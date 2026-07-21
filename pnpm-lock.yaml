@@ -15,6 +15,7 @@ catalogs:
 
 overrides:
   '@types/react': 19.2.14
+  zod: 4.4.3
 
 importers:
 
@@ -59,13 +60,13 @@ importers:
         version: 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       fumadocs-core:
         specifier: 16.4.9
-        version: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+        version: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3)
       fumadocs-mdx:
         specifier: 14.2.6
-        version: 14.2.6(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(vite@7.3.1(@types/node@25.2.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 14.2.6(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(vite@7.3.1(@types/node@25.2.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       fumadocs-ui:
         specifier: 16.4.9
-        version: 16.4.9(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)
+        version: 16.4.9(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)
       lucide-react:
         specifier: ^0.563.0
         version: 0.563.0(react@19.2.4)
@@ -1106,8 +1107,8 @@ importers:
   packages/protocol:
     dependencies:
       zod:
-        specifier: ^3.25.76
-        version: 3.25.76
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1379,21 +1380,18 @@ importers:
 
   packages/tui-react:
     dependencies:
-      '@uniview/host-tui':
-        specifier: workspace:*
-        version: link:../host-tui
-      '@uniview/react-renderer':
-        specifier: workspace:*
-        version: link:../react-renderer
-      '@uniview/tui-charts':
-        specifier: workspace:*
-        version: link:../tui-charts
-      '@uniview/tui-content':
-        specifier: workspace:*
-        version: link:../tui-content
       '@uniview/tui-core':
         specifier: workspace:*
         version: link:../tui-core
+      lowlight:
+        specifier: ^3.3.0
+        version: 3.3.0
+      marked:
+        specifier: ^15.0.0
+        version: 15.0.12
+      react-reconciler:
+        specifier: 'catalog:'
+        version: 0.33.0(react@19.2.4)
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1401,6 +1399,24 @@ importers:
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
+      '@uniview/host-tui':
+        specifier: workspace:*
+        version: link:../host-tui
+      '@uniview/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@uniview/react-renderer':
+        specifier: workspace:*
+        version: link:../react-renderer
+      '@uniview/style':
+        specifier: workspace:*
+        version: link:../style
+      '@uniview/tui-charts':
+        specifier: workspace:*
+        version: link:../tui-charts
+      '@uniview/tui-content':
+        specifier: workspace:*
+        version: link:../tui-content
       react:
         specifier: 'catalog:'
         version: 19.2.4
@@ -1413,6 +1429,10 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
+    optionalDependencies:
+      react-devtools-core:
+        specifier: ^7.0.1
+        version: 7.0.1
 
   packages/tui-renderer:
     dependencies:
@@ -1453,21 +1473,15 @@ importers:
 
   packages/tui-solid:
     dependencies:
-      '@uniview/host-tui':
-        specifier: workspace:*
-        version: link:../host-tui
-      '@uniview/solid-renderer':
-        specifier: workspace:*
-        version: link:../solid-renderer
-      '@uniview/tui-charts':
-        specifier: workspace:*
-        version: link:../tui-charts
-      '@uniview/tui-content':
-        specifier: workspace:*
-        version: link:../tui-content
       '@uniview/tui-core':
         specifier: workspace:*
         version: link:../tui-core
+      lowlight:
+        specifier: ^3.3.0
+        version: 3.3.0
+      marked:
+        specifier: ^15.0.0
+        version: 15.0.12
     devDependencies:
       '@babel/core':
         specifier: ^7.26.0
@@ -1481,6 +1495,24 @@ importers:
       '@types/react':
         specifier: 19.2.14
         version: 19.2.14
+      '@uniview/host-tui':
+        specifier: workspace:*
+        version: link:../host-tui
+      '@uniview/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@uniview/solid-renderer':
+        specifier: workspace:*
+        version: link:../solid-renderer
+      '@uniview/style':
+        specifier: workspace:*
+        version: link:../style
+      '@uniview/tui-charts':
+        specifier: workspace:*
+        version: link:../tui-charts
+      '@uniview/tui-content':
+        specifier: workspace:*
+        version: link:../tui-content
       '@uniview/tui-react':
         specifier: workspace:*
         version: link:../tui-react
@@ -1502,6 +1534,10 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
+    optionalDependencies:
+      solid-devtools:
+        specifier: ^0.34.5
+        version: 0.34.5(solid-js@1.9.11)(vite@7.3.1(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
 
   packages/tui-surface-dom:
     dependencies:
@@ -1611,8 +1647,8 @@ importers:
         specifier: ^0.0.3
         version: 0.0.3(typescript@5.9.3)
       zod:
-        specifier: ^4.3.6
-        version: 4.3.6
+        specifier: 4.4.3
+        version: 4.4.3
 
 packages:
 
@@ -2810,7 +2846,7 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
-      zod: ^3.25 || ^4.0
+      zod: 4.4.3
     peerDependenciesMeta:
       '@cfworker/json-schema':
         optional: true
@@ -2908,6 +2944,9 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@nothing-but/utils@0.17.0':
+    resolution: {integrity: sha512-TuCHcHLOqDL0SnaAxACfuRHBNRgNJcNn9X0GiH5H3YSDBVquCr3qEIG3FOQAuMyZCbu9w8nk2CHhOsn7IvhIwQ==}
 
   '@nuxt/kit@3.21.9':
     resolution: {integrity: sha512-SJ3W7INBJLwnmFQPm2BACiqS25enc6QIm87aLQCcxo/TFtRnWanYtgDdwyHqUHgOAGmq9pYjgk83B2bpBKnDTw==}
@@ -4399,6 +4438,71 @@ packages:
 
   '@socket.io/component-emitter@3.1.2':
     resolution: {integrity: sha512-9BCxFwvbGg/RsZK9tjXd8s4UcwR0MWeFQ1XEKIQVVvAGJyINdrqKMcTRyLoK8Rse1GjzLV9cwjWV1olXRWEXVA==}
+
+  '@solid-devtools/debugger@0.28.1':
+    resolution: {integrity: sha512-6qIUI6VYkXoRnL8oF5bvh2KgH71qlJ18hNw/mwSyY6v48eb80ZR48/5PDXufUa3q+MBSuYa1uqTMwLewpay9eg==}
+    peerDependencies:
+      solid-js: ^1.9.0
+
+  '@solid-devtools/shared@0.20.0':
+    resolution: {integrity: sha512-o5TACmUOQsxpzpOKCjbQqGk8wL8PMi+frXG9WNu4Lh3PQVUB6hs95Kl/S8xc++zwcMguUKZJn8h5URUiMOca6Q==}
+    peerDependencies:
+      solid-js: ^1.9.0
+
+  '@solid-primitives/bounds@0.1.7':
+    resolution: {integrity: sha512-uWE47+MhAGYB3EadHVg79C/6CawVVL7MwTArricxX2GDDJX+7SBnD+WsnMbkLOi7UbCOA3EsepnBr3bix83LLA==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/event-listener@2.4.6':
+    resolution: {integrity: sha512-5I0YJcTVYIWoMmgBSROBZGcz+ymhew/pGTg2dHW74BUjFKsV8Li4bOZYl0YAGP4mHw5o4UBd9/BEesqBci3wxw==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/keyboard@1.3.7':
+    resolution: {integrity: sha512-558RPNYnXx4nGh537DSqAn4xMrC8iFipl/5+xzgzWoTNFst4RnUN3BOLmtDjJ0UGGoQXVMALYR3bNOHM0xnt1Q==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/media@2.3.6':
+    resolution: {integrity: sha512-pk49gPOq/UMRUJ+pTSrOfBiR8xJjRYHXIf1iR/jSnyQ/KroU+ZXhkZzavC7hvfp2vJeOTW5k2/HN0r3Q1VJ7Pw==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/refs@1.1.4':
+    resolution: {integrity: sha512-bLjwIs6ZPu8NQnuw04sU3Zc8qKSpbc0umUU/O4SHf6oWOdO4+dHY8vb1T7C4b/Tg103+9WGr6sEE0+NFlbaB/A==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/resize-observer@2.2.0':
+    resolution: {integrity: sha512-9Fuu/EWBeGj+atGHRJp70HKhdfalmpjwxY8a32NZixdLNmfCJ45AfhLQNr6uOzETbbiMx4iCKlTrJ8KZCHC2Ww==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/rootless@1.5.4':
+    resolution: {integrity: sha512-TOIZa1VUfVJ+9nkCcRajw3U4t9vBOP1HxX1WHNTbXq32mXwlqTvUnC4CRIilohcryBkT9u2ZkhUDSHRTaGp55g==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/scheduled@1.5.3':
+    resolution: {integrity: sha512-oNwLE6E6lxJAWrc8QXuwM0k2oU1BnANnkChwMw82aK1j3+mWGJkG1IFe5gCwbV+afYmjI76t9JJV3md/8tLw+g==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/static-store@0.1.4':
+    resolution: {integrity: sha512-LgtVaVBtB7EbmS4+M0b8xY5Iq6pUWXBsIC4VgtrFKDGDdyCaDt88sHk0fUlx1Enxm/XZnZyLXJABRoa39RjJqA==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/styles@0.1.4':
+    resolution: {integrity: sha512-siDvuK9mBpswjUdJCpr3ZUhBIHghNjHsBhZ9p3mIH1sDgwVr5gQGfFmESIvtb4Ka4Oq6B6hLOqi4QES/i8u4YA==}
+    peerDependencies:
+      solid-js: ^1.6.12
+
+  '@solid-primitives/utils@6.4.1':
+    resolution: {integrity: sha512-ISSB5QX1qP2ynrheIpYwc4oKR5Ny4siNuUyf1qZniy+Il+p/PtDB0QK1Dnle8noiHpwRD3gpPdubOC3qI/Zamg==}
+    peerDependencies:
+      solid-js: ^1.6.12
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -6548,7 +6652,7 @@ packages:
       react-dom: ^19.2.0
       react-router: 7.x.x
       waku: ^0.26.0 || ^0.27.0
-      zod: 4.x.x
+      zod: 4.4.3
     peerDependenciesMeta:
       '@mixedbread/sdk':
         optional: true
@@ -8329,6 +8433,9 @@ packages:
     resolution: {integrity: sha512-y3bGgqKj3QBdxLbLkomlohkvsA8gdAiUQlSBJnBhfn+BPxg4bc62d8TcBW15wavDfgexCgccckhcZvywyQYPOw==}
     hasBin: true
 
+  react-devtools-core@7.0.1:
+    resolution: {integrity: sha512-C3yNvRHaizlpiASzy7b9vbnBGLrhvdhl1CbdU6EnZgxPNbai60szdLtl+VL76UNOt5bOoVTOz5rNWZxgGt+Gsw==}
+
   react-dom@19.2.4:
     resolution: {integrity: sha512-AXJdLo8kgMbimY95O2aKQqsz2iWi9jMgKJhRBAxECE4IFxfcazB2LmzloIoibJI3C12IlY20+KFaLv+71bUJeQ==}
     peerDependencies:
@@ -8761,6 +8868,15 @@ packages:
   socket.io@4.8.3:
     resolution: {integrity: sha512-2Dd78bqzzjE6KPkD5fHZmDAKRNe3J15q+YHDrIsy9WEkqttc7GY+kT9OBLSMaPbQaEd0x1BjcmtMtXkfpc+T5A==}
     engines: {node: '>=10.2.0'}
+
+  solid-devtools@0.34.5:
+    resolution: {integrity: sha512-KNVdS9MQzzeVS++Vmg4JeU0fM6ZMuBEmkBA7SmqPS2s5UHpRjv1PNH8gShmlN9L/tki6OUAzJP3H1aKq2AcOSg==}
+    peerDependencies:
+      solid-js: ^1.9.0
+      vite: ^2.2.3 || ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0
+    peerDependenciesMeta:
+      vite:
+        optional: true
 
   solid-js@1.9.11:
     resolution: {integrity: sha512-WEJtcc5mkh/BnHA6Yrg4whlF8g6QwpmXXRg4P2ztPmcKeHHlH4+djYecBLhSpecZY2RRECXYUwIc/C2r3yzQ4Q==}
@@ -9927,6 +10043,18 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  ws@7.5.13:
+    resolution: {integrity: sha512-rsKI6xDBFVf4r/x8XyChGK04QR/XHroxs/jUcoWvtEZM8TPU/X/uIY9B1CsSzYws9ZJb/6bbBu7dPhFW00CAoA==}
+    engines: {node: '>=8.3.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: ^5.0.2
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   ws@8.20.1:
     resolution: {integrity: sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==}
     engines: {node: '>=10.0.0'}
@@ -10000,18 +10128,15 @@ packages:
   zod-to-json-schema@3.25.2:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
     peerDependencies:
-      zod: ^3.25.28 || ^4
+      zod: 4.4.3
 
   zod-v3-to-json-schema@4.0.0:
     resolution: {integrity: sha512-KixLrhX/uPmRFnDgsZrzrk4x5SSJA+PmaE5adbfID9+3KPJcdxqRobaHU397EfWBqfQircrjKqvEqZ/mW5QH6w==}
     peerDependencies:
-      zod: ^3.25 || ^4.0.14
+      zod: 4.4.3
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
-  zod@4.3.6:
-    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -10489,10 +10614,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@devframes/hub@0.5.4(devframe@0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@devframes/hub@0.5.4(devframe@0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       birpc: 4.0.0
-      devframe: 0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      devframe: 0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       nostics: 0.2.0(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       pathe: 2.0.3
       perfect-debounce: 2.1.0
@@ -10834,9 +10959,9 @@ snapshots:
       '@formatjs/fast-memoize': 3.1.0
       tslib: 2.8.1
 
-  '@fumadocs/ui@16.4.9(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)':
+  '@fumadocs/ui@16.4.9(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)':
     dependencies:
-      fumadocs-core: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      fumadocs-core: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3)
       next-themes: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       postcss-selector-parser: 7.1.1
       react: 19.2.4
@@ -11097,7 +11222,7 @@ snapshots:
     dependencies:
       '@chevrotain/types': 11.1.2
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.25)
       ajv: 8.20.0
@@ -11114,8 +11239,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.2(zod@3.25.76)
+      zod: 4.4.3
+      zod-to-json-schema: 3.25.2(zod@4.4.3)
     transitivePeerDependencies:
       - supports-color
 
@@ -11201,6 +11326,9 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@nothing-but/utils@0.17.0':
+    optional: true
 
   '@nuxt/kit@3.21.9':
     dependencies:
@@ -12354,12 +12482,12 @@ snapshots:
       '@iconify-json/ph': 1.2.2
       '@iconify-json/svg-spinners': 1.2.4
       '@lillallol/outline-pdf': 4.0.0
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
       '@shikijs/magic-move': 4.3.1(react@19.2.4)(shiki@4.3.1)(solid-js@1.9.11)(svelte@5.50.1)(vue@3.5.40(typescript@6.0.3))
       '@shikijs/markdown-it': 4.3.1
       '@shikijs/twoslash': 4.3.1(typescript@6.0.3)
       '@shikijs/vitepress-twoslash': 4.3.1(@nuxt/kit@3.21.9)(typescript@6.0.3)
-      '@slidev/client': 52.18.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(lightningcss@1.32.0)(react@19.2.4)(rolldown@1.1.5)(rollup@4.57.1)(solid-js@1.9.11)(svelte@5.50.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@slidev/client': 52.18.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(lightningcss@1.32.0)(react@19.2.4)(rolldown@1.1.5)(rollup@4.57.1)(solid-js@1.9.11)(svelte@5.50.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       '@slidev/parser': 52.18.0(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(svelte@5.50.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       '@slidev/types': 52.18.0(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(svelte@5.50.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       '@unocss/extractor-mdc': 66.7.5
@@ -12420,7 +12548,7 @@ snapshots:
       vue: 3.5.40(typescript@6.0.3)
       yaml: 2.9.0
       yargs: 18.0.0
-      zod: 3.25.76
+      zod: 4.4.3
     optionalDependencies:
       playwright-chromium: 1.61.1
     transitivePeerDependencies:
@@ -12466,7 +12594,7 @@ snapshots:
       - utf-8-validate
       - webpack
 
-  '@slidev/client@52.18.0(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(lightningcss@1.32.0)(react@19.2.4)(rolldown@1.1.5)(rollup@4.57.1)(solid-js@1.9.11)(svelte@5.50.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@slidev/client@52.18.0(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(lightningcss@1.32.0)(react@19.2.4)(rolldown@1.1.5)(rollup@4.57.1)(solid-js@1.9.11)(svelte@5.50.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       '@antfu/utils': 9.3.0
       '@fix-webm-duration/fix': 1.0.1
@@ -12481,7 +12609,7 @@ snapshots:
       '@slidev/rough-notation': 0.1.0
       '@slidev/types': 52.18.0(@nuxt/kit@3.21.9)(@vue/compiler-sfc@3.5.40)(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(svelte@5.50.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       '@typescript/ata': 0.9.8(typescript@6.0.3)
-      '@unhead/vue': 3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))
+      '@unhead/vue': 3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))
       '@unocss/extractor-mdc': 66.7.5
       '@unocss/preset-mini': 66.7.5
       '@unocss/reset': 66.7.5
@@ -12631,6 +12759,110 @@ snapshots:
       - webpack
 
   '@socket.io/component-emitter@3.1.2': {}
+
+  '@solid-devtools/debugger@0.28.1(solid-js@1.9.11)':
+    dependencies:
+      '@nothing-but/utils': 0.17.0
+      '@solid-devtools/shared': 0.20.0(solid-js@1.9.11)
+      '@solid-primitives/bounds': 0.1.7(solid-js@1.9.11)
+      '@solid-primitives/event-listener': 2.4.6(solid-js@1.9.11)
+      '@solid-primitives/keyboard': 1.3.7(solid-js@1.9.11)
+      '@solid-primitives/rootless': 1.5.4(solid-js@1.9.11)
+      '@solid-primitives/scheduled': 1.5.3(solid-js@1.9.11)
+      '@solid-primitives/static-store': 0.1.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-devtools/shared@0.20.0(solid-js@1.9.11)':
+    dependencies:
+      '@nothing-but/utils': 0.17.0
+      '@solid-primitives/event-listener': 2.4.6(solid-js@1.9.11)
+      '@solid-primitives/media': 2.3.6(solid-js@1.9.11)
+      '@solid-primitives/refs': 1.1.4(solid-js@1.9.11)
+      '@solid-primitives/rootless': 1.5.4(solid-js@1.9.11)
+      '@solid-primitives/scheduled': 1.5.3(solid-js@1.9.11)
+      '@solid-primitives/static-store': 0.1.4(solid-js@1.9.11)
+      '@solid-primitives/styles': 0.1.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/bounds@0.1.7(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/event-listener': 2.4.6(solid-js@1.9.11)
+      '@solid-primitives/resize-observer': 2.2.0(solid-js@1.9.11)
+      '@solid-primitives/static-store': 0.1.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/event-listener@2.4.6(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/keyboard@1.3.7(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/event-listener': 2.4.6(solid-js@1.9.11)
+      '@solid-primitives/rootless': 1.5.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/media@2.3.6(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/event-listener': 2.4.6(solid-js@1.9.11)
+      '@solid-primitives/rootless': 1.5.4(solid-js@1.9.11)
+      '@solid-primitives/static-store': 0.1.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/refs@1.1.4(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/resize-observer@2.2.0(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/event-listener': 2.4.6(solid-js@1.9.11)
+      '@solid-primitives/rootless': 1.5.4(solid-js@1.9.11)
+      '@solid-primitives/static-store': 0.1.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/rootless@1.5.4(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/scheduled@1.5.3(solid-js@1.9.11)':
+    dependencies:
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/static-store@0.1.4(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/styles@0.1.4(solid-js@1.9.11)':
+    dependencies:
+      '@solid-primitives/rootless': 1.5.4(solid-js@1.9.11)
+      '@solid-primitives/utils': 6.4.1(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optional: true
+
+  '@solid-primitives/utils@6.4.1(solid-js@1.9.11)':
+    dependencies:
+      solid-js: 1.9.11
+    optional: true
 
   '@standard-schema/spec@1.1.0': {}
 
@@ -13116,9 +13348,9 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
-  '@unhead/bundler@3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(unhead@3.2.1(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@unhead/bundler@3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(unhead@3.2.1(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
-      '@vitejs/devtools-kit': 0.3.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@vitejs/devtools-kit': 0.3.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       magic-string: 1.0.0
       oxc-parser: 0.140.0
       oxc-walker: 1.0.0(esbuild@0.27.3)(oxc-parser@0.140.0)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
@@ -13142,9 +13374,9 @@ snapshots:
       - unloader
       - utf-8-validate
 
-  '@unhead/vue@3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))':
+  '@unhead/vue@3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.40(typescript@6.0.3))':
     dependencies:
-      '@unhead/bundler': 3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(unhead@3.2.1(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@unhead/bundler': 3.2.1(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(lightningcss@1.32.0)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(unhead@3.2.1(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       hookable: 6.1.1
       unhead: 3.2.1(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       unplugin: 3.3.0(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
@@ -13329,11 +13561,11 @@ snapshots:
       validator: 13.15.26
     optional: true
 
-  '@vitejs/devtools-kit@0.3.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
+  '@vitejs/devtools-kit@0.3.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
-      '@devframes/hub': 0.5.4(devframe@0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@devframes/hub': 0.5.4(devframe@0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       birpc: 4.0.0
-      devframe: 0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
+      devframe: 0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0))
       mlly: 1.8.2
       nostics: 1.2.0
       pathe: 2.0.3
@@ -14613,7 +14845,7 @@ snapshots:
 
   devalue@5.6.2: {}
 
-  devframe@0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@3.25.76))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)):
+  devframe@0.5.4(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(esbuild@0.27.3)(rolldown@1.1.5)(rollup@4.57.1)(typescript@6.0.3)(vite@8.1.5(@types/node@25.2.3)(esbuild@0.27.3)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.9.0)):
     dependencies:
       '@valibot/to-json-schema': 1.7.1(valibot@1.4.2(typescript@6.0.3))
       birpc: 4.0.0
@@ -14625,7 +14857,7 @@ snapshots:
       valibot: 1.4.2(typescript@6.0.3)
       ws: 8.21.0
     optionalDependencies:
-      '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.29.0(zod@4.4.3)
     transitivePeerDependencies:
       - '@farmfe/core'
       - '@rspack/core'
@@ -15211,7 +15443,7 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6):
+  fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3):
     dependencies:
       '@formatjs/intl-localematcher': 0.8.1
       '@orama/orama': 3.1.18
@@ -15238,18 +15470,18 @@ snapshots:
       next: 16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
-      zod: 4.3.6
+      zod: 4.4.3
     transitivePeerDependencies:
       - supports-color
 
-  fumadocs-mdx@14.2.6(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(vite@7.3.1(@types/node@25.2.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0)):
+  fumadocs-mdx@14.2.6(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react@19.2.4)(vite@7.3.1(@types/node@25.2.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0)):
     dependencies:
       '@mdx-js/mdx': 3.1.1
       '@standard-schema/spec': 1.1.0
       chokidar: 5.0.0
       esbuild: 0.27.3
       estree-util-value-to-estree: 3.5.0
-      fumadocs-core: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      fumadocs-core: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3)
       js-yaml: 4.1.1
       mdast-util-to-markdown: 2.1.2
       picocolors: 1.1.1
@@ -15261,7 +15493,7 @@ snapshots:
       unist-util-remove-position: 5.0.0
       unist-util-visit: 5.1.0
       vfile: 6.0.3
-      zod: 4.3.6
+      zod: 4.4.3
     optionalDependencies:
       '@types/react': 19.2.14
       next: 16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -15270,9 +15502,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  fumadocs-ui@16.4.9(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18):
+  fumadocs-ui@16.4.9(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18):
     dependencies:
-      '@fumadocs/ui': 16.4.9(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)
+      '@fumadocs/ui': 16.4.9(@types/react@19.2.14)(fumadocs-core@16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(tailwindcss@4.1.18)
       '@radix-ui/react-accordion': 1.2.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@radix-ui/react-collapsible': 1.1.12(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@radix-ui/react-dialog': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -15284,7 +15516,7 @@ snapshots:
       '@radix-ui/react-slot': 1.2.4(@types/react@19.2.14)(react@19.2.4)
       '@radix-ui/react-tabs': 1.1.13(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       class-variance-authority: 0.7.1
-      fumadocs-core: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+      fumadocs-core: 16.4.9(@types/react@19.2.14)(lucide-react@0.563.0(react@19.2.4))(next@16.1.4(@playwright/test@1.60.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.4.3)
       lucide-react: 0.563.0(react@19.2.4)
       next-themes: 0.4.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4
@@ -17183,6 +17415,15 @@ snapshots:
       minimist: 1.2.8
       strip-json-comments: 2.0.1
 
+  react-devtools-core@7.0.1:
+    dependencies:
+      shell-quote: 1.8.3
+      ws: 7.5.13
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+    optional: true
+
   react-dom@19.2.4(react@19.2.4):
     dependencies:
       react: 19.2.4
@@ -17856,6 +18097,20 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  solid-devtools@0.34.5(solid-js@1.9.11)(vite@7.3.1(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0)):
+    dependencies:
+      '@babel/core': 7.29.0
+      '@babel/plugin-syntax-typescript': 7.29.7(@babel/core@7.29.0)
+      '@babel/types': 7.29.7
+      '@solid-devtools/debugger': 0.28.1(solid-js@1.9.11)
+      '@solid-devtools/shared': 0.20.0(solid-js@1.9.11)
+      solid-js: 1.9.11
+    optionalDependencies:
+      vite: 7.3.1(@types/node@22.19.11)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0)
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
+
   solid-js@1.9.11:
     dependencies:
       csstype: 3.2.3
@@ -18099,8 +18354,8 @@ snapshots:
       typebox: 1.0.81
       valibot: 1.2.0(typescript@5.9.3)
       yup: 1.7.1
-      zod: 4.3.6
-      zod-v3-to-json-schema: 4.0.0(zod@4.3.6)
+      zod: 4.4.3
+      zod-v3-to-json-schema: 4.0.0(zod@4.4.3)
     transitivePeerDependencies:
       - '@types/json-schema'
       - typescript
@@ -19069,6 +19324,9 @@ snapshots:
 
   wrappy@1.0.2: {}
 
+  ws@7.5.13:
+    optional: true
+
   ws@8.20.1: {}
 
   ws@8.21.0: {}
@@ -19115,17 +19373,15 @@ snapshots:
 
   zimmerframe@1.1.4: {}
 
-  zod-to-json-schema@3.25.2(zod@3.25.76):
+  zod-to-json-schema@3.25.2(zod@4.4.3):
     dependencies:
-      zod: 3.25.76
+      zod: 4.4.3
 
-  zod-v3-to-json-schema@4.0.0(zod@4.3.6):
+  zod-v3-to-json-schema@4.0.0(zod@4.4.3):
     dependencies:
-      zod: 4.3.6
+      zod: 4.4.3
     optional: true
 
-  zod@3.25.76: {}
-
-  zod@4.3.6: {}
+  zod@4.4.3: {}
 
   zwitch@2.0.4: {}

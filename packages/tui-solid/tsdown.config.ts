@@ -3,6 +3,10 @@ import ts from "@babel/preset-typescript";
 import solid from "babel-preset-solid";
 import { defineConfig, type TsdownPlugin } from "tsdown";
 
+const bundledWorkspacePackages = [
+  /^@uniview\/(?:host-tui|solid-renderer|tui-content|tui-charts|protocol|style)(?:\/.*)?$/,
+];
+
 /**
  * Transform `.tsx` source with babel-preset-solid targeting the custom
  * universal renderer (@uniview/solid-renderer). Mirrors the `solidUniversal()`
@@ -34,6 +38,10 @@ function solidUniversal(): TsdownPlugin {
 }
 
 export default defineConfig({
+  deps: {
+    alwaysBundle: bundledWorkspacePackages,
+    dts: { alwaysBundle: bundledWorkspacePackages },
+  },
   exports: true,
   plugins: [solidUniversal()],
 });

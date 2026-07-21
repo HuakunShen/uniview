@@ -1,4 +1,4 @@
-import type { Mutation } from "@uniview/protocol";
+import type { Mutation } from "@uniview/protocol/core";
 import type { InternalNode } from "./types";
 import type { MutationCollector } from "../mutation/mutation-collector";
 
