@@ -418,6 +418,60 @@ test("rejects git preflight before verification or artifact creation", async () 
   assert.equal(fixture.events.at(-1).type, "lock-released");
 });
 
+test("stops before core when git readiness drifts after initial preflight", async () => {
+  const fixture = injectedOptions();
+  let inspection = 0;
+  fixture.options.inspectGitReleaseState = async () => {
+    inspection += 1;
+    return {
+      branch: "main",
+      status: inspection === 1 ? "" : " M package.json",
+      upstream: "origin/main",
+      head: "abc123",
+      upstreamHead: "abc123",
+    };
+  };
+
+  await assert.rejects(
+    () => orchestrateTuiPublish(fixture.options),
+    /clean worktree/i,
+  );
+  assert.equal(inspection, 2);
+  assert.deepEqual(
+    fixture.events.filter(({ type }) => type === "published"),
+    [],
+  );
+  assert.equal(fixture.events.at(-1).type, "lock-released");
+});
+
+test("stops before React when git readiness drifts after core publication", async () => {
+  const fixture = injectedOptions();
+  let inspection = 0;
+  fixture.options.inspectGitReleaseState = async () => {
+    inspection += 1;
+    return {
+      branch: "main",
+      status: inspection < 3 ? "" : " M package.json",
+      upstream: "origin/main",
+      head: "abc123",
+      upstreamHead: "abc123",
+    };
+  };
+
+  await assert.rejects(
+    () => orchestrateTuiPublish(fixture.options),
+    /clean worktree/i,
+  );
+  assert.equal(inspection, 3);
+  assert.deepEqual(
+    fixture.events
+      .filter(({ type }) => type === "published")
+      .map(({ name }) => name),
+    ["@uniview/tui-core"],
+  );
+  assert.equal(fixture.events.at(-1).type, "lock-released");
+});
+
 test("a concurrent invocation fails before verify or prepare and the first error releases the lock", async () => {
   const temporaryRepo = await mkdtemp(join(tmpdir(), "uniview-publish-race-"));
   const root = join(temporaryRepo, ".tui-release");
@@ -743,10 +797,30 @@ test("publishes the captured verified Buffers after every tarball path is remove
   }
 });
 
-test("local dry-run captures every byte but never loads config or calls a publisher", async () => {
+test("non-ready local dry-run completes without git, config, or publisher calls", async () => {
   const fixture = injectedOptions();
+  let inspections = 0;
+  fixture.options.inspectGitReleaseState = async () => {
+    inspections += 1;
+    return {
+      branch: "feature/not-ready",
+      status: " M package.json",
+      upstream: "origin/main",
+      head: "ahead123",
+      upstreamHead: "behind456",
+    };
+  };
   await orchestrateTuiPublish({ ...fixture.options, dryRun: true });
 
+  assert.equal(inspections, 0);
+  assert.equal(
+    fixture.events.filter(({ type }) => type === "command").length,
+    3,
+  );
+  assert.equal(
+    fixture.events.filter(({ type }) => type === "descriptor-load").length,
+    2,
+  );
   assert.deepEqual(
     fixture.events
       .filter(({ type }) => type === "tarball-captured")

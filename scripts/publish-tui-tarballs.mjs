@@ -436,7 +436,9 @@ export async function orchestrateTuiPublish({
     releaseRootDirectory,
   });
   try {
-    assertGitReleaseReady(await inspectGit({ repoDirectory }));
+    if (!dryRun) {
+      assertGitReleaseReady(await inspectGit({ repoDirectory }));
+    }
     const smokeScript = join(repoDirectory, "scripts/smoke-tui-tarballs.mjs");
     await runCommand({
       command: "pnpm",
@@ -475,6 +477,7 @@ export async function orchestrateTuiPublish({
       };
       for (const key of packageOrder) {
         const artifact = captured[key];
+        assertGitReleaseReady(await inspectGit({ repoDirectory }));
         await publisher(artifact.manifest, artifact.tarData, publishOptions);
       }
     }
