@@ -475,6 +475,250 @@ describe("TerminalDriver — lifecycle", () => {
     expect(() => driver.stop()).not.toThrow();
     for (const step of stopSteps) expect(cleanupAttempts.get(step)).toBe(2);
   });
+
+  it("rejects any shared input or output before touching either terminal", () => {
+    const owned = fakeTty();
+    const other = fakeTty();
+    const owner = new TerminalDriver({
+      input: owned.input,
+      output: owned.output,
+      onEvent: () => {},
+    });
+    owner.start();
+
+    const before = {
+      ownedRawCalls: owned.input.setRawMode.mock.calls.length,
+      ownedWrites: owned.output_writes(),
+      ownedDataListeners: owned.dataListenerCount(),
+      ownedResizeListeners: owned.resizeListenerCount(),
+      otherRawCalls: other.input.setRawMode.mock.calls.length,
+      otherWrites: other.output_writes(),
+      otherDataListeners: other.dataListenerCount(),
+      otherResizeListeners: other.resizeListenerCount(),
+    };
+
+    const sharedInput = new TerminalDriver({
+      input: owned.input,
+      output: other.output,
+      onEvent: () => {},
+    });
+    expect(() => sharedInput.start()).toThrow(/already owned/i);
+
+    const sharedOutput = new TerminalDriver({
+      input: other.input,
+      output: owned.output,
+      onEvent: () => {},
+    });
+    expect(() => sharedOutput.start()).toThrow(/already owned/i);
+
+    expect({
+      ownedRawCalls: owned.input.setRawMode.mock.calls.length,
+      ownedWrites: owned.output_writes(),
+      ownedDataListeners: owned.dataListenerCount(),
+      ownedResizeListeners: owned.resizeListenerCount(),
+      otherRawCalls: other.input.setRawMode.mock.calls.length,
+      otherWrites: other.output_writes(),
+      otherDataListeners: other.dataListenerCount(),
+      otherResizeListeners: other.resizeListenerCount(),
+    }).toEqual(before);
+
+    owner.stop();
+  });
+
+  it("keeps failed cleanup registered and lets the next owner retry it", () => {
+    const dataListeners = new Set<(chunk: Uint8Array | string) => void>();
+    const resizeListeners = new Set<() => void>();
+    const rawModes: boolean[] = [];
+    let enterWrites = 0;
+    let leaveWrites = 0;
+    let leaveFailuresRemaining = 2;
+    const cleanupError = new Error("leave cleanup failed");
+    const input = {
+      isTTY: true,
+      setRawMode: (mode: boolean) => rawModes.push(mode),
+      resume: () => {},
+      pause: () => {},
+      on: (_event: "data", listener: (chunk: Uint8Array | string) => void) =>
+        dataListeners.add(listener),
+      off: (_event: "data", listener: (chunk: Uint8Array | string) => void) =>
+        dataListeners.delete(listener),
+    };
+    const output = {
+      write: (chunk: string) => {
+        if (chunk.includes("\x1b[?1049h")) enterWrites += 1;
+        if (chunk.includes("\x1b[?1049l")) {
+          leaveWrites += 1;
+          if (leaveFailuresRemaining > 0) {
+            leaveFailuresRemaining -= 1;
+            throw cleanupError;
+          }
+        }
+      },
+      on: (_event: "resize", listener: () => void) =>
+        resizeListeners.add(listener),
+      off: (_event: "resize", listener: () => void) =>
+        resizeListeners.delete(listener),
+    };
+    const oldOwner = new TerminalDriver({ input, output, onEvent: () => {} });
+    oldOwner.start();
+
+    expect(captureError(() => oldOwner.stop())).toBe(cleanupError);
+    expect({
+      enterWrites,
+      leaveWrites,
+      rawModes,
+      dataListeners: dataListeners.size,
+      resizeListeners: resizeListeners.size,
+    }).toEqual({
+      enterWrites: 1,
+      leaveWrites: 1,
+      rawModes: [true, false],
+      dataListeners: 0,
+      resizeListeners: 0,
+    });
+
+    const nextOwner = new TerminalDriver({ input, output, onEvent: () => {} });
+    expect(captureError(() => nextOwner.start())).toBe(cleanupError);
+    // The failed call only retried the old leave; it never started nextOwner.
+    expect({ enterWrites, leaveWrites, rawModes }).toEqual({
+      enterWrites: 1,
+      leaveWrites: 2,
+      rawModes: [true, false],
+    });
+
+    expect(() => nextOwner.start()).not.toThrow();
+    expect({
+      enterWrites,
+      leaveWrites,
+      rawModes,
+      dataListeners: dataListeners.size,
+      resizeListeners: resizeListeners.size,
+    }).toEqual({
+      enterWrites: 2,
+      leaveWrites: 3,
+      rawModes: [true, false, true],
+      dataListeners: 1,
+      resizeListeners: 1,
+    });
+
+    const leaveWritesBeforeLostHandleCleanup = leaveWrites;
+    oldOwner.stop();
+    expect(leaveWrites).toBe(leaveWritesBeforeLostHandleCleanup);
+    nextOwner.stop();
+    expect(rawModes).toEqual([true, false, true, false]);
+  });
+
+  it("preflights healthy owners and deduplicates distinct pending owners", () => {
+    const makeSession = () => {
+      let failLeave = false;
+      let leaveAttempts = 0;
+      const error = new Error("pending leave failed");
+      const input = {
+        on: (
+          _event: "data",
+          _listener: (chunk: Uint8Array | string) => void,
+        ) => {},
+        off: (
+          _event: "data",
+          _listener: (chunk: Uint8Array | string) => void,
+        ) => {},
+      };
+      const output = {
+        write: (chunk: string) => {
+          if (!chunk.includes("\x1b[?1049l")) return;
+          leaveAttempts += 1;
+          if (failLeave) throw error;
+        },
+        on: (_event: "resize", _listener: () => void) => {},
+        off: (_event: "resize", _listener: () => void) => {},
+      };
+      return {
+        input,
+        output,
+        error,
+        failCleanup: () => {
+          failLeave = true;
+        },
+        allowCleanup: () => {
+          failLeave = false;
+        },
+        leaveAttempts: () => leaveAttempts,
+      };
+    };
+
+    const pendingInput = makeSession();
+    const pendingOutput = makeSession();
+    const healthy = makeSession();
+    const first = new TerminalDriver({
+      input: pendingInput.input,
+      output: pendingInput.output,
+      onEvent: () => {},
+    });
+    const second = new TerminalDriver({
+      input: pendingOutput.input,
+      output: pendingOutput.output,
+      onEvent: () => {},
+    });
+    const healthyOwner = new TerminalDriver({
+      input: healthy.input,
+      output: healthy.output,
+      onEvent: () => {},
+    });
+    first.start();
+    second.start();
+    healthyOwner.start();
+    pendingInput.failCleanup();
+    pendingOutput.failCleanup();
+    expect(captureError(() => first.stop())).toBe(pendingInput.error);
+    expect(captureError(() => second.stop())).toBe(pendingOutput.error);
+
+    const pendingAttemptsBeforePreflight = pendingInput.leaveAttempts();
+    const mixedWithHealthy = new TerminalDriver({
+      input: pendingInput.input,
+      output: healthy.output,
+      onEvent: () => {},
+    });
+    expect(() => mixedWithHealthy.start()).toThrow(/already owned/i);
+    expect(pendingInput.leaveAttempts()).toBe(pendingAttemptsBeforePreflight);
+
+    const mixedPending = new TerminalDriver({
+      input: pendingInput.input,
+      output: pendingOutput.output,
+      onEvent: () => {},
+    });
+    expect(captureError(() => mixedPending.start())).toBe(pendingInput.error);
+    expect(pendingInput.leaveAttempts()).toBe(
+      pendingAttemptsBeforePreflight + 1,
+    );
+    expect(pendingOutput.leaveAttempts()).toBe(2);
+
+    pendingInput.allowCleanup();
+    pendingOutput.allowCleanup();
+    healthyOwner.stop();
+    first.stop();
+    second.stop();
+  });
+
+  it("does not resume an input that has no matching pause operation", () => {
+    const resume = vi.fn();
+    const driver = new TerminalDriver({
+      input: {
+        resume,
+        on: () => {},
+        off: () => {},
+      },
+      output: {
+        write: () => {},
+        on: () => {},
+        off: () => {},
+      },
+      onEvent: () => {},
+    });
+
+    driver.start();
+    driver.stop();
+    expect(resume).not.toHaveBeenCalled();
+  });
 });
 
 describe("TerminalDriver — input", () => {

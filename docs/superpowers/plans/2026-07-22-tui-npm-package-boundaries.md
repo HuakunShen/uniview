@@ -606,11 +606,18 @@ README to list core, React, and Solid instead of the legacy renderer.
 Run:
 
 ```bash
-rg -n '@uniview/(tui-renderer|host-tui|tui-content|tui-charts|react-renderer|solid-renderer)' docs/content --glob '*.{md,mdx}'
+rg -n '@uniview/(tui-renderer|host-tui|tui-content|tui-charts|react-renderer|solid-renderer)' \
+  docs/content/docs/tui docs/content/docs/guides/terminal-ui.mdx \
+  --glob '*.{md,mdx}'
+rg -n '@uniview/(tui-renderer|host-tui|tui-content|tui-charts)' README.md
 ```
 
-Expected: no installation/import examples use these packages. Architecture prose may mention
-an implementation module only when it explicitly labels it internal.
+Expected: the TUI consumer guides and root README contain no installation/import examples for
+the TUI-internal packages. The root README's package table legitimately lists
+`@uniview/react-renderer` and `@uniview/solid-renderer`. This TUI release allowlist
+intentionally does not apply to the broader browser/plugin SDK documentation: pages such as
+the repository Getting Started, architecture guide, and renderer package references continue
+to publish and teach those renderer packages for that separate SDK.
 
 - [x] **Step 4: Validate Fumadocs content**
 

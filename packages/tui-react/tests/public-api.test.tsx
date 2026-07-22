@@ -59,6 +59,87 @@ class FakeOutput implements TtyOutput {
   }
 }
 
+type TerminalOperation =
+  | "raw-on"
+  | "resume"
+  | "data-on"
+  | "resize-on"
+  | "enter"
+  | "leave"
+  | "data-off"
+  | "resize-off"
+  | "raw-off"
+  | "pause";
+
+class FaultyTerminal {
+  readonly counts = new Map<TerminalOperation, number>();
+  readonly dataListeners = new Set<(chunk: Uint8Array | string) => void>();
+  readonly resizeListeners = new Set<() => void>();
+  raw = false;
+  resumed = false;
+  entered = false;
+  fault: ((operation: TerminalOperation) => Error | undefined) | undefined;
+
+  private perform(operation: TerminalOperation): void {
+    this.counts.set(operation, (this.counts.get(operation) ?? 0) + 1);
+    const error = this.fault?.(operation);
+    if (error) throw error;
+  }
+
+  readonly input: TtyInput = {
+    isTTY: true,
+    setRawMode: (mode) => {
+      this.raw = mode;
+      this.perform(mode ? "raw-on" : "raw-off");
+    },
+    resume: () => {
+      this.resumed = true;
+      this.perform("resume");
+    },
+    pause: () => {
+      this.resumed = false;
+      this.perform("pause");
+    },
+    on: (_event, listener) => {
+      this.dataListeners.add(listener);
+      this.perform("data-on");
+    },
+    off: (_event, listener) => {
+      this.dataListeners.delete(listener);
+      this.perform("data-off");
+    },
+  };
+
+  readonly output: TtyOutput = {
+    columns: 20,
+    rows: 3,
+    write: (chunk) => {
+      if (chunk.includes("\x1b[?1049h")) {
+        this.entered = true;
+        this.perform("enter");
+      }
+      if (chunk.includes("\x1b[?1049l")) {
+        this.entered = false;
+        this.perform("leave");
+      }
+    },
+    on: (_event, listener) => {
+      this.resizeListeners.add(listener);
+      this.perform("resize-on");
+    },
+    off: (_event, listener) => {
+      this.resizeListeners.delete(listener);
+      this.perform("resize-off");
+    },
+  };
+
+  acquisitionCounts(): number[] {
+    return ["raw-on", "resume", "data-on", "resize-on", "enter"].map(
+      (operation) => this.counts.get(operation as TerminalOperation) ?? 0,
+    );
+  }
+}
+
 describe("public React TUI facade", () => {
   it("re-exports the common core facilities", () => {
     expect([
@@ -203,4 +284,81 @@ describe("public React TUI facade", () => {
 
     expect(() => app.destroy()).not.toThrow();
   });
+
+  it.each([
+    ["raw-on", "raw-off"],
+    ["resume", "pause"],
+    ["data-on", "data-off"],
+    ["resize-on", "resize-off"],
+    ["enter", "leave"],
+  ] as const)(
+    "recovers a lost construction handle after %s acquisition and %s cleanup fail",
+    async (acquireOperation, releaseOperation) => {
+      const terminal = new FaultyTerminal();
+      const acquisitionError = new Error(`${acquireOperation} failed`);
+      const cleanupError = new Error(`${releaseOperation} failed`);
+      let acquisitionFailed = false;
+      let blockCleanup = true;
+      terminal.fault = (operation) => {
+        if (operation === acquireOperation && !acquisitionFailed) {
+          acquisitionFailed = true;
+          return acquisitionError;
+        }
+        if (operation === releaseOperation && blockCleanup) {
+          return cleanupError;
+        }
+        return undefined;
+      };
+
+      let firstError: unknown;
+      try {
+        render(h(Text, null, "Never returned"), {
+          input: terminal.input,
+          output: terminal.output,
+        });
+      } catch (error) {
+        firstError = error;
+      }
+      expect(firstError).toBe(acquisitionError);
+      expect(terminal.raw).toBe(false);
+      expect(terminal.resumed).toBe(false);
+      expect(terminal.dataListeners.size).toBe(0);
+      expect(terminal.resizeListeners.size).toBe(0);
+      expect(terminal.entered).toBe(false);
+
+      const acquisitionsBeforeBlockedRetry = terminal.acquisitionCounts();
+      let retryError: unknown;
+      try {
+        render(h(Text, null, "Still blocked"), {
+          input: terminal.input,
+          output: terminal.output,
+        });
+      } catch (error) {
+        retryError = error;
+      }
+      expect(retryError).toBe(cleanupError);
+      expect(terminal.acquisitionCounts()).toEqual(
+        acquisitionsBeforeBlockedRetry,
+      );
+
+      blockCleanup = false;
+      const app = render(h(Text, null, "Recovered"), {
+        input: terminal.input,
+        output: terminal.output,
+      });
+      await tick();
+      expect(terminal.raw).toBe(true);
+      expect(terminal.resumed).toBe(true);
+      expect(terminal.dataListeners.size).toBe(1);
+      expect(terminal.resizeListeners.size).toBe(1);
+      expect(terminal.entered).toBe(true);
+
+      app.destroy();
+      expect(terminal.raw).toBe(false);
+      expect(terminal.resumed).toBe(false);
+      expect(terminal.dataListeners.size).toBe(0);
+      expect(terminal.resizeListeners.size).toBe(0);
+      expect(terminal.entered).toBe(false);
+    },
+  );
 });

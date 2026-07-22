@@ -232,15 +232,21 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
   } else {
     unsubscribe = handle.subscribe(syncFull);
   }
-  let destroyed = false;
   let teardownStarted = false;
+  let reactUnmounted = false;
+  let unsubscribed = false;
+  let registryCleared = false;
+  let hostDestroyed = false;
+
+  const cleanupComplete = (): boolean =>
+    reactUnmounted && unsubscribed && registryCleared && hostDestroyed;
 
   return {
     host,
     clock,
 
     render(element: ReactElement): void {
-      if (destroyed) {
+      if (cleanupComplete()) {
         throw new Error("Cannot render into a destroyed TUI React root");
       }
       if (teardownStarted) {
@@ -266,18 +272,59 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     },
 
     destroy(): void {
-      if (destroyed) return;
-      try {
-        unmount(handle);
-      } catch (error) {
-        if (!isReactReentrantUnmountError(error)) teardownStarted = true;
-        throw error;
+      if (cleanupComplete()) return;
+
+      let firstError: unknown;
+      let hasError = false;
+      const attempt = (cleanup: () => void, complete: () => void): void => {
+        try {
+          cleanup();
+          complete();
+        } catch (error) {
+          if (!hasError) {
+            firstError = error;
+            hasError = true;
+          }
+        }
+      };
+
+      if (!reactUnmounted) {
+        try {
+          unmount(handle);
+          reactUnmounted = true;
+        } catch (error) {
+          // React work is the one case where beginning the rest of teardown is
+          // unsafe. The caller can retry from a microtask without losing the
+          // live host or terminal session.
+          if (isReactReentrantUnmountError(error)) throw error;
+          firstError = error;
+          hasError = true;
+        }
       }
       teardownStarted = true;
-      unsubscribe();
-      registry.clear();
-      host.destroy();
-      destroyed = true;
+      if (!unsubscribed) {
+        attempt(unsubscribe, () => {
+          unsubscribed = true;
+        });
+      }
+      if (!registryCleared) {
+        attempt(
+          () => registry.clear(),
+          () => {
+            registryCleared = true;
+          },
+        );
+      }
+      if (!hostDestroyed) {
+        attempt(
+          () => host.destroy(),
+          () => {
+            hostDestroyed = true;
+          },
+        );
+      }
+
+      if (hasError) throw firstError;
     },
   };
 }
@@ -289,26 +336,12 @@ export function render(
   const input = options.input ?? (process.stdin as unknown as TtyInput);
   const output = options.output ?? (process.stdout as unknown as TtyOutput);
   const styles = new StyleTable();
-  const root = createTuiReactRoot({
-    surface: new AnsiCellSurface({
-      write: (chunk) => output.write(chunk),
-      styles,
-    }),
-    styles,
-    size: {
-      width: options.width ?? output.columns ?? 80,
-      height: options.height ?? output.rows ?? 24,
-    },
-    committed: options.committed,
-    devtools: options.devtools,
-    clock: options.clock,
-    layoutEngine: options.layoutEngine,
-    mode: options.mode,
-  });
+  let root: TuiReactRoot | null = null;
   const driver = new TerminalDriver({
     input,
     output,
     onEvent: (event) => {
+      if (!root) return;
       if (event.type === "resize") {
         root.host.renderer.resize({ width: event.width, height: event.height });
       } else {
@@ -317,18 +350,50 @@ export function render(
     },
   });
 
-  driver.start();
-  root.render(element);
+  try {
+    driver.start();
+    root = createTuiReactRoot({
+      surface: new AnsiCellSurface({
+        write: (chunk) => output.write(chunk),
+        styles,
+      }),
+      styles,
+      size: {
+        width: options.width ?? output.columns ?? 80,
+        height: options.height ?? output.rows ?? 24,
+      },
+      committed: options.committed,
+      devtools: options.devtools,
+      clock: options.clock,
+      layoutEngine: options.layoutEngine,
+      mode: options.mode,
+    });
+    root.render(element);
+  } catch (error) {
+    try {
+      root?.destroy();
+    } catch {
+      // Preserve the startup or initial render error.
+    }
+    try {
+      driver.stop();
+    } catch {
+      // Pending terminal cleanup remains discoverable through the core registry.
+    }
+    throw error;
+  }
+
+  const mountedRoot = root;
 
   return {
-    host: root.host,
-    clock: root.clock,
+    host: mountedRoot.host,
+    clock: mountedRoot.clock,
     driver,
-    render: (next) => root.render(next),
-    dispatchInput: (event) => root.dispatchInput(event),
+    render: (next) => mountedRoot.render(next),
+    dispatchInput: (event) => mountedRoot.dispatchInput(event),
     destroy: () => {
       try {
-        root.destroy();
+        mountedRoot.destroy();
       } catch (error) {
         if (isReactReentrantUnmountError(error)) throw error;
         try {

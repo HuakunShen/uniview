@@ -65,7 +65,18 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
     cursor: options.cursor,
   });
 
+  let teardownStarted = false;
+  let rendererDestroyed = false;
+  let driverStopped = false;
+
+  const assertActive = (): void => {
+    if (teardownStarted) {
+      throw new Error("Cannot use a TUI app after teardown has started");
+    }
+  };
+
   function dispatch(event: TuiInputEvent): void {
+    if (teardownStarted) return;
     if (event.type === "resize") {
       renderer.resize({ width: event.width, height: event.height });
       renderer.flush();
@@ -74,7 +85,25 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
     for (const handler of handlers) handler(event);
   }
 
-  driver.start();
+  try {
+    driver.start();
+  } catch (error) {
+    teardownStarted = true;
+    handlers.clear();
+    try {
+      renderer.destroy();
+      rendererDestroyed = true;
+    } catch {
+      // Preserve the terminal startup error.
+    }
+    try {
+      driver.stop();
+      driverStopped = true;
+    } catch {
+      // A later app on the same streams can retry pending driver cleanup.
+    }
+    throw error;
+  }
 
   return {
     renderer,
@@ -82,17 +111,52 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
       return driver.size;
     },
     render(scene: RenderNode | null): void {
+      assertActive();
       renderer.setRoot(scene);
       renderer.flush();
     },
     onInput(handler: (event: TuiInputEvent) => void): () => void {
+      assertActive();
       handlers.add(handler);
       return () => handlers.delete(handler);
     },
     destroy(): void {
+      if (rendererDestroyed && driverStopped) return;
+      teardownStarted = true;
       handlers.clear();
-      renderer.destroy();
-      driver.stop();
+
+      let firstError: unknown;
+      let hasError = false;
+      const attempt = (cleanup: () => void, complete: () => void): void => {
+        try {
+          cleanup();
+          complete();
+        } catch (error) {
+          if (!hasError) {
+            firstError = error;
+            hasError = true;
+          }
+        }
+      };
+
+      if (!rendererDestroyed) {
+        attempt(
+          () => renderer.destroy(),
+          () => {
+            rendererDestroyed = true;
+          },
+        );
+      }
+      if (!driverStopped) {
+        attempt(
+          () => driver.stop(),
+          () => {
+            driverStopped = true;
+          },
+        );
+      }
+
+      if (hasError) throw firstError;
     },
   };
 }

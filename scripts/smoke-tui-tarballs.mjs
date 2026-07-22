@@ -611,6 +611,61 @@ assert.throws(
   /teardown has started/,
 )
 cleanupApp.destroy()
+
+const lostInput = new FakeInput()
+const lostOutput = new FakeOutput()
+const acquisitionError = new Error("packed React data acquisition failed")
+const cleanupError = new Error("packed React data cleanup failed")
+let failAcquisition = true
+let blockCleanup = true
+let dataOnAttempts = 0
+lostInput.on = (event, listener) => {
+  assert.equal(event, "data")
+  lostInput.dataListeners.add(listener)
+  dataOnAttempts += 1
+  if (failAcquisition) {
+    failAcquisition = false
+    throw acquisitionError
+  }
+}
+lostInput.off = (event, listener) => {
+  assert.equal(event, "data")
+  lostInput.dataListeners.delete(listener)
+  if (blockCleanup) throw cleanupError
+}
+assert.throws(
+  () => render(createElement(Text, null, "Never returned"), {
+    input: lostInput,
+    output: lostOutput,
+  }),
+  (error) => error === acquisitionError,
+)
+assert.equal(lostInput.dataListeners.size, 0)
+assert.equal(lostOutput.resizeListeners.size, 0)
+const dataOnAttemptsBeforeBlockedRetry = dataOnAttempts
+assert.throws(
+  () => render(createElement(Text, null, "Still blocked"), {
+    input: lostInput,
+    output: lostOutput,
+  }),
+  (error) => error === cleanupError,
+)
+assert.equal(dataOnAttempts, dataOnAttemptsBeforeBlockedRetry)
+blockCleanup = false
+const recoveredApp = render(createElement(Text, null, "Recovered React"), {
+  input: lostInput,
+  output: lostOutput,
+})
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.match(lostOutput.chunks.join(""), /Recovered React/)
+assert.deepEqual(lostInput.rawModes.at(-1), true)
+assert.equal(lostInput.dataListeners.size, 1)
+assert.equal(lostOutput.resizeListeners.size, 1)
+recoveredApp.destroy()
+assert.deepEqual(lostInput.rawModes.at(-1), false)
+assert.equal(lostInput.dataListeners.size, 0)
+assert.equal(lostOutput.resizeListeners.size, 0)
 `,
   });
 
@@ -785,7 +840,7 @@ const failedApp = render(
   () => createComponent(Text, { children: "Before failure" }),
   { input: failedInput, output: failedOutput },
 )
-failedOutput.leaveWriteFailuresRemaining = 1
+failedOutput.leaveWriteFailuresRemaining = 2
 assert.throws(
   () => failedApp.render(() => { throw replacementError }),
   (error) => error === replacementError,
@@ -798,12 +853,25 @@ assert.equal(failedInput.pauseCount, 1)
 assert.equal(failedInput.dataListeners.size, 0)
 assert.equal(failedOutput.resizeListeners.size, 0)
 
-failedApp.destroy()
-failedApp.destroy()
+const enterSequence = String.fromCharCode(27) + "[?1049h"
+const enterWritesBeforeBlockedOwner = failedOutput.chunks.filter((chunk) =>
+  chunk.includes(enterSequence),
+).length
+assert.throws(
+  () => render(
+    () => createComponent(Text, { children: "Still blocked" }),
+    { input: failedInput, output: failedOutput },
+  ),
+  /leave write failed/,
+)
 assert.equal(failedOutput.leaveWriteAttempts, 2)
-assert.equal(failedOutput.successfulLeaveWrites, 1)
+assert.equal(failedOutput.successfulLeaveWrites, 0)
+assert.equal(
+  failedOutput.chunks.filter((chunk) => chunk.includes(enterSequence)).length,
+  enterWritesBeforeBlockedOwner,
+)
 assert.ok(
-  failedOutput.chunks.join("").includes(String.fromCharCode(27) + "[?1049l"),
+  !failedOutput.chunks.join("").includes(String.fromCharCode(27) + "[?1049l"),
 )
 
 const nextOwner = render(
@@ -814,14 +882,77 @@ assert.match(failedOutput.chunks.join(""), /Owner after failure/)
 assert.deepEqual(failedInput.rawModes, [true, false, true])
 assert.equal(failedInput.dataListeners.size, 1)
 assert.equal(failedOutput.resizeListeners.size, 1)
+const leaveAttemptsBeforeLostHandleDestroy = failedOutput.leaveWriteAttempts
+failedApp.destroy()
+failedApp.destroy()
+assert.equal(failedOutput.leaveWriteAttempts, leaveAttemptsBeforeLostHandleDestroy)
+assert.deepEqual(failedInput.rawModes, [true, false, true])
+assert.equal(failedInput.dataListeners.size, 1)
+assert.equal(failedOutput.resizeListeners.size, 1)
 nextOwner.destroy()
-assert.equal(failedOutput.leaveWriteAttempts, 3)
+assert.equal(failedOutput.leaveWriteAttempts, 4)
 assert.equal(failedOutput.successfulLeaveWrites, 2)
 assert.deepEqual(failedInput.rawModes, [true, false, true, false])
 assert.equal(failedInput.resumeCount, 2)
 assert.equal(failedInput.pauseCount, 2)
 assert.equal(failedInput.dataListeners.size, 0)
 assert.equal(failedOutput.resizeListeners.size, 0)
+
+const constructionInput = new FakeInput()
+const constructionOutput = new FakeOutput()
+const constructionError = new Error("packed Solid enter acquisition failed")
+const constructionCleanupError = new Error("packed Solid leave cleanup failed")
+const originalConstructionWrite = constructionOutput.write.bind(constructionOutput)
+let failConstructionEnter = true
+let blockConstructionCleanup = true
+let constructionEnterAttempts = 0
+constructionOutput.write = (chunk) => {
+  const enter = String.fromCharCode(27) + "[?1049h"
+  const leave = String.fromCharCode(27) + "[?1049l"
+  if (chunk.includes(enter)) {
+    constructionEnterAttempts += 1
+    if (failConstructionEnter) {
+      failConstructionEnter = false
+      throw constructionError
+    }
+  }
+  if (chunk.includes(leave) && blockConstructionCleanup) {
+    throw constructionCleanupError
+  }
+  originalConstructionWrite(chunk)
+}
+assert.throws(
+  () => render(
+    () => createComponent(Text, { children: "Never returned" }),
+    { input: constructionInput, output: constructionOutput },
+  ),
+  (error) => error === constructionError,
+)
+const constructionEnterAttemptsBeforeBlockedRetry = constructionEnterAttempts
+assert.throws(
+  () => render(
+    () => createComponent(Text, { children: "Still blocked" }),
+    { input: constructionInput, output: constructionOutput },
+  ),
+  (error) => error === constructionCleanupError,
+)
+assert.equal(
+  constructionEnterAttempts,
+  constructionEnterAttemptsBeforeBlockedRetry,
+)
+blockConstructionCleanup = false
+const recoveredSolid = render(
+  () => createComponent(Text, { children: "Recovered Solid" }),
+  { input: constructionInput, output: constructionOutput },
+)
+assert.match(constructionOutput.chunks.join(""), /Recovered Solid/)
+assert.deepEqual(constructionInput.rawModes.at(-1), true)
+assert.equal(constructionInput.dataListeners.size, 1)
+assert.equal(constructionOutput.resizeListeners.size, 1)
+recoveredSolid.destroy()
+assert.deepEqual(constructionInput.rawModes.at(-1), false)
+assert.equal(constructionInput.dataListeners.size, 0)
+assert.equal(constructionOutput.resizeListeners.size, 0)
 `,
     typeScriptFixture: {
       source: `

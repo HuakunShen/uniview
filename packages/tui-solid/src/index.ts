@@ -272,8 +272,9 @@ function createTuiSolidRootInternal(
   };
 
   let dispose: (() => void) | null = null;
-  let destroyed = false;
+  let teardownStarted = false;
   let globalsInstalled = false;
+  let hostDestroyed = false;
 
   const reserveOwnership = (): void => {
     reserveSolidRootOwnership(owner);
@@ -281,18 +282,15 @@ function createTuiSolidRootInternal(
 
   const releaseOwnership = (): void => {
     if (!ownsGlobals()) return;
-    try {
-      if (globalsInstalled) {
-        setUpdateCallback(null);
-        setMutationUpdateCallback(null);
-        setMutationCollector(null);
-        setRootNode(null);
-        setActiveTuiClock(null);
-      }
-    } finally {
-      globalsInstalled = false;
-      releaseSolidRootOwnership(owner);
+    if (globalsInstalled) {
+      setUpdateCallback(null);
+      setMutationUpdateCallback(null);
+      setMutationCollector(null);
+      setRootNode(null);
+      setActiveTuiClock(null);
     }
+    globalsInstalled = false;
+    releaseSolidRootOwnership(owner);
   };
 
   const installGlobals = (): void => {
@@ -314,9 +312,9 @@ function createTuiSolidRootInternal(
 
   const disposeMount = (): void => {
     const activeDispose = dispose;
-    dispose = null;
     try {
       activeDispose?.();
+      if (dispose === activeDispose) dispose = null;
     } finally {
       registry.clear();
       if (ownsGlobals() && globalsInstalled) setRootNode(null);
@@ -328,8 +326,13 @@ function createTuiSolidRootInternal(
     clock,
 
     render(App: () => unknown): void {
-      if (destroyed) {
+      if (hostDestroyed && !ownsGlobals()) {
         throw new Error("Cannot render into a destroyed TUI Solid root");
+      }
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot render after TUI Solid root teardown has started",
+        );
       }
       installGlobals();
       disposeMount();
@@ -360,10 +363,12 @@ function createTuiSolidRootInternal(
         } catch {
           // Preserve the component mount error while cleaning up below.
         }
-        try {
-          releaseOwnership();
-        } catch {
-          // Preserve the component mount error while cleaning up below.
+        if (dispose === null) {
+          try {
+            releaseOwnership();
+          } catch {
+            // Preserve the component mount error while cleaning up below.
+          }
         }
         try {
           host.setRoot(null);
@@ -377,18 +382,46 @@ function createTuiSolidRootInternal(
     },
 
     dispatchInput(event: TuiInputEvent): void {
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot dispatch input after TUI Solid root teardown has started",
+        );
+      }
       router.dispatch(event);
     },
 
     destroy(): void {
-      if (destroyed) return;
-      destroyed = true;
-      try {
-        if (ownsGlobals() && globalsInstalled) disposeMount();
-      } finally {
-        releaseOwnership();
-        host.destroy();
+      if (hostDestroyed && dispose === null && !ownsGlobals()) return;
+      teardownStarted = true;
+
+      let firstError: unknown;
+      let hasError = false;
+      const attempt = (cleanup: () => void, complete?: () => void): void => {
+        try {
+          cleanup();
+          complete?.();
+        } catch (error) {
+          if (!hasError) {
+            firstError = error;
+            hasError = true;
+          }
+        }
+      };
+
+      if (dispose !== null) attempt(disposeMount);
+      // Never transfer the module-global renderer while its old Solid disposer
+      // is still pending; a late disposer could corrupt the new root.
+      if (dispose === null && ownsGlobals()) attempt(releaseOwnership);
+      if (!hostDestroyed) {
+        attempt(
+          () => host.destroy(),
+          () => {
+            hostDestroyed = true;
+          },
+        );
       }
+
+      if (hasError) throw firstError;
     },
   };
 
@@ -454,7 +487,7 @@ export function render(
     } catch {
       // Preserve the initial mount error after attempting root cleanup.
     }
-    releaseSolidRootOwnership(owner);
+    if (!root) releaseSolidRootOwnership(owner);
     try {
       driver?.stop();
     } catch {

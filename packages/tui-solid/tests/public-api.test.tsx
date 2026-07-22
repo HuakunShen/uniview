@@ -68,6 +68,92 @@ class FakeOutput implements TtyOutput {
   }
 }
 
+type TerminalOperation =
+  | "raw-on"
+  | "resume"
+  | "data-on"
+  | "resize-on"
+  | "enter"
+  | "leave"
+  | "data-off"
+  | "resize-off"
+  | "raw-off"
+  | "pause";
+
+class FaultyTerminal {
+  readonly counts = new Map<TerminalOperation, number>();
+  readonly dataListeners = new Set<(chunk: Uint8Array | string) => void>();
+  readonly resizeListeners = new Set<() => void>();
+  raw = false;
+  resumed = false;
+  entered = false;
+  fault: ((operation: TerminalOperation) => Error | undefined) | undefined;
+
+  private perform(operation: TerminalOperation): void {
+    this.counts.set(operation, (this.counts.get(operation) ?? 0) + 1);
+    const error = this.fault?.(operation);
+    if (error) throw error;
+  }
+
+  readonly input: TtyInput = {
+    isTTY: true,
+    setRawMode: (mode) => {
+      this.raw = mode;
+      this.perform(mode ? "raw-on" : "raw-off");
+    },
+    resume: () => {
+      this.resumed = true;
+      this.perform("resume");
+    },
+    pause: () => {
+      this.resumed = false;
+      this.perform("pause");
+    },
+    on: (_event, listener) => {
+      this.dataListeners.add(listener);
+      this.perform("data-on");
+    },
+    off: (_event, listener) => {
+      this.dataListeners.delete(listener);
+      this.perform("data-off");
+    },
+  };
+
+  readonly output: TtyOutput = {
+    columns: 20,
+    rows: 3,
+    write: (chunk) => {
+      if (chunk.includes("\x1b[?1049h")) {
+        this.entered = true;
+        this.perform("enter");
+      }
+      if (chunk.includes("\x1b[?1049l")) {
+        this.entered = false;
+        this.perform("leave");
+      }
+    },
+    on: (_event, listener) => {
+      this.resizeListeners.add(listener);
+      this.perform("resize-on");
+    },
+    off: (_event, listener) => {
+      this.resizeListeners.delete(listener);
+      this.perform("resize-off");
+    },
+  };
+
+  acquisitionCounts(): number[] {
+    const operations: readonly TerminalOperation[] = [
+      "raw-on",
+      "resume",
+      "data-on",
+      "resize-on",
+      "enter",
+    ];
+    return operations.map((operation) => this.counts.get(operation) ?? 0);
+  }
+}
+
 describe("public Solid TUI facade", () => {
   it("re-exports the common core facilities", () => {
     expect([
@@ -164,7 +250,7 @@ describe("public Solid TUI facade", () => {
     const output = new FakeOutput();
     const error = new Error("replacement mount failed");
     const app = render(() => <Text>First</Text>, { input, output });
-    output.leaveWriteFailuresRemaining = 1;
+    output.leaveWriteFailuresRemaining = 2;
 
     let caught: unknown;
     try {
@@ -184,10 +270,17 @@ describe("public Solid TUI facade", () => {
     expect(input.listeners.size).toBe(0);
     expect(output.listeners.size).toBe(0);
 
-    app.destroy();
-    app.destroy();
+    const enterWritesBeforeRejectedOwner = output.chunks.filter((chunk) =>
+      chunk.includes("\x1b[?1049h"),
+    ).length;
+    expect(() =>
+      render(() => <Text>Still blocked</Text>, { input, output }),
+    ).toThrow(/leave write failed/);
     expect(output.leaveWriteAttempts).toBe(2);
-    expect(output.successfulLeaveWrites).toBe(1);
+    expect(output.successfulLeaveWrites).toBe(0);
+    expect(
+      output.chunks.filter((chunk) => chunk.includes("\x1b[?1049h")),
+    ).toHaveLength(enterWritesBeforeRejectedOwner);
     expect(input.rawModes).toEqual([true, false]);
     expect(input.resumeCount).toBe(1);
     expect(input.pauseCount).toBe(1);
@@ -202,9 +295,20 @@ describe("public Solid TUI facade", () => {
     expect(input.listeners.size).toBe(1);
     expect(output.listeners.size).toBe(1);
     expect(output.chunks.join("")).toContain("Replacement");
+
+    const leaveAttemptsBeforeLostHandleDestroy = output.leaveWriteAttempts;
+    app.destroy();
+    app.destroy();
+    expect(output.leaveWriteAttempts).toBe(
+      leaveAttemptsBeforeLostHandleDestroy,
+    );
+    expect(input.rawModes).toEqual([true, false, true]);
+    expect(input.listeners.size).toBe(1);
+    expect(output.listeners.size).toBe(1);
+
     replacement.destroy();
 
-    expect(output.leaveWriteAttempts).toBe(3);
+    expect(output.leaveWriteAttempts).toBe(4);
     expect(output.successfulLeaveWrites).toBe(2);
     expect(input.rawModes).toEqual([true, false, true, false]);
     expect(input.resumeCount).toBe(2);
@@ -337,4 +441,80 @@ describe("public Solid TUI facade", () => {
     expect(replacementOutput.chunks.join("")).toContain("Replacement");
     replacement.destroy();
   });
+
+  it.each([
+    ["raw-on", "raw-off"],
+    ["resume", "pause"],
+    ["data-on", "data-off"],
+    ["resize-on", "resize-off"],
+    ["enter", "leave"],
+  ] as const)(
+    "recovers a lost construction handle after %s acquisition and %s cleanup fail",
+    (acquireOperation, releaseOperation) => {
+      const terminal = new FaultyTerminal();
+      const acquisitionError = new Error(`${acquireOperation} failed`);
+      const cleanupError = new Error(`${releaseOperation} failed`);
+      let acquisitionFailed = false;
+      let blockCleanup = true;
+      terminal.fault = (operation) => {
+        if (operation === acquireOperation && !acquisitionFailed) {
+          acquisitionFailed = true;
+          return acquisitionError;
+        }
+        if (operation === releaseOperation && blockCleanup) {
+          return cleanupError;
+        }
+        return undefined;
+      };
+
+      let firstError: unknown;
+      try {
+        render(() => <Text>Never returned</Text>, {
+          input: terminal.input,
+          output: terminal.output,
+        });
+      } catch (error) {
+        firstError = error;
+      }
+      expect(firstError).toBe(acquisitionError);
+      expect(terminal.raw).toBe(false);
+      expect(terminal.resumed).toBe(false);
+      expect(terminal.dataListeners.size).toBe(0);
+      expect(terminal.resizeListeners.size).toBe(0);
+      expect(terminal.entered).toBe(false);
+
+      const acquisitionsBeforeBlockedRetry = terminal.acquisitionCounts();
+      let retryError: unknown;
+      try {
+        render(() => <Text>Still blocked</Text>, {
+          input: terminal.input,
+          output: terminal.output,
+        });
+      } catch (error) {
+        retryError = error;
+      }
+      expect(retryError).toBe(cleanupError);
+      expect(terminal.acquisitionCounts()).toEqual(
+        acquisitionsBeforeBlockedRetry,
+      );
+
+      blockCleanup = false;
+      const app = render(() => <Text>Recovered</Text>, {
+        input: terminal.input,
+        output: terminal.output,
+      });
+      expect(terminal.raw).toBe(true);
+      expect(terminal.resumed).toBe(true);
+      expect(terminal.dataListeners.size).toBe(1);
+      expect(terminal.resizeListeners.size).toBe(1);
+      expect(terminal.entered).toBe(true);
+
+      app.destroy();
+      expect(terminal.raw).toBe(false);
+      expect(terminal.resumed).toBe(false);
+      expect(terminal.dataListeners.size).toBe(0);
+      expect(terminal.resizeListeners.size).toBe(0);
+      expect(terminal.entered).toBe(false);
+    },
+  );
 });

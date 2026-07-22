@@ -42,6 +42,20 @@ export interface TerminalDriverOptions {
   onEvent: (event: TuiInputEvent) => void;
 }
 
+type TerminalDriverState =
+  | "idle"
+  | "starting"
+  | "running"
+  | "stopping"
+  | "cleanup-pending";
+
+// The framework bindings bundle their own host/rendering implementation, but
+// deliberately keep one external @uniview/tui-core instance. Keeping terminal
+// ownership here therefore prevents React, Solid, and direct-core apps from
+// independently taking over either half of the same terminal session.
+const inputOwners = new WeakMap<TtyInput, TerminalDriver>();
+const outputOwners = new WeakMap<TtyOutput, TerminalDriver>();
+
 /**
  * Owns the real terminal for one session: raw mode, enter/leave sequences,
  * stdin parsing, and resize reporting. All I/O is injected so it runs under
@@ -51,7 +65,8 @@ export interface TerminalDriverOptions {
 export class TerminalDriver {
   private readonly parser = new InputParser();
   private readonly mode;
-  private running = false;
+  private state: TerminalDriverState = "idle";
+  private streamsReserved = false;
   private rawModeEnabled = false;
   private inputResumed = false;
   private dataListenerAttached = false;
@@ -132,11 +147,82 @@ export class TerminalDriver {
     );
   }
 
+  private conflictingOwners(): TerminalDriver[] {
+    const owners: TerminalDriver[] = [];
+    const append = (owner: TerminalDriver | undefined): void => {
+      if (owner && owner !== this && !owners.includes(owner))
+        owners.push(owner);
+    };
+
+    append(inputOwners.get(this.options.input));
+    append(outputOwners.get(this.options.output));
+    return owners;
+  }
+
+  private reserveStreams(): void {
+    const owners = this.conflictingOwners();
+
+    // Inspect both streams before invoking any pending cleanup. In particular,
+    // a healthy output owner must make a mixed input/output claim a zero-delta
+    // rejection even when the input is held by a cleanup-pending driver.
+    for (const owner of owners) {
+      if (owner.state !== "cleanup-pending") {
+        throw new Error("Terminal stream is already owned by another driver");
+      }
+    }
+
+    // Input ownership is considered first, then output ownership. `owners` is
+    // deduplicated, so a normal input/output pair retries one old driver once.
+    // Distinct pending owners are failure-isolated just like one driver's
+    // individual release steps; the first cleanup error remains authoritative.
+    let firstCleanupError: unknown;
+    let cleanupFailed = false;
+    for (const owner of owners) {
+      try {
+        owner.stop();
+      } catch (error) {
+        if (!cleanupFailed) {
+          firstCleanupError = error;
+          cleanupFailed = true;
+        }
+      }
+    }
+    if (cleanupFailed) throw firstCleanupError;
+
+    // A release callback may run arbitrary user code. Recheck the registry
+    // before claiming it so re-entrant attempts cannot be overwritten.
+    if (this.conflictingOwners().length > 0) {
+      throw new Error("Terminal stream is already owned by another driver");
+    }
+
+    inputOwners.set(this.options.input, this);
+    outputOwners.set(this.options.output, this);
+    this.streamsReserved = true;
+  }
+
+  private releaseStreams(): void {
+    if (!this.streamsReserved) return;
+    if (inputOwners.get(this.options.input) === this) {
+      inputOwners.delete(this.options.input);
+    }
+    if (outputOwners.get(this.options.output) === this) {
+      outputOwners.delete(this.options.output);
+    }
+    this.streamsReserved = false;
+  }
+
   start(): void {
-    if (this.running || this.hasOwnedResources()) {
+    if (this.state !== "idle" || this.hasOwnedResources()) {
       throw new Error("TerminalDriver already started or cleanup is pending");
     }
-    this.running = true;
+    this.state = "starting";
+
+    try {
+      this.reserveStreams();
+    } catch (error) {
+      this.state = "idle";
+      throw error;
+    }
 
     const { input, output } = this.options;
     try {
@@ -144,7 +230,9 @@ export class TerminalDriver {
         this.rawModeEnabled = true;
         input.setRawMode(true);
       }
-      if (input.resume) {
+      // `resume()` is only safe to acquire when the same public contract also
+      // supplies its inverse. A resume-only stream cannot be restored.
+      if (input.resume && input.pause) {
         this.inputResumed = true;
         input.resume();
       }
@@ -154,23 +242,43 @@ export class TerminalDriver {
       output.on("resize", this.onResize);
       this.enterSequenceWritten = true;
       output.write(buildEnterSequence(this.mode));
+      this.state = "running";
     } catch (error) {
-      this.running = false;
+      this.state = "stopping";
       try {
         this.releaseResources();
       } catch {
         // Preserve the startup error after best-effort rollback.
+      }
+      if (this.hasOwnedResources()) {
+        this.state = "cleanup-pending";
+      } else {
+        this.state = "idle";
+        this.releaseStreams();
       }
       throw error;
     }
   }
 
   stop(): void {
-    if (!this.running && !this.hasOwnedResources()) return;
-    this.running = false;
+    if (this.state === "idle" && !this.hasOwnedResources()) return;
+    if (this.state === "starting" || this.state === "stopping") {
+      throw new Error(
+        "TerminalDriver lifecycle transition is already in progress",
+      );
+    }
+    this.state = "stopping";
     this.clearEscapeTimer();
 
-    this.releaseResources();
+    try {
+      this.releaseResources();
+    } catch (error) {
+      this.state = "cleanup-pending";
+      throw error;
+    }
+
+    this.state = "idle";
+    this.releaseStreams();
   }
 
   private releaseResources(): void {
