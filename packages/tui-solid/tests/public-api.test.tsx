@@ -320,6 +320,101 @@ describe("public Solid TUI facade", () => {
     expect(output.listeners.size).toBe(0);
   });
 
+  it("preserves the root cleanup error while also retrying terminal cleanup", () => {
+    const terminal = new FaultyTerminal();
+    const rootError = new Error("Solid disposer failed");
+    const driverError = new Error("terminal leave failed");
+    let blockRootCleanup = true;
+    let blockDriverCleanup = true;
+    let rootCleanupAttempts = 0;
+    terminal.fault = (operation) => {
+      if (operation === "leave" && blockDriverCleanup) return driverError;
+      return undefined;
+    };
+
+    const app = render(
+      () => {
+        onCleanup(() => {
+          rootCleanupAttempts += 1;
+          if (blockRootCleanup) throw rootError;
+        });
+        return <Text>Double cleanup failure</Text>;
+      },
+      { input: terminal.input, output: terminal.output },
+    );
+
+    let firstError: unknown;
+    try {
+      app.destroy();
+    } catch (error) {
+      firstError = error;
+    }
+    const firstAttempt = {
+      rootCleanupAttempts,
+      leaveAttempts: terminal.counts.get("leave") ?? 0,
+      raw: terminal.raw,
+      resumed: terminal.resumed,
+      dataListeners: terminal.dataListeners.size,
+      resizeListeners: terminal.resizeListeners.size,
+    };
+
+    blockRootCleanup = false;
+    blockDriverCleanup = false;
+    app.destroy();
+    const recoveredCleanup = {
+      rootCleanupAttempts,
+      leaveAttempts: terminal.counts.get("leave") ?? 0,
+      raw: terminal.raw,
+      resumed: terminal.resumed,
+      dataListeners: terminal.dataListeners.size,
+      resizeListeners: terminal.resizeListeners.size,
+    };
+
+    const replacement = render(() => <Text>Replacement</Text>, {
+      input: terminal.input,
+      output: terminal.output,
+    });
+    const beforeStaleDestroy = {
+      raw: terminal.raw,
+      resumed: terminal.resumed,
+      dataListeners: terminal.dataListeners.size,
+      resizeListeners: terminal.resizeListeners.size,
+      leaveAttempts: terminal.counts.get("leave") ?? 0,
+    };
+    app.destroy();
+    const afterStaleDestroy = {
+      raw: terminal.raw,
+      resumed: terminal.resumed,
+      dataListeners: terminal.dataListeners.size,
+      resizeListeners: terminal.resizeListeners.size,
+      leaveAttempts: terminal.counts.get("leave") ?? 0,
+    };
+    replacement.destroy();
+
+    expect(firstError).toBe(rootError);
+    expect(firstAttempt).toEqual({
+      rootCleanupAttempts: 1,
+      leaveAttempts: 1,
+      raw: false,
+      resumed: false,
+      dataListeners: 0,
+      resizeListeners: 0,
+    });
+    expect(recoveredCleanup).toEqual({
+      rootCleanupAttempts: 2,
+      leaveAttempts: 2,
+      raw: false,
+      resumed: false,
+      dataListeners: 0,
+      resizeListeners: 0,
+    });
+    expect(afterStaleDestroy).toEqual(beforeStaleDestroy);
+    expect(terminal.raw).toBe(false);
+    expect(terminal.resumed).toBe(false);
+    expect(terminal.dataListeners.size).toBe(0);
+    expect(terminal.resizeListeners.size).toBe(0);
+  });
+
   it("rejects a second terminal app before starting its driver", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });

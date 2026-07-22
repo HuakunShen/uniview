@@ -562,11 +562,23 @@ export function render(
     },
     dispatchInput: (event) => mountedRoot.dispatchInput(event),
     destroy: () => {
+      let firstError: unknown;
+      let hasError = false;
       try {
         destroySolidRoot(owner, mountedRoot);
-      } finally {
-        activeDriver.stop();
+      } catch (error) {
+        firstError = error;
+        hasError = true;
       }
+      try {
+        activeDriver.stop();
+      } catch (error) {
+        if (!hasError) {
+          firstError = error;
+          hasError = true;
+        }
+      }
+      if (hasError) throw firstError;
     },
   };
 }

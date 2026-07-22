@@ -539,14 +539,17 @@ assert.equal(stringCellWidth("界"), 2)
 import assert from "node:assert/strict"
 import { createElement, useEffect } from "react"
 import { Text, render } from "@uniview/tui-react"
+import { Text as CompatText, createTuiRoot } from "@uniview/tui-react/compat"
 
 class FakeInput {
   isTTY = true
   rawModes = []
   dataListeners = new Set()
+  resumeCount = 0
+  pauseCount = 0
   setRawMode(mode) { this.rawModes.push(mode) }
-  resume() {}
-  pause() {}
+  resume() { this.resumeCount += 1 }
+  pause() { this.pauseCount += 1 }
   on(event, listener) {
     assert.equal(event, "data")
     this.dataListeners.add(listener)
@@ -659,6 +662,102 @@ assert.throws(
   /teardown has started/,
 )
 cleanupApp.destroy()
+
+const compatInput = new FakeInput()
+const compatOutput = new FakeOutput()
+const compatRootError = new Error(
+  "Cannot destroy a React renderer during React work; schedule destroy outside render, commit, or effects (for example with queueMicrotask)",
+)
+const compatDriverError = new Error("compat terminal leave failed")
+let compatRootFailed = false
+let compatDriverFailed = false
+const compatRoot = createTuiRoot({ input: compatInput, output: compatOutput })
+compatRoot.render(createElement(CompatText, null, "Compat cleanup"))
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+compatOutput.failWrite = (chunk) => {
+  const escape = String.fromCharCode(27)
+  if (!compatRootFailed && chunk === escape + "[0m" + escape + "[?25h") {
+    compatRootFailed = true
+    return compatRootError
+  }
+  if (
+    compatRootFailed &&
+    !compatDriverFailed &&
+    chunk.includes(escape + "[?1049l")
+  ) {
+    compatDriverFailed = true
+    return compatDriverError
+  }
+}
+assert.throws(
+  () => compatRoot.destroy(),
+  (error) => error === compatRootError,
+)
+assert.equal(compatRootFailed, true)
+assert.equal(compatDriverFailed, true)
+assert.deepEqual(compatInput.rawModes, [true, false])
+assert.equal(compatInput.resumeCount, 1)
+assert.equal(compatInput.pauseCount, 1)
+assert.equal(compatInput.dataListeners.size, 0)
+assert.equal(compatOutput.resizeListeners.size, 0)
+compatRoot.destroy()
+
+const compatReplacement = createTuiRoot({
+  input: compatInput,
+  output: compatOutput,
+})
+compatReplacement.render(createElement(CompatText, null, "Compat replacement"))
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+const compatBeforeStaleDestroy = {
+  rawModes: [...compatInput.rawModes],
+  dataListeners: compatInput.dataListeners.size,
+  resizeListeners: compatOutput.resizeListeners.size,
+}
+compatRoot.destroy()
+assert.deepEqual({
+  rawModes: compatInput.rawModes,
+  dataListeners: compatInput.dataListeners.size,
+  resizeListeners: compatOutput.resizeListeners.size,
+}, compatBeforeStaleDestroy)
+compatReplacement.destroy()
+assert.deepEqual(compatInput.rawModes, [true, false, true, false])
+assert.equal(compatInput.dataListeners.size, 0)
+assert.equal(compatOutput.resizeListeners.size, 0)
+
+const compatReentrantInput = new FakeInput()
+const compatReentrantOutput = new FakeOutput()
+let compatReentrantRoot
+let compatReentrantError
+function CompatReentrantApp() {
+  useEffect(() => {
+    try {
+      compatReentrantRoot.destroy()
+    } catch (error) {
+      compatReentrantError = error
+    }
+  }, [])
+  return createElement(CompatText, null, "Compat still live")
+}
+compatReentrantRoot = createTuiRoot({
+  input: compatReentrantInput,
+  output: compatReentrantOutput,
+})
+compatReentrantRoot.render(createElement(CompatReentrantApp))
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.equal(compatReentrantError?.name, "ReactReentrantUnmountError")
+assert.deepEqual(compatReentrantInput.rawModes, [true])
+assert.equal(compatReentrantInput.resumeCount, 1)
+assert.equal(compatReentrantInput.pauseCount, 0)
+assert.equal(compatReentrantInput.dataListeners.size, 1)
+assert.equal(compatReentrantOutput.resizeListeners.size, 1)
+compatReentrantRoot.destroy()
+assert.deepEqual(compatReentrantInput.rawModes, [true, false])
+assert.equal(compatReentrantInput.pauseCount, 1)
+assert.equal(compatReentrantInput.dataListeners.size, 0)
+assert.equal(compatReentrantOutput.resizeListeners.size, 0)
 
 const lostInput = new FakeInput()
 const lostOutput = new FakeOutput()
@@ -1004,6 +1103,68 @@ recoveredSolid.destroy()
 assert.deepEqual(constructionInput.rawModes.at(-1), false)
 assert.equal(constructionInput.dataListeners.size, 0)
 assert.equal(constructionOutput.resizeListeners.size, 0)
+
+const doubleCleanupInput = new FakeInput()
+const doubleCleanupOutput = new FakeOutput()
+const doubleCleanupRootError = new Error("packed Solid disposer failed")
+const doubleCleanupDriverError = new Error("packed Solid terminal leave failed")
+let blockDoubleRootCleanup = true
+let blockDoubleDriverCleanup = true
+let doubleRootCleanupAttempts = 0
+const doubleCleanupApp = render(() => {
+  onCleanup(() => {
+    doubleRootCleanupAttempts += 1
+    if (blockDoubleRootCleanup) throw doubleCleanupRootError
+  })
+  return createComponent(Text, { children: "Double cleanup failure" })
+}, { input: doubleCleanupInput, output: doubleCleanupOutput })
+doubleCleanupOutput.failWrite = (chunk) => {
+  const leave = String.fromCharCode(27) + "[?1049l"
+  if (blockDoubleDriverCleanup && chunk.includes(leave)) {
+    return doubleCleanupDriverError
+  }
+}
+assert.throws(
+  () => doubleCleanupApp.destroy(),
+  (error) => error === doubleCleanupRootError,
+)
+assert.equal(doubleRootCleanupAttempts, 1)
+assert.equal(doubleCleanupOutput.leaveWriteAttempts, 1)
+assert.deepEqual(doubleCleanupInput.rawModes, [true, false])
+assert.equal(doubleCleanupInput.resumeCount, 1)
+assert.equal(doubleCleanupInput.pauseCount, 1)
+assert.equal(doubleCleanupInput.dataListeners.size, 0)
+assert.equal(doubleCleanupOutput.resizeListeners.size, 0)
+
+blockDoubleRootCleanup = false
+blockDoubleDriverCleanup = false
+doubleCleanupApp.destroy()
+assert.equal(doubleRootCleanupAttempts, 2)
+assert.equal(doubleCleanupOutput.leaveWriteAttempts, 2)
+
+const doubleCleanupReplacement = render(
+  () => createComponent(Text, { children: "Double cleanup replacement" }),
+  { input: doubleCleanupInput, output: doubleCleanupOutput },
+)
+const beforeDoubleCleanupStaleDestroy = {
+  rawModes: [...doubleCleanupInput.rawModes],
+  dataListeners: doubleCleanupInput.dataListeners.size,
+  resizeListeners: doubleCleanupOutput.resizeListeners.size,
+  leaveWriteAttempts: doubleCleanupOutput.leaveWriteAttempts,
+}
+doubleCleanupApp.destroy()
+assert.deepEqual({
+  rawModes: doubleCleanupInput.rawModes,
+  dataListeners: doubleCleanupInput.dataListeners.size,
+  resizeListeners: doubleCleanupOutput.resizeListeners.size,
+  leaveWriteAttempts: doubleCleanupOutput.leaveWriteAttempts,
+}, beforeDoubleCleanupStaleDestroy)
+doubleCleanupReplacement.destroy()
+assert.deepEqual(doubleCleanupInput.rawModes, [true, false, true, false])
+assert.equal(doubleCleanupInput.resumeCount, 2)
+assert.equal(doubleCleanupInput.pauseCount, 2)
+assert.equal(doubleCleanupInput.dataListeners.size, 0)
+assert.equal(doubleCleanupOutput.resizeListeners.size, 0)
 
 const lostRootInput = new FakeInput()
 const lostRootOutput = new FakeOutput()

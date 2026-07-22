@@ -1,5 +1,6 @@
 import { createElement } from "react";
 import type { ReactElement, ReactNode } from "react";
+import { isReactReentrantUnmountError } from "@uniview/react-renderer";
 import {
   AnsiCellSurface,
   StyleTable,
@@ -11,8 +12,15 @@ import {
 import { createTuiReactRoot } from "./index";
 
 type NamedColor =
-  | "black" | "red" | "green" | "yellow" | "blue"
-  | "magenta" | "cyan" | "white" | "gray";
+  | "black"
+  | "red"
+  | "green"
+  | "yellow"
+  | "blue"
+  | "magenta"
+  | "cyan"
+  | "white"
+  | "gray";
 
 export interface BoxProps {
   children?: ReactNode;
@@ -24,7 +32,14 @@ export interface BoxProps {
 }
 
 /** Compatibility `Box` — a flex container mapped to the new `box` primitive. */
-export function Box({ children, flexDirection, padding, gap, width, height }: BoxProps): ReactElement {
+export function Box({
+  children,
+  flexDirection,
+  padding,
+  gap,
+  width,
+  height,
+}: BoxProps): ReactElement {
   return createElement(
     "box",
     { flexDirection, padding, gap, width, height },
@@ -41,7 +56,13 @@ export interface TextProps {
 }
 
 /** Compatibility `Text` mapped to the new `text` primitive. */
-export function Text({ children, color, bold, dim, inverse }: TextProps): ReactElement {
+export function Text({
+  children,
+  color,
+  bold,
+  dim,
+  inverse,
+}: TextProps): ReactElement {
   return createElement("text", { color, bold, dim, inverse }, children);
 }
 
@@ -52,7 +73,11 @@ export interface ButtonProps {
 }
 
 /** Compatibility `Button` — a pressable box labelled `[ … ]`. */
-export function Button({ children, onPress, disabled }: ButtonProps): ReactElement {
+export function Button({
+  children,
+  onPress,
+  disabled,
+}: ButtonProps): ReactElement {
   return createElement(
     "box",
     { onClick: disabled ? undefined : onPress, disabled },
@@ -68,7 +93,12 @@ export interface InputProps {
 }
 
 /** Compatibility `Input` — an editable text field showing its value. */
-export function Input({ value = "", onChange, placeholder, width }: InputProps): ReactElement {
+export function Input({
+  value = "",
+  onChange,
+  placeholder,
+  width,
+}: InputProps): ReactElement {
   const display = value.length > 0 ? value : (placeholder ?? "");
   return createElement(
     "input",
@@ -108,7 +138,10 @@ export function createTuiRoot(options: CreateTuiRootOptions = {}): TuiRoot {
   };
 
   const styles = new StyleTable();
-  const surface = new AnsiCellSurface({ write: (chunk) => output.write(chunk), styles });
+  const surface = new AnsiCellSurface({
+    write: (chunk) => output.write(chunk),
+    styles,
+  });
   const root = createTuiReactRoot({ surface, styles, size });
 
   const driver = new TerminalDriver({
@@ -127,7 +160,18 @@ export function createTuiRoot(options: CreateTuiRootOptions = {}): TuiRoot {
   return {
     render: (element) => root.render(element),
     destroy: () => {
-      root.destroy();
+      try {
+        root.destroy();
+      } catch (error) {
+        if (isReactReentrantUnmountError(error)) throw error;
+        try {
+          driver.stop();
+        } catch {
+          // Preserve the root teardown error. Terminal cleanup remains
+          // retryable through this handle and the core stream registry.
+        }
+        throw error;
+      }
       driver.stop();
     },
   };
