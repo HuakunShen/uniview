@@ -709,6 +709,26 @@ assert.deepEqual(input.rawModes, [true, false, true, false])
 assert.equal(input.dataListeners.size, 0)
 assert.equal(output.resizeListeners.size, 0)
 
+const reentrantInput = new FakeInput()
+const reentrantOutput = new FakeOutput()
+const reentrantApp = createTuiApp({ input: reentrantInput, output: reentrantOutput })
+const reentrantCalls = []
+reentrantApp.onInput(() => {
+  reentrantCalls.push("first")
+  reentrantApp.renderer.destroy()
+})
+reentrantApp.onInput(() => reentrantCalls.push("second"))
+for (const listener of reentrantInput.dataListeners) listener(Buffer.from("x"))
+assert.deepEqual(reentrantCalls, ["first"])
+assert.throws(() => reentrantApp.onInput(() => {}), /teardown/i)
+assert.throws(
+  () => reentrantApp.render({ type: "text", text: "Too late" }),
+  /teardown/i,
+)
+reentrantApp.destroy()
+assert.equal(reentrantInput.dataListeners.size, 0)
+assert.equal(reentrantOutput.resizeListeners.size, 0)
+
 const snapshotInput = new FakeInput()
 const snapshotOutput = new FakeOutput()
 const snapshotError = new Error("packed original cleanup failed")

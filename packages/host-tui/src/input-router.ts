@@ -45,7 +45,10 @@ export class InputRouter {
   }
 
   private emitGlobal(event: TuiInputEvent): void {
-    for (const listener of this.inputSubscribers) listener(event);
+    for (const listener of this.inputSubscribers) {
+      if (!this.host.isActive) return;
+      listener(event);
+    }
   }
 
   /** Refresh the focusable set after a render; prunes fields for removed nodes. */

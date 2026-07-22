@@ -64,20 +64,33 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
     onEvent: dispatch,
   });
 
+  const latchRendererTeardown = (): void => {
+    if (!teardownStarted && renderer && !renderer.isActive) {
+      teardownStarted = true;
+      handlers.clear();
+    }
+  };
+
   const assertActive = (): void => {
+    latchRendererTeardown();
     if (teardownStarted) {
       throw new Error("Cannot use a TUI app after teardown has started");
     }
   };
 
   function dispatch(event: TuiInputEvent): void {
+    latchRendererTeardown();
     if (teardownStarted || !renderer) return;
     if (event.type === "resize") {
       renderer.resize({ width: event.width, height: event.height });
       renderer.flush();
       return;
     }
-    for (const handler of handlers) handler(event);
+    for (const handler of handlers) {
+      latchRendererTeardown();
+      if (teardownStarted) return;
+      handler(event);
+    }
   }
 
   try {

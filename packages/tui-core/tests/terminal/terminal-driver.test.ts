@@ -147,6 +147,26 @@ describe("TerminalDriver — lifecycle", () => {
     expect(tty.input.setRawMode).toHaveBeenLastCalledWith(false);
   });
 
+  it("stops a parsed event batch when the first callback stops the driver", () => {
+    const tty = fakeTty();
+    const seen: TuiInputEvent[] = [];
+    let driver: TerminalDriver;
+    driver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: (event) => {
+        seen.push(event);
+        driver.stop();
+      },
+    });
+    driver.start();
+
+    tty.emitData("\x1b[A\x1b[B");
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ type: "key", key: "ArrowUp" });
+  });
+
   it("throws if started twice", () => {
     const tty = fakeTty();
     const driver = new TerminalDriver({

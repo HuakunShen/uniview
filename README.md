@@ -43,24 +43,29 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 ## Publishing the TUI packages
 
 The TUI release publishes exactly `@uniview/tui-core`, `@uniview/tui-react`, and
-`@uniview/tui-solid`. Run `pnpm publish:tui` only from a clean, up-to-date `main` branch under
-Node 24 or newer. It exclusively creates `.tui-release/.publish.lock` for the complete run; an
-existing lock stops before verification or artifact creation and must be audited and removed
-manually if its process crashed. Each invocation prepares a new `.tui-release/run-*/` containing
-one descriptor and three exact tarballs, then runs normal and production-only smoke against those
-bytes. The descriptor hash, tarball hashes, manifests, and file lists must still match the original
-snapshot after smoke and immediately before each positional publish in core, React, Solid order.
-`--ignore-scripts` prevents lifecycle hooks from changing the packed bytes; pnpm's normal git
-checks remain enabled. Every run directory is preserved for audit after success or failure.
+`@uniview/tui-solid`. Run `pnpm publish:tui` under Node `^24.15.0` or `>=26.0.0`; the public
+packages themselves remain compatible with Node `>=18`. The release first acquires the exclusive
+repository-sibling `.tui-release.lock`. An existing or identity-changed lock requires manual audit,
+and no release artifact root is created before the lock is held. A read-only git preflight then
+requires `main`, a clean worktree, a configured upstream, and `HEAD` equal to that upstream.
+
+Each invocation prepares a new `.tui-release/run-*/` containing one descriptor and three exact
+tarballs, then runs normal and production-only smoke against those bytes. After the descriptor,
+manifest, file-list, and tarball identities match the immutable snapshot, all three tarballs are
+read into memory and independently SHA-256 checked. Each verified Buffer and its packed manifest
+are passed directly to `libnpmpublish`; publication never reopens a tarball pathname. npmrc project,
+user, global, environment, scoped registry, auth, and provenance configuration is loaded through
+`@npmcli/config`, while access is forced to public and the default tag to `latest`. Secrets are
+never logged or serialized by the release script. Every run directory is preserved for audit.
 
 Registry publication is sequential, not transactional. If core succeeds and a later package
 fails, the registry is partially released; the orchestrator stops before the next package and
 keeps the exact run directory for deliberate recovery. It never silently rebuilds, replaces, or
 switches to another self-consistent artifact.
 
-`pnpm publish:tui:dry-run` follows the same path and adds pnpm's `--dry-run`. It does not upload,
-but pnpm may still perform registry-facing dry-run processing; automated tests therefore exercise
-the injected command plan rather than invoking either publication script.
+`pnpm publish:tui:dry-run` follows verification through exact byte capture, but the dry-run is
+purely local: it loads no publish configuration, calls no publisher, and performs no registry
+request.
 
 ## Quick Start
 

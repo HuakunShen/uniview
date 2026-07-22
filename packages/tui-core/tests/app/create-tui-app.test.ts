@@ -75,6 +75,26 @@ describe("createTuiApp", () => {
     app.destroy();
   });
 
+  it("latches teardown and stops input dispatch when a handler destroys the renderer", () => {
+    const tty = fakeTty();
+    const app = createTuiApp({ input: tty.input, output: tty.output });
+    const calls: string[] = [];
+    app.onInput(() => {
+      calls.push("first");
+      app.renderer.destroy();
+    });
+    app.onInput(() => calls.push("second"));
+
+    tty.emitData("x");
+
+    expect(calls).toEqual(["first"]);
+    expect(() => app.onInput(() => {})).toThrow(/teardown/i);
+    expect(() => app.render(label("too late"))).toThrow(/teardown/i);
+    app.destroy();
+    expect(tty.dataListenerCount()).toBe(0);
+    expect(tty.resizeListenerCount()).toBe(0);
+  });
+
   it("re-renders at the new size on resize", () => {
     const tty = fakeTty(20, 5);
     const app = createTuiApp({ input: tty.input, output: tty.output });

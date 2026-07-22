@@ -121,7 +121,10 @@ export class TerminalDriver {
   };
 
   private emitEvents(): void {
-    for (const event of this.parser.takeEvents()) this.options.onEvent(event);
+    for (const event of this.parser.takeEvents()) {
+      if (this.state !== "running") return;
+      this.options.onEvent(event);
+    }
   }
 
   /** After input goes idle, resolve a held lone ESC as an Escape keypress. */

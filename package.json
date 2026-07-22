@@ -22,8 +22,10 @@
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
+    "@npmcli/config": "^11.0.0",
     "@playwright/test": "^1.60.0",
     "cypress": "^15.16.0",
+    "libnpmpublish": "^12.0.0",
     "prettier": "^3.7.4",
     "prettier-plugin-svelte": "^3.4.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
@@ -32,7 +34,7 @@
   },
   "packageManager": "pnpm@10.28.2",
   "engines": {
-    "node": ">=24"
+    "node": "^24.15.0 || >=26.0.0"
   },
   "pnpm": {
     "overrides": {

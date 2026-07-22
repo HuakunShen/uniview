@@ -93,6 +93,25 @@ describe("InputRouter — buttons", () => {
   });
 });
 
+describe("InputRouter — teardown during global input", () => {
+  it("stops dispatch before the next subscriber when the first destroys the host renderer", () => {
+    const { host, router } = setup();
+    const calls: string[] = [];
+    router.subscribeInput(() => {
+      calls.push("first");
+      host.renderer.destroy();
+    });
+    router.subscribeInput(() => calls.push("second"));
+
+    router.dispatch(type("x"));
+
+    expect(calls).toEqual(["first"]);
+    expect(() => router.subscribeInput(() => {})).toThrow(/teardown/i);
+    expect(() => router.dispatch(type("y"))).toThrow(/teardown/i);
+    host.destroy();
+  });
+});
+
 describe("InputRouter — onKeyDown", () => {
   function setupKeys() {
     const events: { key: string }[] = [];

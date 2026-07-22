@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   lstat,
   mkdir,
   mkdtemp,
   open,
+  readFile,
   realpath,
   unlink,
 } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import Config from "@npmcli/config";
+import configDefinitions from "@npmcli/config/lib/definitions/index.js";
+import libnpmpublish from "libnpmpublish";
 
 import {
   loadTarballDescriptor,
@@ -36,11 +42,102 @@ export function parsePublishArguments(arguments_) {
 }
 
 export function assertSupportedNodeVersion(version = process.versions.node) {
-  const major = Number.parseInt(version.split(".")[0] ?? "", 10);
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  const [major, minor] = match
+    ? match.slice(1).map((part) => Number.parseInt(part, 10))
+    : [];
   assert.ok(
-    Number.isInteger(major) && major >= 24,
-    `TUI publication requires Node 24 or newer; received ${version}`,
+    (major === 24 && Number.isInteger(minor) && minor >= 15) ||
+      (Number.isInteger(major) && major >= 26),
+    `TUI publication requires Node ^24.15.0 or >=26.0.0; received ${version}`,
   );
+}
+
+export function assertGitReleaseReady({
+  branch,
+  status,
+  upstream,
+  head,
+  upstreamHead,
+}) {
+  assert.equal(branch, "main", "TUI publication requires branch main");
+  assert.equal(status, "", "TUI publication requires a clean worktree");
+  assert.ok(upstream, "TUI publication requires a configured upstream");
+  assert.equal(
+    head,
+    upstreamHead,
+    "TUI publication requires HEAD to equal its upstream; push or synchronize main first",
+  );
+}
+
+function readGitValue(repoDirectory, args, { optional = false } = {}) {
+  const result = spawnSync("git", args, {
+    cwd: repoDirectory,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    if (optional) return "";
+    throw new Error(
+      `git ${args.join(" ")} failed with ${result.signal ?? `exit code ${result.status}`}`,
+    );
+  }
+  return result.stdout.trim();
+}
+
+export async function inspectGitReleaseState({ repoDirectory }) {
+  const branch = readGitValue(
+    repoDirectory,
+    ["symbolic-ref", "--quiet", "--short", "HEAD"],
+    { optional: true },
+  );
+  const status = readGitValue(repoDirectory, ["status", "--porcelain"]);
+  const upstream = readGitValue(
+    repoDirectory,
+    ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"],
+    { optional: true },
+  );
+  const head = readGitValue(repoDirectory, ["rev-parse", "HEAD"]);
+  const upstreamHead = upstream
+    ? readGitValue(repoDirectory, ["rev-parse", "@{upstream}"])
+    : "";
+  return { branch, status, upstream, head, upstreamHead };
+}
+
+const { definitions, flatten, nerfDarts, shorthands } = configDefinitions;
+const npmConfigPackageRoot = dirname(
+  dirname(fileURLToPath(import.meta.resolve("@npmcli/config"))),
+);
+
+export async function loadNpmPublishOptions({
+  repoDirectory,
+  env = process.env,
+  execPath = process.execPath,
+  npmPath = npmConfigPackageRoot,
+}) {
+  const config = new Config({
+    npmPath,
+    cwd: repoDirectory,
+    definitions,
+    flatten,
+    nerfDarts,
+    shorthands,
+    argv: [],
+    env,
+    execPath,
+  });
+  await config.load();
+  config.validate();
+  return {
+    ...config.flat,
+    access: "public",
+    defaultTag: "latest",
+  };
+}
+
+async function publishVerifiedTarball(manifest, tarData, options) {
+  return libnpmpublish.publish(manifest, tarData, options);
 }
 
 async function assertReleaseRootDirectory({
@@ -121,11 +218,13 @@ export async function acquireReleaseLock({
   repoDirectory,
   releaseRootDirectory,
 }) {
-  const rootReal = await assertReleaseRootDirectory({
-    repoDirectory,
-    releaseRootDirectory,
-  });
-  const lockPath = join(rootReal, ".publish.lock");
+  const expectedReleaseRoot = resolve(repoDirectory, ".tui-release");
+  assert.equal(
+    resolve(releaseRootDirectory),
+    expectedReleaseRoot,
+    `release artifacts must use the exact .tui-release root: ${expectedReleaseRoot}`,
+  );
+  const lockPath = resolve(repoDirectory, ".tui-release.lock");
   let handle;
   try {
     handle = await open(lockPath, "wx");
@@ -139,17 +238,25 @@ export async function acquireReleaseLock({
     throw error;
   }
 
+  const owned = await handle.stat();
   try {
     await handle.writeFile(
       `${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })}\n`,
     );
   } catch (error) {
     await handle.close();
-    await unlink(lockPath).catch(() => {});
+    try {
+      const current = await lstat(lockPath);
+      if (`${current.dev}:${current.ino}` === `${owned.dev}:${owned.ino}`) {
+        await unlink(lockPath);
+      }
+    } catch {
+      // Preserve the write error. Any lock whose identity cannot be proven is
+      // intentionally left behind for the same manual audit as a stale lock.
+    }
     throw error;
   }
 
-  const owned = await handle.stat();
   let released = false;
   return {
     lockPath,
@@ -281,42 +388,55 @@ export function assertPreparedArtifactMatchesSnapshot(prepared, snapshot) {
   );
 }
 
-export function createPublishCommandPlan(
-  prepared,
-  { cwd = defaultRepoDirectory, dryRun = false } = {},
+export async function capturePreparedTarballs(
+  snapshot,
+  { readTarball = readFile } = {},
 ) {
-  assertPreparedArtifact(prepared);
-  return packageOrder.map((key) => {
-    const args = [
-      "publish",
-      prepared.packages[key].filename,
-      "--access",
-      "public",
-      "--ignore-scripts",
-      "--publish-branch",
-      "main",
-    ];
-    if (dryRun) args.push("--dry-run");
-    return { command: "pnpm", args, cwd };
-  });
+  assertPreparedArtifact(snapshot);
+  const captured = {};
+  for (const key of packageOrder) {
+    const entry = snapshot.packages[key];
+    const tarData = await readTarball(entry.filename);
+    assert.ok(
+      Buffer.isBuffer(tarData),
+      `${key}: captured tarball must be a Buffer`,
+    );
+    const capturedSha256 = createHash("sha256").update(tarData).digest("hex");
+    assert.equal(
+      capturedSha256,
+      entry.sha256,
+      `${key}: captured tarball sha256 changed after verification`,
+    );
+    captured[key] = {
+      manifest: entry.manifest,
+      tarData,
+    };
+  }
+  return captured;
 }
 
 export async function orchestrateTuiPublish({
   dryRun = false,
   repoDirectory = defaultRepoDirectory,
   releaseRootDirectory = join(repoDirectory, ".tui-release"),
+  nodeVersion = process.versions.node,
   nodeExecutable = process.execPath,
   runCommand = runCommandWithInheritedIo,
   loadDescriptor = loadTarballDescriptor,
+  inspectGitReleaseState: inspectGit = inspectGitReleaseState,
+  readTarball = readFile,
+  loadPublishOptions = loadNpmPublishOptions,
+  publisher = publishVerifiedTarball,
   acquireLock = acquireReleaseLock,
   createRunDirectory = createReleaseRunDirectory,
 } = {}) {
-  assertSupportedNodeVersion();
+  assertSupportedNodeVersion(nodeVersion);
   const releaseLock = await acquireLock({
     repoDirectory,
     releaseRootDirectory,
   });
   try {
+    assertGitReleaseReady(await inspectGit({ repoDirectory }));
     const smokeScript = join(repoDirectory, "scripts/smoke-tui-tarballs.mjs");
     await runCommand({
       command: "pnpm",
@@ -345,14 +465,18 @@ export async function orchestrateTuiPublish({
 
     const afterSmoke = await loadDescriptor({ descriptorPath });
     assertPreparedArtifactMatchesSnapshot(afterSmoke, snapshot);
-    const publishPlan = createPublishCommandPlan(snapshot, {
-      cwd: repoDirectory,
-      dryRun,
-    });
-    for (const command of publishPlan) {
-      const immediatelyBeforePublish = await loadDescriptor({ descriptorPath });
-      assertPreparedArtifactMatchesSnapshot(immediatelyBeforePublish, snapshot);
-      await runCommand(command);
+    const captured = await capturePreparedTarballs(snapshot, { readTarball });
+
+    if (!dryRun) {
+      const publishOptions = {
+        ...(await loadPublishOptions({ repoDirectory })),
+        access: "public",
+        defaultTag: "latest",
+      };
+      for (const key of packageOrder) {
+        const artifact = captured[key];
+        await publisher(artifact.manifest, artifact.tarData, publishOptions);
+      }
     }
 
     return snapshot;
