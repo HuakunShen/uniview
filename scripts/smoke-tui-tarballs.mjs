@@ -226,6 +226,11 @@ function assertRuntimeContract(manifest, expected) {
 function assertPackedPackage(pack, manifest, definition) {
   assert.equal(pack.name, definition.name);
   assert.equal(manifest.name, definition.name);
+  assert.equal(
+    manifest.scripts?.prepublishOnly,
+    undefined,
+    `${manifest.name}: packed manifest must omit prepublishOnly`,
+  );
   assert.equal(manifest.license, "MIT");
   assert.equal(manifest.engines?.node, ">=18");
   assert.equal(manifest.types, "./dist/index.d.mts");

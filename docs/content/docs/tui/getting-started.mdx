@@ -191,7 +191,9 @@ expect(surface.text({ trimRight: true })).toContain("Hi");
   `PresentStats`. Do not return a Promise or thenable. Queue asynchronous
   transport work inside the surface if necessary, while completing the
   renderer-visible operation synchronously; a returned thenable invalidates the
-  renderer.
+  renderer. The owning host then permanently rejects later tree mutations,
+  focus changes, event activation, and input dispatch; destroy the failed
+  session and create a new one instead of reusing stale handlers.
 </Callout>
 
 You can also assert on the *style* of an individual cell — that a focused border really is

@@ -82,7 +82,17 @@ renderer/terminal lifecycle: `mount`, `resize`, and `destroy` return `void`; `pr
 enter durable teardown. A custom surface may own an asynchronous queue internally, but the
 renderer-visible operation and I/O ownership transition must complete synchronously. If
 `present()` synchronously destroys the renderer, no frame, owner map, or rendered diagnostic is
-committed after it returns.
+committed after it returns. The same lifecycle check follows `resize()`. Surface destruction has
+a one-call reentrancy guard: recursive calls are inert, while the guard clears after an outer
+failure so a later external destroy can retry. Errors thrown while reading a returned value's
+`then` property enter teardown and retain their exact identity. Teardown discards renderer work
+that can no longer commit so diagnostics and `waitForIdle()` do not remain pending forever.
+
+`TuiHost` latches itself into teardown whenever its public renderer becomes non-active, whether
+the renderer was destroyed directly or rejected a surface contract. Every later tree mutation,
+render, focus/commit action, event/automation dispatch, and `InputRouter` subscription/render/input
+path rejects before stale handlers can run. Semantic queries and command-trace reads remain
+read-only.
 
 ### `@uniview/tui-react`
 
@@ -194,15 +204,22 @@ paths, supported regular-file entry types, archive bounds, duplicate rejection, 
 topology, and sha256 hashes. Every runtime matrix job downloads that same artifact, switches
 Node versions, and installs/runs the same existing bytes without rebuilding or repacking.
 
-Local publication uses the same descriptor model in a persistent ignored `.tui-release/`
-directory. It runs the complete release verification, safely replaces only that exact directory,
-prepares and verifies the three tarballs, runs normal and production-only smoke against those
-exact bytes, then reloads the descriptor before publishing. Publication uses positional absolute
-tarball paths in core, React, Solid order with `--access public`, `--ignore-scripts`, and
-`--publish-branch main`. It never recursively publishes source directories, never disables pnpm
-git checks, and preserves the descriptor and tarballs after success or failure. The dry-run entry
-adds pnpm's `--dry-run`; automated tests validate its injected command plan without contacting a
-registry.
+Local publication uses the same descriptor model under the persistent ignored `.tui-release/`
+root. An exclusive `.publish.lock` is acquired before verification and held through the final
+registry command. Concurrent invocations stop before verify/prepare; a crash-stale lock requires
+manual artifact audit and removal rather than automatic stealing. Each invocation creates a real,
+run-unique `run-*` child with `mkdtemp`; traversal and symlink escapes are rejected, the shared root
+is never reset, and every run remains after success or failure.
+
+The first validated descriptor becomes an immutable identity containing its absolute path and
+sha256 plus exact package names, versions, basenames, tar sha256 values, manifests, and file lists.
+The descriptor is reloaded and compared exactly after normal/production smoke and again
+immediately before each publish. Commands remain bound to the original snapshot's absolute
+tarballs in core, React, Solid order with `--access public`, `--ignore-scripts`, and
+`--publish-branch main`. A different but internally self-consistent descriptor is still rejected.
+Publication never recursively publishes source directories and never disables pnpm git checks.
+The dry-run entry adds pnpm's `--dry-run`; automated tests validate its injected command plan
+without contacting a registry.
 
 ## 7. Verification and release gates
 
@@ -238,7 +255,9 @@ Before publishing:
 All gates complete before the first registry command. Publication then runs sequentially in
 `tui-core`, `tui-react`, `tui-solid` order and stops on the first command failure. The exact local
 artifact remains available for audit or a deliberate recovery; the orchestrator never rebuilds
-or repacks between those commands.
+or repacks between those commands. Registry writes cannot be transactional: if core was accepted
+before React or Solid fails (or before a subsequent identity check detects mutation), the release
+is partially published and requires explicit recovery from the preserved run.
 
 ## 8. Compatibility and risks
 

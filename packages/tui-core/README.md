@@ -83,7 +83,10 @@ RenderNode tree
 `void`, while `present()` returns `PresentStats` immediately. A custom surface must finish its
 observable work during that call. If it needs asynchronous I/O, enqueue it internally without
 returning a Promise or thenable; `TuiRenderer` rejects those results and invalidates the session
-so an asynchronous operation cannot race a replacement renderer.
+so an asynchronous operation cannot race a replacement renderer. Teardown is also reentrancy-safe:
+a surface may trigger renderer destruction from `resize()`, `present()`, or its own `destroy()`
+without recommitting work or recursively calling surface cleanup. Once teardown starts, renderer
+mutations remain unavailable; an external `destroy()` may retry a cleanup call that threw.
 
 ## What's in here
 

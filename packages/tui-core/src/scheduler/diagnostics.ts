@@ -103,6 +103,13 @@ export class DiagnosticsTracker implements DiagnosticsSource {
     this.notify();
   }
 
+  /** Discard renderer work that can no longer commit after teardown starts. */
+  discardPendingRenderWork(): void {
+    this._mutationRevision = this._renderRevision;
+    this._schedulerPending = false;
+    this.notify();
+  }
+
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

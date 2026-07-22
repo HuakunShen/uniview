@@ -39,6 +39,7 @@ export class InputRouter {
    * event (the plan's principle 3). Returns an unsubscribe function.
    */
   subscribeInput(listener: (event: TuiInputEvent) => void): () => void {
+    this.assertActive("subscribe to input");
     this.inputSubscribers.add(listener);
     return () => this.inputSubscribers.delete(listener);
   }
@@ -49,6 +50,7 @@ export class InputRouter {
 
   /** Refresh the focusable set after a render; prunes fields for removed nodes. */
   onRender(): void {
+    this.assertActive("refresh input state");
     const targets = this.host.focusableTargets();
     this.focus.setFocusables(targets.map((t) => ({ id: t.id })));
     const live = new Set(targets.map((t) => t.id));
@@ -117,6 +119,7 @@ export class InputRouter {
   }
 
   dispatch(event: TuiInputEvent): void {
+    this.assertActive("dispatch input");
     if (event.type === "paste") {
       // Paste is neither mouse nor key; it is always a global event.
       this.emitGlobal(event);
@@ -229,5 +232,11 @@ export class InputRouter {
       shift: event.shift,
       meta: event.meta,
     });
+  }
+
+  private assertActive(action: string): void {
+    if (!this.host.isActive) {
+      throw new Error(`Cannot ${action} after TUI host teardown has started`);
+    }
   }
 }

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
@@ -149,10 +150,20 @@ test("writes and reloads a deterministic exact-three-package descriptor", async 
       descriptorPath,
       inspectTarball: value.inspectTarball,
     });
+    assert.equal(
+      loaded.descriptorSha256,
+      createHash("sha256").update(first).digest("hex"),
+    );
     assert.deepEqual(Object.keys(loaded.packages), ["core", "react", "solid"]);
+    const descriptor = JSON.parse(first);
     for (const [key, name] of Object.entries(definitions)) {
       assert.equal(loaded.packages[key].name, name);
       assert.equal(loaded.packages[key].manifest.name, name);
+      assert.equal(loaded.packages[key].file, `${key}.tgz`);
+      assert.equal(
+        loaded.packages[key].sha256,
+        descriptor.packages[key].sha256,
+      );
       assert.equal(basename(loaded.packages[key].filename), `${key}.tgz`);
     }
   } finally {

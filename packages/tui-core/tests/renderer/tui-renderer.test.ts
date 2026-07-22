@@ -67,6 +67,23 @@ function surfaceReturningThenable(operation: SurfaceOperation): {
   };
 }
 
+function valueWithThrowingThen(sentinel: unknown): object {
+  return Object.defineProperty({}, "then", {
+    get() {
+      throw sentinel;
+    },
+  });
+}
+
+function captureThrown(action: () => void): unknown {
+  try {
+    action();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("expected action to throw");
+}
+
 describe("TuiRenderer", () => {
   it("renders a scene to the surface on flush", () => {
     const styles = new StyleTable();
@@ -314,6 +331,203 @@ describe("TuiRenderer", () => {
     clock.drain();
     expect(renderer.currentFrame).toBeNull();
     expect(destroyCalls).toBe(1);
+  });
+
+  it("does not invalidate again when resize synchronously destroys the renderer", async () => {
+    const clock = manualScheduler();
+    let renderer: TuiRenderer;
+    let destroyCalls = 0;
+    const surface: CellSurface = {
+      kind: "memory",
+      mount() {},
+      resize() {
+        renderer.destroy();
+      },
+      present() {
+        return { rowsPainted: 0, runsPainted: 0 };
+      },
+      destroy() {
+        destroyCalls += 1;
+      },
+    };
+    renderer = new TuiRenderer({
+      surface,
+      size: { width: 10, height: 2 },
+      schedule: clock.schedule,
+    });
+    renderer.setRoot(counter(1));
+
+    renderer.resize({ width: 20, height: 4 });
+
+    expect(renderer.isActive).toBe(false);
+    expect(destroyCalls).toBe(1);
+    expect(renderer.currentFrame).toBeNull();
+    expect(renderer.owners.size).toBe(1);
+    expect(renderer.diagnostics.schedulerPending).toBe(false);
+    expect(isIdle(renderer.diagnostics)).toBe(true);
+    await expect(
+      waitForIdle(renderer.diagnostics, {
+        setTimer() {
+          throw new Error("teardown diagnostics were not idle");
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(clock.length).toBe(1);
+    clock.drain();
+    expect(renderer.diagnostics.schedulerPending).toBe(false);
+    expect(renderer.currentFrame).toBeNull();
+  });
+
+  it("makes a one-level reentrant destroy inert", () => {
+    let renderer: TuiRenderer;
+    let destroyCalls = 0;
+    const surface: CellSurface = {
+      kind: "memory",
+      mount() {},
+      resize() {},
+      present() {
+        return { rowsPainted: 0, runsPainted: 0 };
+      },
+      destroy() {
+        destroyCalls += 1;
+        renderer.destroy();
+      },
+    };
+    renderer = new TuiRenderer({
+      surface,
+      size: { width: 10, height: 2 },
+    });
+
+    renderer.destroy();
+
+    expect(destroyCalls).toBe(1);
+    expect(renderer.isActive).toBe(false);
+  });
+
+  it("contains an unconditionally recursive surface destroy", () => {
+    let renderer: TuiRenderer;
+    let destroyCalls = 0;
+    const runaway = new Error("recursive destroy was not contained");
+    const surface: CellSurface = {
+      kind: "memory",
+      mount() {},
+      resize() {},
+      present() {
+        return { rowsPainted: 0, runsPainted: 0 };
+      },
+      destroy() {
+        destroyCalls += 1;
+        if (destroyCalls > 20) throw runaway;
+        renderer.destroy();
+      },
+    };
+    renderer = new TuiRenderer({
+      surface,
+      size: { width: 10, height: 2 },
+    });
+
+    expect(() => renderer.destroy()).not.toThrow();
+    expect(destroyCalls).toBe(1);
+  });
+
+  it("allows an external destroy retry after a reentrant outer call throws", () => {
+    let renderer: TuiRenderer;
+    let destroyCalls = 0;
+    const sentinel = new Error("outer surface destroy failed");
+    const surface: CellSurface = {
+      kind: "memory",
+      mount() {},
+      resize() {},
+      present() {
+        return { rowsPainted: 0, runsPainted: 0 };
+      },
+      destroy() {
+        destroyCalls += 1;
+        if (destroyCalls === 1) {
+          renderer.destroy();
+          throw sentinel;
+        }
+      },
+    };
+    renderer = new TuiRenderer({
+      surface,
+      size: { width: 10, height: 2 },
+    });
+
+    expect(captureThrown(() => renderer.destroy())).toBe(sentinel);
+    expect(destroyCalls).toBe(1);
+    renderer.destroy();
+    renderer.destroy();
+    expect(destroyCalls).toBe(2);
+  });
+
+  it("tears down and preserves throwing then-getter errors from every surface operation", async () => {
+    const mountError = new Error("mount then getter");
+    const mountSurface = surfaceReturningThenable("resize").surface;
+    mountSurface.mount = (() =>
+      valueWithThrowingThen(mountError)) as unknown as CellSurface["mount"];
+    expect(
+      captureThrown(
+        () =>
+          new TuiRenderer({
+            surface: mountSurface,
+            size: { width: 10, height: 2 },
+          }),
+      ),
+    ).toBe(mountError);
+
+    for (const operation of ["resize", "present", "destroy"] as const) {
+      const sentinel = new Error(`${operation} then getter`);
+      let destroyCalls = 0;
+      const surface = {
+        kind: "memory" as const,
+        mount() {},
+        resize() {
+          if (operation === "resize") return valueWithThrowingThen(sentinel);
+        },
+        present() {
+          if (operation === "present") return valueWithThrowingThen(sentinel);
+          return { rowsPainted: 0, runsPainted: 0 };
+        },
+        destroy() {
+          destroyCalls += 1;
+          if (operation === "destroy" && destroyCalls === 1) {
+            return valueWithThrowingThen(sentinel);
+          }
+        },
+      } as unknown as CellSurface;
+      const clock = manualScheduler();
+      const renderer = new TuiRenderer({
+        surface,
+        size: { width: 10, height: 2 },
+        schedule: clock.schedule,
+      });
+      renderer.setRoot(counter(1));
+
+      const action =
+        operation === "resize"
+          ? () => renderer.resize({ width: 20, height: 4 })
+          : operation === "present"
+            ? () => renderer.flush()
+            : () => renderer.destroy();
+      expect(captureThrown(action)).toBe(sentinel);
+      expect(renderer.isActive).toBe(false);
+      expect(renderer.currentFrame).toBeNull();
+      expect(renderer.owners.size).toBe(1);
+      expect(renderer.diagnostics.schedulerPending).toBe(false);
+      expect(() => renderer.setRoot(counter(2))).toThrow(/teardown|destroy/i);
+      expect(isIdle(renderer.diagnostics)).toBe(true);
+      await expect(
+        waitForIdle(renderer.diagnostics, {
+          setTimer() {
+            throw new Error("teardown diagnostics were not idle");
+          },
+        }),
+      ).resolves.toBeUndefined();
+      clock.drain();
+      expect(renderer.diagnostics.schedulerPending).toBe(false);
+      renderer.destroy();
+    }
   });
 
   it("invalidates queued work and keeps every render path closed while teardown retries", () => {

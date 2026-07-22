@@ -60,6 +60,7 @@ export class TuiRenderer {
   private forceFullRepaint = false;
   private revision = 0;
   private lifecycle: TuiRendererLifecycle = "active";
+  private destroyCallInProgress = false;
 
   /** Owner table for the most recently rendered frame (hit-testing source). */
   owners = new OwnerTable();
@@ -67,6 +68,11 @@ export class TuiRenderer {
   /** The most recently rendered frame buffer, or null before the first frame. */
   get currentFrame(): CellBuffer | null {
     return this.previous;
+  }
+
+  /** Whether public mutation and presentation operations may still run. */
+  get isActive(): boolean {
+    return this.lifecycle === "active";
   }
 
   constructor(options: TuiRendererOptions) {
@@ -95,6 +101,7 @@ export class TuiRenderer {
     this.assertActive("resize");
     const resizeResult = this.surface.resize(size);
     this.assertSynchronousSurfaceResult("resize", resizeResult);
+    if (!this.isActive) return;
     this.size = size;
     this.forceFullRepaint = true;
     this.invalidate("layout");
@@ -114,11 +121,16 @@ export class TuiRenderer {
   }
 
   destroy(): void {
-    if (this.lifecycle === "destroyed") return;
+    if (this.lifecycle === "destroyed" || this.destroyCallInProgress) return;
     this.beginTeardown();
-    const destroyResult = this.surface.destroy();
-    this.assertSynchronousSurfaceResult("destroy", destroyResult);
-    this.lifecycle = "destroyed";
+    this.destroyCallInProgress = true;
+    try {
+      const destroyResult = this.surface.destroy();
+      this.assertSynchronousSurfaceResult("destroy", destroyResult);
+      this.lifecycle = "destroyed";
+    } finally {
+      this.destroyCallInProgress = false;
+    }
   }
 
   private assertActive(action: string): void {
@@ -133,7 +145,7 @@ export class TuiRenderer {
     if (this.lifecycle !== "active") return;
     this.lifecycle = "destroying";
     this.scheduler.cancel();
-    this.diagnostics.setSchedulerPending(false);
+    this.diagnostics.discardPendingRenderWork();
     this.root = null;
     this.previous = null;
     this.owners = new OwnerTable();
@@ -143,7 +155,14 @@ export class TuiRenderer {
     operation: SurfaceOperation,
     result: unknown,
   ): void {
-    if (!isThenable(result)) return;
+    let thenable: boolean;
+    try {
+      thenable = isThenable(result);
+    } catch (error) {
+      this.beginTeardown();
+      throw error;
+    }
+    if (!thenable) return;
     this.beginTeardown();
     throw new TypeError(
       `CellSurface.${operation}() must complete synchronously; Promise and thenable results are not supported`,

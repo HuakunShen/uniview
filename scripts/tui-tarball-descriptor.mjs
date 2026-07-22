@@ -150,6 +150,10 @@ async function sha256(filename) {
     .digest("hex");
 }
 
+function sha256Bytes(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
 function validateInspection(key, inspection) {
   const expectedName = packageDefinitions[key];
   assert.equal(
@@ -248,7 +252,9 @@ export async function loadTarballDescriptor({
     TUI_TARBALL_DESCRIPTOR,
     "tarball descriptor filename",
   );
-  const descriptor = JSON.parse(await readFile(resolvedDescriptor, "utf8"));
+  const descriptorBytes = await readFile(resolvedDescriptor);
+  const descriptorSha256 = sha256Bytes(descriptorBytes);
+  const descriptor = JSON.parse(descriptorBytes.toString("utf8"));
   assertExactKeys(
     Object.keys(descriptor),
     ["schemaVersion", "packages"],
@@ -310,6 +316,8 @@ export async function loadTarballDescriptor({
     packages[key] = {
       name: entry.name,
       version: entry.version,
+      file: entry.file,
+      sha256: entry.sha256,
       filename,
       manifest: inspection.manifest,
       files: inspection.files.map((path) => ({ path })),
@@ -325,5 +333,5 @@ export async function loadTarballDescriptor({
     "tarball descriptor",
   );
 
-  return { descriptorPath: resolvedDescriptor, packages };
+  return { descriptorPath: resolvedDescriptor, descriptorSha256, packages };
 }

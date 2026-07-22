@@ -865,7 +865,7 @@ behind a surface-owned queue and cannot be returned to the renderer.
 
 - [x] **Step 1: Add an injected command-plan test**
 
-Test a wished-for `orchestrateTuiPublish({ dryRun, runCommand, resetArtifacts,
+Test a wished-for injected `orchestrateTuiPublish({ dryRun, runCommand,
 loadDescriptor })`. Assert the final commands are exactly:
 
 ```js
@@ -887,11 +887,11 @@ Expected: module/API missing; no registry command executes.
 
 - [x] **Step 3: Implement the safe orchestrator**
 
-Require root Node 24+, run full verification, safely replace only the exact ignored
-`.tui-release/` directory, prepare and load the exact four-file artifact, run `--reuse`, reload
-the descriptor, then execute the three positional tarball commands sequentially. Preserve the
-artifact on success and failure. The real runner uses `pnpm publish` with default git checks;
-`--ignore-scripts` prevents `prepublishOnly` from rebuilding source bytes.
+Require root Node 24+, run full verification, prepare and load one exact four-file artifact under
+the ignored `.tui-release/` root, run `--reuse`, reload the descriptor, then execute the three
+positional tarball commands sequentially. Preserve the artifact on success and failure. Task 10
+hardens this into an exclusive run-unique immutable snapshot. The real runner uses `pnpm publish`
+with default git checks; `--ignore-scripts` prevents lifecycle scripts from rebuilding bytes.
 
 - [x] **Step 4: Run focused GREEN without publishing**
 
@@ -907,3 +907,164 @@ avoid network and registry state; the injected command-plan test is the required
 Run all six release suites plus host, ten-package build/type checks, release gates, default
 packed smoke, one persistent descriptor reused on Node 25/18.20.8/20.19.0/24, docs checks,
 frozen install validation, static scans, and final diff/status review. No actual publish occurs.
+
+---
+
+### Task 10: Bind publication to one locked immutable run
+
+**Files:**
+- Modify: `scripts/tui-tarball-descriptor.mjs`
+- Modify: `scripts/tui-tarball-descriptor.test.mjs`
+- Modify: `scripts/publish-tui-tarballs.mjs`
+- Modify: `scripts/publish-tui-tarballs.test.mjs`
+- Modify: `README.md`
+- Modify: `docs/superpowers/specs/2026-07-22-tui-npm-package-boundaries-design.md`
+
+**Interfaces:**
+- Produces: `acquireReleaseLock()`, `createReleaseRunDirectory()`,
+  `assertSafeReleaseRunDirectory()`, `createPreparedArtifactSnapshot()`, and
+  `assertPreparedArtifactMatchesSnapshot()`.
+- Extends: `loadTarballDescriptor()` with descriptor sha256 plus each package basename and
+  tarball sha256, without changing the smoke consumer's existing manifest/file access.
+
+- [x] **Step 1: Add concurrency, safe-path, and immutable-identity RED tests**
+
+Prove a second orchestrator fails before verify/prepare while the first owns the lock, failure
+clears the lock, every invocation creates a distinct real `run-*` child under `.tui-release/`,
+and traversal/symlink escapes are rejected. Build two separately self-consistent descriptor load
+objects and require both a different descriptor hash and a same-path/different-tar-sha candidate
+to abort with zero publish commands.
+
+- [x] **Step 2: Add per-package reload and packed-manifest RED tests**
+
+Require the descriptor load sequence to be prepare snapshot, post-smoke comparison, then one
+comparison immediately before each of core, React, and Solid. Mutation after core must stop
+before React. Inspect the actual prepared manifests and assert `prepublishOnly` is absent.
+
+- [x] **Step 3: Run focused RED**
+
+```bash
+node --test scripts/publish-tui-tarballs.test.mjs scripts/tui-tarball-descriptor.test.mjs
+```
+
+Expected: missing lock/run/snapshot APIs and the old two-load publication flow fail; no registry
+command runs because every runner is injected.
+
+- [x] **Step 4: Implement the locked run snapshot**
+
+Create `.tui-release/.publish.lock` with exclusive create semantics before verification and hold
+it through the final publish command. Never steal an existing lock; report that manual stale-lock
+audit is required. Always close/unlink a lock owned by this process in `finally`. Use `mkdtemp`
+with a `run-` prefix under the real release root, never reset the shared root, and preserve the
+run directory on success/failure. Derive one deep identity from descriptor sha, descriptor path,
+package names/versions/basenames/tar sha, manifests, and file lists. Compare a fresh load after
+smoke and immediately before each publish, while every command remains bound to the original
+snapshot's absolute filename.
+
+- [x] **Step 5: Run focused GREEN**
+
+Run the Step 3 command. Expected: all descriptor and publication tests pass, including zero
+commands before a first mismatch and stop-before-next on mutation between publishes.
+
+---
+
+### Task 11: Make renderer teardown reentrancy-safe
+
+**Files:**
+- Modify: `packages/tui-core/src/renderer/tui-renderer.ts`
+- Modify: `packages/tui-core/src/scheduler/diagnostics.ts`
+- Modify: `packages/tui-core/tests/renderer/tui-renderer.test.ts`
+
+**Interfaces:**
+- Produces: readonly `TuiRenderer.isActive` and an internal one-call destroy guard.
+
+- [x] **Step 1: Add renderer RED tests**
+
+Add tests for resize synchronously destroying the renderer, one-level and unconditional recursive
+surface destruction, retry after the outer destroy throws, and throwing `then` getters from
+mount/resize/present/destroy. Assert exact sentinel identity, cleared frame/owners, non-pending
+diagnostics, inert queued callbacks, and `waitForIdle` behavior.
+
+- [x] **Step 2: Run renderer RED**
+
+```bash
+pnpm --filter @uniview/tui-core test -- tests/renderer/tui-renderer.test.ts
+```
+
+Expected: resize recommits pending work, destroy recurses, and a throwing getter escapes without
+durable teardown.
+
+- [x] **Step 3: Implement and run GREEN**
+
+After resize result validation, return unless lifecycle is still active before changing size or
+invalidating. Ignore destroy calls made while the surface destroy callback is already in progress;
+clear that guard in `finally` so an external retry remains possible after an exact thrown error.
+Wrap thenable inspection so a throwing getter starts teardown and rethrows the exact value. Expose
+only readonly renderer activity and rerun the Step 2 command.
+
+---
+
+### Task 12: Latch host teardown when its renderer becomes fatal
+
+**Files:**
+- Modify: `packages/host-tui/src/tui-host.ts`
+- Modify: `packages/host-tui/src/input-router.ts`
+- Modify: `packages/host-tui/tests/tui-host.test.ts`
+
+**Interfaces:**
+- Consumes: `TuiRenderer.isActive`.
+- Produces: one host lifecycle gate covering every mutation, event, automation, focus, committed
+  output, and input-facing API after renderer teardown.
+
+- [x] **Step 1: Add host RED tests**
+
+Use a structurally bypassed surface whose present returns a thenable. Let `setRoot` install a click
+handler and fail during paint, then assert later `setRoot`, `applyBatch`, `render`, focus, commit,
+`fireEvent`, reset, activate, and bubbling paths reject and never invoke the handler. Separately
+destroy `host.renderer` directly and assert host mutation/event APIs reject.
+
+- [x] **Step 2: Run host RED**
+
+```bash
+pnpm --filter @uniview/host-tui test -- tests/tui-host.test.ts
+```
+
+Expected: the host remains active after direct/fatal renderer teardown and stale handlers can fire.
+
+- [x] **Step 3: Implement and run GREEN**
+
+Make `assertActive()` detect a non-active renderer, latch the host as destroying, and reject.
+Wrap render-to-renderer calls so a fatal renderer state is latched before the original error leaves
+the method. Keep semantic/query/trace reads available, but route every mutating or dispatch path
+through the lifecycle gate. Rerun the Step 2 command.
+
+---
+
+### Task 13: Document, audit, and validate the fourteenth release candidate
+
+**Files:**
+- Modify: `README.md`
+- Modify: `packages/tui-core/README.md` if the public lifecycle wording changes
+- Modify: `docs/content/docs/tui/getting-started.mdx` if host/custom-surface guidance changes
+- Modify: `docs/superpowers/specs/2026-07-22-tui-npm-package-boundaries-design.md`
+- Modify: `.superpowers/sdd/final-fix-report.md` (ignored audit report only)
+
+- [x] **Step 1: Update lifecycle and publication docs**
+
+Document the exclusive lock, run-unique preserved directory, immutable identity comparisons, and
+the unavoidable partial-release boundary if a later package fails after core. Document that host
+mutation/event APIs become permanently unavailable when the renderer enters teardown.
+
+- [x] **Step 2: Run the complete validation matrix**
+
+Run focused tests; all six release suites plus host and DOM; ten-package build/type checks; every
+release gate; default packed smoke; prepare one new persistent run descriptor and reuse those exact
+bytes on Node 25/18.20.8/20.19.0/24; docs types/build; frozen install only if manifests/lock change;
+format, YAML/JSON, Zod 3, forbidden publish, suppression, diff, ignore, artifact, and status scans.
+Never invoke actual publish or registry-facing dry-run.
+
+- [x] **Step 3: Append the ignored report and commit**
+
+Record RED/GREEN and exact validation evidence in `.superpowers/sdd/final-fix-report.md`, stage only
+the scoped tracked files, create one narrow commit, and report its full hash with the preserved
+run-unique descriptor path.

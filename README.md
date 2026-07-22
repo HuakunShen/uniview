@@ -44,11 +44,19 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 
 The TUI release publishes exactly `@uniview/tui-core`, `@uniview/tui-react`, and
 `@uniview/tui-solid`. Run `pnpm publish:tui` only from a clean, up-to-date `main` branch under
-Node 24 or newer. It verifies the workspace, prepares `.tui-release/tui-tarballs.json` plus the
-three exact tarballs, runs normal and production-only smoke against those bytes, then publishes
-the descriptor paths sequentially in core, React, Solid order. `--ignore-scripts` prevents the
-source packages' `prepublishOnly` hooks from rebuilding different bytes; pnpm's normal git checks
-remain enabled. The artifact directory is preserved for audit after success or failure.
+Node 24 or newer. It exclusively creates `.tui-release/.publish.lock` for the complete run; an
+existing lock stops before verification or artifact creation and must be audited and removed
+manually if its process crashed. Each invocation prepares a new `.tui-release/run-*/` containing
+one descriptor and three exact tarballs, then runs normal and production-only smoke against those
+bytes. The descriptor hash, tarball hashes, manifests, and file lists must still match the original
+snapshot after smoke and immediately before each positional publish in core, React, Solid order.
+`--ignore-scripts` prevents lifecycle hooks from changing the packed bytes; pnpm's normal git
+checks remain enabled. Every run directory is preserved for audit after success or failure.
+
+Registry publication is sequential, not transactional. If core succeeds and a later package
+fails, the registry is partially released; the orchestrator stops before the next package and
+keeps the exact run directory for deliberate recovery. It never silently rebuilds, replaces, or
+switches to another self-consistent artifact.
 
 `pnpm publish:tui:dry-run` follows the same path and adds pnpm's `--dry-run`. It does not upload,
 but pnpm may still perform registry-facing dry-run processing; automated tests therefore exercise

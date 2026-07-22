@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { handlerIdProp, TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
-import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  type CellSurface,
+} from "@uniview/tui-core";
+import { InputRouter } from "../src/input-router";
 import { TuiHost } from "../src/tui-host";
 
 function host(onInvokeHandler = vi.fn()) {
@@ -87,6 +92,73 @@ describe("TuiHost — rendering", () => {
     h.destroy();
     h.destroy();
     expect(surface.destroy).toHaveBeenCalledTimes(2);
+  });
+
+  it("latches host teardown after a fatal renderer surface contract violation", () => {
+    const onInvokeHandler = vi.fn();
+    const surface = {
+      kind: "memory" as const,
+      mount() {},
+      resize() {},
+      present() {
+        return Promise.resolve({ rowsPainted: 0, runsPainted: 0 });
+      },
+      destroy() {},
+    } as unknown as CellSurface;
+    const h = new TuiHost({
+      surface,
+      size: { width: 20, height: 3 },
+      onInvokeHandler,
+    });
+    const input = new InputRouter(h);
+    const root: UINode = {
+      id: "btn",
+      type: "box",
+      props: { [handlerIdProp("onClick")]: "fatal-click" },
+      children: [],
+    };
+
+    expect(() => h.setRoot(root)).toThrow(
+      /CellSurface\.present\(\) must complete synchronously/i,
+    );
+    expect(() => h.setRoot(root)).toThrow(/teardown|destroy/i);
+    expect(() => h.applyBatch([])).toThrow(/teardown|destroy/i);
+    expect(() => h.render()).toThrow(/teardown|destroy/i);
+    expect(() => h.setFocusedId("btn")).toThrow(/teardown|destroy/i);
+    expect(() => h.commitStatic([])).toThrow(/teardown|destroy/i);
+    expect(() => h.fireEvent("btn", "onClick")).toThrow(/teardown|destroy/i);
+    expect(() => h.fireEventBubbling("btn", "onClick")).toThrow(
+      /teardown|destroy/i,
+    );
+    expect(() => h.resetCommands()).toThrow(/teardown|destroy/i);
+    expect(() => h.activate({ id: "btn" })).toThrow(/teardown|destroy/i);
+    expect(() => input.subscribeInput(() => {})).toThrow(/teardown|destroy/i);
+    expect(() => input.onRender()).toThrow(/teardown|destroy/i);
+    expect(() => input.dispatch({ type: "paste", text: "stale" })).toThrow(
+      /teardown|destroy/i,
+    );
+    expect(onInvokeHandler).not.toHaveBeenCalled();
+    h.destroy();
+  });
+
+  it("latches host teardown after its public renderer is destroyed directly", () => {
+    const { h, onInvokeHandler } = host();
+    const root: UINode = {
+      id: "btn",
+      type: "box",
+      props: { [handlerIdProp("onClick")]: "stale-click" },
+      children: [],
+    };
+    h.setRoot(root);
+
+    h.renderer.destroy();
+
+    expect(() => h.setRoot(root)).toThrow(/teardown|destroy/i);
+    expect(() => h.applyBatch([])).toThrow(/teardown|destroy/i);
+    expect(() => h.fireEvent("btn", "onClick")).toThrow(/teardown|destroy/i);
+    expect(() => h.activate({ id: "btn" })).toThrow(/teardown|destroy/i);
+    expect(onInvokeHandler).not.toHaveBeenCalled();
+    h.destroy();
   });
 });
 

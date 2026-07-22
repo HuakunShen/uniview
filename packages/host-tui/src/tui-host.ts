@@ -63,6 +63,14 @@ export class TuiHost {
   private focusedId: string | null = null;
   private lifecycle: TuiHostLifecycle = "active";
 
+  /** Whether host mutations and event dispatch remain available. */
+  get isActive(): boolean {
+    if (this.lifecycle === "active" && !this.renderer.isActive) {
+      this.lifecycle = "destroying";
+    }
+    return this.lifecycle === "active";
+  }
+
   constructor(options: TuiHostOptions) {
     this.onInvokeHandler = options.onInvokeHandler;
     this.committed = options.committed;
@@ -92,13 +100,18 @@ export class TuiHost {
   /** Convert the current tree and paint a frame. */
   render(): void {
     this.assertActive("render");
-    const root = this.tree.getRoot();
-    this.handlers = extractHandlers(root);
-    this.flushStatic(root);
-    this.renderer.setRoot(
-      root ? uinodeToRenderNode(root, this.focusedId) : null,
-    );
-    this.renderer.flush();
+    try {
+      const root = this.tree.getRoot();
+      this.handlers = extractHandlers(root);
+      this.flushStatic(root);
+      this.renderer.setRoot(
+        root ? uinodeToRenderNode(root, this.focusedId) : null,
+      );
+      this.renderer.flush();
+    } catch (error) {
+      if (!this.renderer.isActive) this.lifecycle = "destroying";
+      throw error;
+    }
   }
 
   /**
@@ -317,7 +330,7 @@ export class TuiHost {
   }
 
   private assertActive(action: string): void {
-    if (this.lifecycle !== "active") {
+    if (!this.isActive) {
       throw new Error(`Cannot ${action} after TUI host teardown has started`);
     }
   }
