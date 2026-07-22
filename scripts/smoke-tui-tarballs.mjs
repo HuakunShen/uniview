@@ -16,6 +16,12 @@ import { gunzipSync } from "node:zlib";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
+assert.ok(
+  nodeMajor >= 18,
+  `TUI packages require Node >=18, got ${process.version}`,
+);
+console.log(`TUI tarball smoke runtime: ${process.version}`);
 const publicPackages = {
   core: {
     directory: join(repo, "packages/tui-core"),
@@ -34,11 +40,11 @@ const publicPackages = {
   },
 };
 
-function run(command, args, cwd) {
+function run(command, args, cwd, extraEnv = {}) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, CI: "1" },
+    env: { ...process.env, CI: "1", ...extraEnv },
   });
   if (result.error || result.status !== 0) {
     throw new Error(
@@ -293,27 +299,31 @@ async function createProject({
   source,
   typeScriptFixture,
 }) {
-  await mkdir(directory, { recursive: true });
   assert.deepEqual(
     Object.keys(dependencies).sort(),
     [...expectedDirectDependencies].sort(),
     `${directory}: unexpected direct runtime dependencies`,
   );
-  await writeJson(join(directory, "package.json"), {
-    private: true,
-    type: "module",
-    dependencies,
-    // The registry would resolve this exact transitive version after publish.
-    // The tarball override provides the same resolution without adding core to
-    // the binding consumer's direct install surface or accessing the network.
-    pnpm: {
-      overrides: {
-        ...offlineOverrides,
-        "@uniview/tui-core": `file:${coreTarball}`,
+  const writeRuntimeProject = async (projectDirectory, runtimeSource) => {
+    await mkdir(projectDirectory, { recursive: true });
+    await writeJson(join(projectDirectory, "package.json"), {
+      private: true,
+      type: "module",
+      dependencies,
+      // The registry would resolve this exact transitive version after publish.
+      // The tarball override provides the same resolution without adding core to
+      // the binding consumer's direct install surface or accessing the network.
+      pnpm: {
+        overrides: {
+          ...offlineOverrides,
+          "@uniview/tui-core": `file:${coreTarball}`,
+        },
       },
-    },
-  });
-  await writeFile(join(directory, "smoke.mjs"), source);
+    });
+    await writeFile(join(projectDirectory, "smoke.mjs"), runtimeSource);
+  };
+
+  await writeRuntimeProject(directory, source);
   if (typeScriptFixture) {
     await writeFile(join(directory, "smoke.tsx"), typeScriptFixture.source);
     await writeJson(join(directory, "tsconfig.json"), typeScriptFixture.config);
@@ -349,6 +359,44 @@ async function createProject({
       directory,
     );
   }
+
+  const productionDirectory = `${directory}-production`;
+  await writeRuntimeProject(
+    productionDirectory,
+    `
+import assertProduction from "node:assert/strict"
+assertProduction.equal(process.env.NODE_ENV, "production")
+${source}`,
+  );
+  run(
+    pnpm,
+    [
+      "install",
+      "--prod",
+      "--offline",
+      "--ignore-scripts",
+      "--no-optional",
+      "--strict-peer-dependencies",
+      "--no-frozen-lockfile",
+    ],
+    productionDirectory,
+  );
+  const productionManifest = await readJson(
+    join(productionDirectory, "package.json"),
+  );
+  assert.deepEqual(
+    Object.keys(productionManifest.dependencies ?? {}).sort(),
+    [...expectedDirectDependencies].sort(),
+    `${productionDirectory}: production fixture gained a direct runtime dependency`,
+  );
+  assert.equal(
+    Object.hasOwn(productionManifest, "devDependencies"),
+    false,
+    `${productionDirectory}: production fixture must not declare devDependencies`,
+  );
+  run(process.execPath, ["smoke.mjs"], productionDirectory, {
+    NODE_ENV: "production",
+  });
 }
 
 async function packPackage(definition, tarballDirectory) {
@@ -728,6 +776,7 @@ class FakeOutput {
   leaveWriteAttempts = 0
   successfulLeaveWrites = 0
   leaveWriteFailuresRemaining = 0
+  failWrite
   write(chunk) {
     const leaveSequence = String.fromCharCode(27) + "[?1049l"
     if (chunk.includes(leaveSequence)) {
@@ -739,6 +788,8 @@ class FakeOutput {
       this.successfulLeaveWrites += 1
     }
     this.chunks.push(chunk)
+    const error = this.failWrite?.(chunk)
+    if (error) throw error
   }
   on(event, listener) {
     assert.equal(event, "resize")
@@ -953,6 +1004,69 @@ recoveredSolid.destroy()
 assert.deepEqual(constructionInput.rawModes.at(-1), false)
 assert.equal(constructionInput.dataListeners.size, 0)
 assert.equal(constructionOutput.resizeListeners.size, 0)
+
+const lostRootInput = new FakeInput()
+const lostRootOutput = new FakeOutput()
+const lostRootSyncError = new Error("packed Solid initial sync failed")
+const lostRootCleanupError = new Error("packed Solid disposer failed")
+let failLostRootSync = true
+let blockLostRootCleanup = true
+let lostRootCleanupAttempts = 0
+lostRootOutput.failWrite = (chunk) => {
+  if (failLostRootSync && chunk.includes("Lost packed root")) {
+    failLostRootSync = false
+    return lostRootSyncError
+  }
+}
+assert.throws(
+  () => render(() => {
+    onCleanup(() => {
+      lostRootCleanupAttempts += 1
+      if (blockLostRootCleanup) throw lostRootCleanupError
+    })
+    return createComponent(Text, { children: "Lost packed root" })
+  }, { input: lostRootInput, output: lostRootOutput }),
+  (error) => error === lostRootSyncError,
+)
+assert.equal(lostRootCleanupAttempts, 1)
+assert.deepEqual(lostRootInput.rawModes, [true, false])
+assert.equal(lostRootInput.dataListeners.size, 0)
+assert.equal(lostRootOutput.resizeListeners.size, 0)
+
+const blockedRootInput = new FakeInput()
+const blockedRootOutput = new FakeOutput()
+assert.throws(
+  () => render(
+    () => createComponent(Text, { children: "Blocked by cleanup" }),
+    { input: blockedRootInput, output: blockedRootOutput },
+  ),
+  (error) => error === lostRootCleanupError,
+)
+assert.equal(lostRootCleanupAttempts, 2)
+assert.deepEqual(blockedRootInput.rawModes, [])
+assert.equal(blockedRootInput.resumeCount, 0)
+assert.equal(blockedRootInput.pauseCount, 0)
+assert.equal(blockedRootInput.dataListeners.size, 0)
+assert.equal(blockedRootOutput.resizeListeners.size, 0)
+assert.deepEqual(blockedRootOutput.chunks, [])
+
+blockLostRootCleanup = false
+const recoveredRootInput = new FakeInput()
+const recoveredRootOutput = new FakeOutput()
+recoveredRootOutput.columns = 30
+const recoveredRoot = render(
+  () => createComponent(Text, { children: "Recovered packed root" }),
+  { input: recoveredRootInput, output: recoveredRootOutput },
+)
+assert.equal(lostRootCleanupAttempts, 3)
+assert.match(recoveredRootOutput.chunks.join(""), /Recovered packed root/)
+assert.deepEqual(recoveredRootInput.rawModes, [true])
+assert.equal(recoveredRootInput.dataListeners.size, 1)
+assert.equal(recoveredRootOutput.resizeListeners.size, 1)
+recoveredRoot.destroy()
+assert.deepEqual(recoveredRootInput.rawModes, [true, false])
+assert.equal(recoveredRootInput.dataListeners.size, 0)
+assert.equal(recoveredRootOutput.resizeListeners.size, 0)
 `,
     typeScriptFixture: {
       source: `
@@ -1022,7 +1136,9 @@ void plugin
     }
   }
 
-  console.log("TUI tarball smoke tests passed");
+  console.log(
+    `TUI normal and production-only tarball smoke tests passed on ${process.version}`,
+  );
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true });
 }

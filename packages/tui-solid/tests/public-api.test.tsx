@@ -49,6 +49,7 @@ class FakeOutput implements TtyOutput {
   leaveWriteAttempts = 0;
   successfulLeaveWrites = 0;
   leaveWriteFailuresRemaining = 0;
+  failWrite: ((chunk: string) => Error | undefined) | undefined;
   write(chunk: string): void {
     if (chunk.includes("\x1b[?1049l")) {
       this.leaveWriteAttempts += 1;
@@ -59,6 +60,8 @@ class FakeOutput implements TtyOutput {
       this.successfulLeaveWrites += 1;
     }
     this.chunks.push(chunk);
+    const error = this.failWrite?.(chunk);
+    if (error) throw error;
   }
   on(_event: "resize", listener: () => void): void {
     this.listeners.add(listener);
@@ -517,4 +520,80 @@ describe("public Solid TUI facade", () => {
       expect(terminal.entered).toBe(false);
     },
   );
+
+  it("recovers a lost root when initial output and its disposer both fail", () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const syncError = new Error("initial sync output failed");
+    const cleanupError = new Error("initial disposer failed");
+    let failInitialSync = true;
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    output.failWrite = (chunk) => {
+      if (failInitialSync && chunk.includes("Lost root")) {
+        failInitialSync = false;
+        return syncError;
+      }
+      return undefined;
+    };
+
+    let initialError: unknown;
+    try {
+      render(
+        () => {
+          onCleanup(() => {
+            cleanupAttempts += 1;
+            if (blockCleanup) throw cleanupError;
+          });
+          return <Text>Lost root</Text>;
+        },
+        { input, output },
+      );
+    } catch (error) {
+      initialError = error;
+    }
+    expect(initialError).toBe(syncError);
+    expect(cleanupAttempts).toBe(1);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    const blockedInput = new FakeInput();
+    const blockedOutput = new FakeOutput();
+    let retryError: unknown;
+    try {
+      render(() => <Text>Still blocked</Text>, {
+        input: blockedInput,
+        output: blockedOutput,
+      });
+    } catch (error) {
+      retryError = error;
+    }
+    expect(retryError).toBe(cleanupError);
+    expect(cleanupAttempts).toBe(2);
+    expect(blockedInput.rawModes).toEqual([]);
+    expect(blockedInput.resumeCount).toBe(0);
+    expect(blockedInput.pauseCount).toBe(0);
+    expect(blockedInput.listeners.size).toBe(0);
+    expect(blockedOutput.listeners.size).toBe(0);
+    expect(blockedOutput.chunks).toEqual([]);
+
+    blockCleanup = false;
+    const replacementInput = new FakeInput();
+    const replacementOutput = new FakeOutput();
+    const replacement = render(() => <Text>Recovered root</Text>, {
+      input: replacementInput,
+      output: replacementOutput,
+    });
+    expect(cleanupAttempts).toBe(3);
+    expect(replacementOutput.chunks.join("")).toContain("Recovered root");
+    expect(replacementInput.rawModes).toEqual([true]);
+    expect(replacementInput.listeners.size).toBe(1);
+    expect(replacementOutput.listeners.size).toBe(1);
+
+    replacement.destroy();
+    expect(replacementInput.rawModes).toEqual([true, false]);
+    expect(replacementInput.listeners.size).toBe(0);
+    expect(replacementOutput.listeners.size).toBe(0);
+  });
 });

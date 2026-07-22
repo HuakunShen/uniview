@@ -56,6 +56,40 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+  tui-release-smoke:
+    name: TUI packed release · Node ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18, 20]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      # The vendored kkrpc prepare hook invokes Bun before honoring CF_PAGES.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          CF_PAGES: "1"
+
+      - name: Verify normal and production-only TUI tarballs
+        run: pnpm smoke:tui-packages
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest

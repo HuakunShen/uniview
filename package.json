@@ -15,7 +15,7 @@
     "check-types:tui-release": "pnpm --filter @uniview/protocol --filter @uniview/tui-core --filter @uniview/host-tui --filter @uniview/react-renderer --filter @uniview/solid-renderer --filter @uniview/tui-content --filter @uniview/tui-charts --filter @uniview/style --filter @uniview/tui-react --filter @uniview/tui-solid check-types",
     "verify:tui-packages": "pnpm build:tui-release && pnpm check-types:tui-release && node --test scripts/verify-tui-package-boundaries.test.mjs && node scripts/verify-tui-package-boundaries.mjs",
     "smoke:tui-packages": "pnpm verify:tui-packages && node scripts/smoke-tui-tarballs.mjs",
-    "publish:tui": "pnpm publish -r --filter @uniview/tui-core --filter @uniview/tui-react --filter @uniview/tui-solid",
+    "publish:tui": "pnpm smoke:tui-packages && pnpm publish -r --filter @uniview/tui-core --filter @uniview/tui-react --filter @uniview/tui-solid",
     "cypress:open": "bun scripts/run-cypress-open.ts",
     "cypress:open:pause": "bun scripts/run-cypress-open.ts --env univiewPauseAtStart=true,univiewVisualDelayMs=0"
   },

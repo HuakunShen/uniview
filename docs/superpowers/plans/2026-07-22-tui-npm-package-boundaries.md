@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status:** Implemented and final-reviewed release candidate on 2026-07-22 — not published.
+**Status:** Implemented — not published.
 
 ## Final implementation record
 
@@ -14,10 +14,13 @@
 - The packed core fixture remains the low-level memory-surface check. Packed React and Solid
   fixtures use each binding's public high-level `render()` with injected fake TTY streams and
   assert ANSI output, listener/raw-mode teardown, synchronous framework cleanup, replacement,
-  and idempotent destruction.
+  and idempotent destruction. Every runtime fixture is installed and run once normally and once
+  from a separate production-only project installed with `pnpm install --prod`.
 - The isolated Solid TSX consumer declares only `@uniview/tui-solid` and `solid-js` as direct
   runtime dependencies. It uses the repository's TypeScript executable only as compiler
   tooling and does not inject `@types/node`, `typeRoots`, or internal packages.
+- CI runs the packed release smoke on actual Node 18 and Node 20 runtimes. The script logs and
+  validates `process.version`; it never downloads a second Node executable itself.
 
 **Goal:** Make `@uniview/tui-core`, `@uniview/tui-react`, and `@uniview/tui-solid` the only packages required for the TUI npm release, with one-package installation for React or Solid users.
 
@@ -661,8 +664,11 @@ Create `scripts/smoke-tui-tarballs.mjs` so it:
   then exercises public `render()`, replacement, cleanup, and the public compiler subpaths;
 - asserts ANSI output, raw mode, data/resize listener registration and removal, synchronous
   framework cleanup, and idempotent destruction;
+- creates a separate production-only install for every runtime fixture, installs with
+  `pnpm install --prod`, and runs it with `NODE_ENV=production`;
 - type-checks an isolated Solid TSX consumer without internal packages, borrowed
-  `@types/node`, `typeRoots`, or a `types` injection.
+  `@types/node`, `typeRoots`, or a `types` injection, only in the normal install;
+- logs the actual Node version and rejects runtimes below the declared Node 18 engine.
 
 - [x] **Step 2: Expose the smoke command**
 
@@ -670,7 +676,7 @@ Add the smoke command and an explicit three-package publish allowlist:
 
 ```json
 "smoke:tui-packages": "pnpm verify:tui-packages && node scripts/smoke-tui-tarballs.mjs",
-"publish:tui": "pnpm publish -r --filter @uniview/tui-core --filter @uniview/tui-react --filter @uniview/tui-solid"
+"publish:tui": "pnpm smoke:tui-packages && pnpm publish -r --filter @uniview/tui-core --filter @uniview/tui-react --filter @uniview/tui-solid"
 ```
 
 The implementation and verification work must not execute `publish:tui`; it exists for the
@@ -680,8 +686,8 @@ later user-authorized registry release and prevents a broad workspace publish.
 
 Run: `pnpm smoke:tui-packages`
 
-Expected: builds succeed, boundary verification succeeds, all offline installs succeed, and
-the script prints `TUI tarball smoke tests passed`.
+Expected: builds succeed, boundary verification succeeds, all normal and production-only
+offline installs succeed, and the script reports its actual Node version plus both runtime modes.
 
 - [x] **Step 4: Commit release smoke automation**
 

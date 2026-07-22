@@ -1,7 +1,7 @@
 # TUI npm Package Boundaries — Design Spec
 
 **Date:** 2026-07-22
-**Status:** Implemented and final-reviewed release candidate — not published
+**Status:** Implemented — not published
 
 ## 1. Goal
 
@@ -162,9 +162,12 @@ Before publishing:
 4. Inspect emitted declarations under the same rule.
 5. Inspect packed manifests: `workspace:*` must be rewritten to the concrete core version,
    framework peers must remain peers, and every emitted third-party import must be declared.
-6. Install the three tarballs into clean temporary projects using strict pnpm resolution.
-7. Run a React ANSI smoke app, a Solid ANSI smoke app, and a core-only memory-surface test.
-8. Confirm each package includes README, license metadata, exports, types, repository metadata,
+6. Install the three tarballs into clean temporary projects using strict pnpm resolution, then
+   repeat every runtime fixture in a separate production-only `pnpm install --prod` project.
+7. Run a React ANSI smoke app, a Solid ANSI smoke app, and a core-only memory-surface test in
+   both normal and `NODE_ENV=production` modes.
+8. Run the packed release smoke in CI on actual Node 18 and Node 20 runtimes.
+9. Confirm each package includes README, license metadata, exports, types, repository metadata,
    and the supported Node engine.
 
 The publication order is `tui-core`, then `tui-react` and `tui-solid`. A failed gate publishes

@@ -37,7 +37,32 @@ import type {
 
 let activeSolidRootOwner: object | null = null;
 
+interface PendingSolidRootCleanup {
+  owner: object;
+  root: { destroy(): void };
+}
+
+let pendingSolidRootCleanup: PendingSolidRootCleanup | null = null;
+let retryingPendingSolidRootCleanup = false;
+
+function retryPendingSolidRootCleanup(nextOwner: object): void {
+  const pending = pendingSolidRootCleanup;
+  if (!pending || pending.owner === nextOwner) return;
+  if (retryingPendingSolidRootCleanup) {
+    throw new Error("TUI Solid root cleanup is already in progress");
+  }
+
+  retryingPendingSolidRootCleanup = true;
+  try {
+    pending.root.destroy();
+    if (pendingSolidRootCleanup === pending) pendingSolidRootCleanup = null;
+  } finally {
+    retryingPendingSolidRootCleanup = false;
+  }
+}
+
 function reserveSolidRootOwnership(owner: object): void {
+  retryPendingSolidRootCleanup(owner);
   if (activeSolidRootOwner && activeSolidRootOwner !== owner) {
     throw new Error(
       "Cannot render because another TUI Solid root is active; destroy it before rendering this root",
@@ -48,6 +73,21 @@ function reserveSolidRootOwnership(owner: object): void {
 
 function releaseSolidRootOwnership(owner: object): void {
   if (activeSolidRootOwner === owner) activeSolidRootOwner = null;
+}
+
+function destroySolidRoot(owner: object, root: { destroy(): void }): void {
+  try {
+    root.destroy();
+    if (
+      pendingSolidRootCleanup?.owner === owner &&
+      pendingSolidRootCleanup.root === root
+    ) {
+      pendingSolidRootCleanup = null;
+    }
+  } catch (error) {
+    pendingSolidRootCleanup = { owner, root };
+    throw error;
+  }
 }
 
 export {
@@ -483,7 +523,7 @@ export function render(
     root.render(App);
   } catch (error) {
     try {
-      root?.destroy();
+      if (root) destroySolidRoot(owner, root);
     } catch {
       // Preserve the initial mount error after attempting root cleanup.
     }
@@ -508,7 +548,7 @@ export function render(
         mountedRoot.render(next);
       } catch (error) {
         try {
-          mountedRoot.destroy();
+          destroySolidRoot(owner, mountedRoot);
         } catch {
           // Preserve the replacement mount error after best-effort root cleanup.
         }
@@ -523,7 +563,7 @@ export function render(
     dispatchInput: (event) => mountedRoot.dispatchInput(event),
     destroy: () => {
       try {
-        mountedRoot.destroy();
+        destroySolidRoot(owner, mountedRoot);
       } finally {
         activeDriver.stop();
       }
