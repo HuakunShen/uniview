@@ -160,7 +160,34 @@ function validatePackageFiles({ manifest, files, allowedInternal }) {
   }
 }
 
-export function validateCorePackageFiles({ manifest, files }) {
+export function validateSynchronousCellSurfaceDeclarations(files) {
+  const declarations = [...files]
+    .filter(([file]) => packageArtifactKind(file) === "declaration")
+    .map(
+      ([file, content]) =>
+        `${file}\n${typeof content === "string" ? content : content.toString("utf8")}`,
+    )
+    .join("\n");
+  const contract = declarations.match(
+    /interface CellSurface\s*\{[\s\S]*?\}/,
+  )?.[0];
+  assert.ok(contract, "packed core declarations must contain CellSurface");
+  assert.doesNotMatch(
+    contract,
+    /\bPromise(?:Like)?\b/,
+    "CellSurface declarations must be strictly synchronous",
+  );
+  assert.match(contract, /mount\s*\([^)]*\)\s*:\s*void\s*;/);
+  assert.match(contract, /resize\s*\([^)]*\)\s*:\s*void\s*;/);
+  assert.match(contract, /present\s*\([\s\S]*?\)\s*:\s*PresentStats\s*;/);
+  assert.match(contract, /destroy\s*\(\s*\)\s*:\s*void\s*;/);
+}
+
+export function validateCorePackageFiles({
+  manifest,
+  files,
+  requireSynchronousCellSurface = false,
+}) {
   const declaredRuntime = declaredRuntimeDependencies(manifest);
   assert.deepEqual(
     [...declaredRuntime].filter((name) => name.startsWith("@uniview/")),
@@ -168,6 +195,9 @@ export function validateCorePackageFiles({ manifest, files }) {
     "@uniview/tui-core must not depend on another @uniview package",
   );
   validatePackageFiles({ manifest, files, allowedInternal: new Set() });
+  if (requireSynchronousCellSurface) {
+    validateSynchronousCellSurfaceDeclarations(files);
+  }
 }
 
 export function validateBindingPackageFiles({ manifest, files }) {
@@ -212,7 +242,11 @@ export async function verifyCore() {
     if (!packageArtifactKind(file)) continue;
     files.set(file, await readFile(file, "utf8"));
   }
-  validateCorePackageFiles({ manifest, files });
+  validateCorePackageFiles({
+    manifest,
+    files,
+    requireSynchronousCellSurface: true,
+  });
 }
 
 export async function main() {

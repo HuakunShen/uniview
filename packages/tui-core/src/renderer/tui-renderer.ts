@@ -27,6 +27,17 @@ export interface TuiRendererOptions {
 }
 
 type TuiRendererLifecycle = "active" | "destroying" | "destroyed";
+type SurfaceOperation = "mount" | "resize" | "present" | "destroy";
+
+function isThenable(value: unknown): boolean {
+  if (
+    (typeof value !== "object" || value === null) &&
+    typeof value !== "function"
+  ) {
+    return false;
+  }
+  return typeof (value as { readonly then?: unknown }).then === "function";
+}
 
 /**
  * The render loop that ties the core together: it owns a scene root, a double
@@ -68,7 +79,8 @@ export class TuiRenderer {
       render: (kind) => this.renderFrame(kind),
       schedule: options.schedule,
     });
-    this.surface.mount(this.size);
+    const mountResult = this.surface.mount(this.size);
+    this.assertSynchronousSurfaceResult("mount", mountResult);
   }
 
   /** Replace the scene root and schedule a render. */
@@ -81,9 +93,10 @@ export class TuiRenderer {
   /** Change the terminal size; the next frame is a full repaint. */
   resize(size: Size): void {
     this.assertActive("resize");
+    const resizeResult = this.surface.resize(size);
+    this.assertSynchronousSurfaceResult("resize", resizeResult);
     this.size = size;
     this.forceFullRepaint = true;
-    void this.surface.resize(size);
     this.invalidate("layout");
   }
 
@@ -102,15 +115,9 @@ export class TuiRenderer {
 
   destroy(): void {
     if (this.lifecycle === "destroyed") return;
-    if (this.lifecycle === "active") {
-      this.lifecycle = "destroying";
-      this.scheduler.cancel();
-      this.diagnostics.setSchedulerPending(false);
-      this.root = null;
-      this.previous = null;
-      this.owners = new OwnerTable();
-    }
-    this.surface.destroy();
+    this.beginTeardown();
+    const destroyResult = this.surface.destroy();
+    this.assertSynchronousSurfaceResult("destroy", destroyResult);
     this.lifecycle = "destroyed";
   }
 
@@ -120,6 +127,27 @@ export class TuiRenderer {
         `Cannot ${action} after TUI renderer teardown has started`,
       );
     }
+  }
+
+  private beginTeardown(): void {
+    if (this.lifecycle !== "active") return;
+    this.lifecycle = "destroying";
+    this.scheduler.cancel();
+    this.diagnostics.setSchedulerPending(false);
+    this.root = null;
+    this.previous = null;
+    this.owners = new OwnerTable();
+  }
+
+  private assertSynchronousSurfaceResult(
+    operation: SurfaceOperation,
+    result: unknown,
+  ): void {
+    if (!isThenable(result)) return;
+    this.beginTeardown();
+    throw new TypeError(
+      `CellSurface.${operation}() must complete synchronously; Promise and thenable results are not supported`,
+    );
   }
 
   private invalidate(kind: RenderKind): void {
@@ -137,8 +165,6 @@ export class TuiRenderer {
       this.styles,
       this.layoutEngine,
     );
-    this.owners = owners;
-
     this.revision += 1;
     const previous = this.forceFullRepaint ? null : this.previous;
     const update = buildFrameUpdate(
@@ -149,8 +175,11 @@ export class TuiRenderer {
     );
     this.forceFullRepaint = false;
 
-    void this.surface.present(buffer, update);
+    const presentResult = this.surface.present(buffer, update);
+    this.assertSynchronousSurfaceResult("present", presentResult);
+    if (this.lifecycle !== "active") return;
 
+    this.owners = owners;
     this.previous = buffer;
     this.diagnostics.markRendered();
     this.diagnostics.setSchedulerPending(this.scheduler.pending);

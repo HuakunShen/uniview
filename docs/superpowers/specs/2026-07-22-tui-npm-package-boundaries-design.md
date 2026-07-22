@@ -76,6 +76,14 @@ cancels queued scheduler generations and rejects later render, resize, cursor, m
 or flush operations even when `destroy()` must be retried. Old public handles therefore cannot
 present into a replacement session.
 
+`CellSurface` has one synchronous contract matching every shipped surface and the synchronous
+renderer/terminal lifecycle: `mount`, `resize`, and `destroy` return `void`; `present` returns
+`PresentStats`. Runtime guards reject Promise and thenable results from untyped consumers and
+enter durable teardown. A custom surface may own an asynchronous queue internally, but the
+renderer-visible operation and I/O ownership transition must complete synchronously. If
+`present()` synchronously destroys the renderer, no frame, owner map, or rendered diagnostic is
+committed after it returns.
+
 ### `@uniview/tui-react`
 
 The React package is a complete user-facing binding. It keeps:
@@ -186,6 +194,16 @@ paths, supported regular-file entry types, archive bounds, duplicate rejection, 
 topology, and sha256 hashes. Every runtime matrix job downloads that same artifact, switches
 Node versions, and installs/runs the same existing bytes without rebuilding or repacking.
 
+Local publication uses the same descriptor model in a persistent ignored `.tui-release/`
+directory. It runs the complete release verification, safely replaces only that exact directory,
+prepares and verifies the three tarballs, runs normal and production-only smoke against those
+exact bytes, then reloads the descriptor before publishing. Publication uses positional absolute
+tarball paths in core, React, Solid order with `--access public`, `--ignore-scripts`, and
+`--publish-branch main`. It never recursively publishes source directories, never disables pnpm
+git checks, and preserves the descriptor and tarballs after success or failure. The dry-run entry
+adds pnpm's `--dry-run`; automated tests validate its injected command plan without contacting a
+registry.
+
 ## 7. Verification and release gates
 
 Before publishing:
@@ -217,9 +235,10 @@ Before publishing:
 10. Confirm each package includes README, license metadata, exports, types, repository metadata,
    and the supported Node engine.
 
-The publication order is `tui-core`, then `tui-react` and `tui-solid`. A failed gate publishes
-nothing; the release is retried with a new prerelease version rather than overwriting an npm
-version.
+All gates complete before the first registry command. Publication then runs sequentially in
+`tui-core`, `tui-react`, `tui-solid` order and stops on the first command failure. The exact local
+artifact remains available for audit or a deliberate recovery; the orchestrator never rebuilds
+or repacks between those commands.
 
 ## 8. Compatibility and risks
 

@@ -16,6 +16,44 @@ import {
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
+test("declares CellSurface as a strictly synchronous public contract", async () => {
+  const source = await readFile(
+    join(repo, "packages/tui-core/src/surface/types.ts"),
+    "utf8",
+  );
+  const declaration = source.match(
+    /export interface CellSurface \{[\s\S]*?\n\}/,
+  )?.[0];
+  assert.ok(declaration, "missing CellSurface declaration");
+  assert.doesNotMatch(declaration, /Promise|Thenable/);
+  assert.match(declaration, /mount\(size: Size\): void;/);
+  assert.match(declaration, /resize\(size: Size\): void;/);
+  assert.match(declaration, /present\([\s\S]*?\): PresentStats;/);
+  assert.match(declaration, /destroy\(\): void;/);
+});
+
+test("rejects an asynchronous CellSurface contract in emitted declarations", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([
+          [
+            "dist/index.d.mts",
+            `interface CellSurface {
+              mount(size: Size): void | Promise<void>;
+              resize(size: Size): void | Promise<void>;
+              present(frame: CellBuffer, update: FrameUpdate): PresentStats | Promise<PresentStats>;
+              destroy(): void | Promise<void>;
+            }`,
+          ],
+        ]),
+        requireSynchronousCellSurface: true,
+      }),
+    /CellSurface.*synchronous|Promise/i,
+  );
+});
+
 test("extracts multiline static, side-effect, re-export, and dynamic imports", () => {
   const source = `
     import {

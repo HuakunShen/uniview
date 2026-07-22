@@ -37,11 +37,8 @@ export type SurfaceKind = "ansi" | "dom" | "svg" | "memory";
  */
 export interface CellSurface {
   readonly kind: SurfaceKind;
-  mount(size: Size): void | Promise<void>;
-  resize(size: Size): void | Promise<void>;
-  present(
-    frame: CellBuffer,
-    update: FrameUpdate,
-  ): PresentStats | Promise<PresentStats>;
-  destroy(): void | Promise<void>;
+  mount(size: Size): void;
+  resize(size: Size): void;
+  present(frame: CellBuffer, update: FrameUpdate): PresentStats;
+  destroy(): void;
 }

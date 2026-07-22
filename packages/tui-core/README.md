@@ -79,6 +79,12 @@ RenderNode tree
 
 `MemoryCellSurface` + `frameToText()` is the reason the whole TUI stack is testable without a TTY.
 
+`CellSurface` is deliberately synchronous: `mount()`, `resize()`, and `destroy()` return
+`void`, while `present()` returns `PresentStats` immediately. A custom surface must finish its
+observable work during that call. If it needs asynchronous I/O, enqueue it internally without
+returning a Promise or thenable; `TuiRenderer` rejects those results and invalidates the session
+so an asynchronous operation cannot race a replacement renderer.
+
 ## What's in here
 
 **Layout** — `computeLayout`, `customLayoutEngine`, and `yogaLayoutEngine`. `LayoutEngine` is

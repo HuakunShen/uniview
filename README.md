@@ -27,18 +27,32 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 
 ## Packages
 
-| Package                                              | Description                                       |
-| ---------------------------------------------------- | ------------------------------------------------- |
-| [@uniview/protocol](./packages/protocol)             | Core types, UINode schema, RPC interfaces         |
-| [@uniview/react-renderer](./packages/react-renderer) | Custom React reconciler producing UINode trees    |
-| [@uniview/solid-renderer](./packages/solid-renderer) | Solid universal renderer producing UINode trees   |
-| [@uniview/react-runtime](./packages/react-runtime)   | React plugin bootstrap for Worker/WebSocket       |
-| [@uniview/solid-runtime](./packages/solid-runtime)   | Solid plugin bootstrap for Worker/WebSocket       |
-| [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller                |
-| [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                        |
-| [@uniview/tui-core](./packages/tui-core)             | Framework-neutral terminal engine                 |
-| [@uniview/tui-react](./packages/tui-react)           | Complete React terminal UI binding                |
-| [@uniview/tui-solid](./packages/tui-solid)           | Complete Solid terminal UI binding                |
+| Package                                              | Description                                     |
+| ---------------------------------------------------- | ----------------------------------------------- |
+| [@uniview/protocol](./packages/protocol)             | Core types, UINode schema, RPC interfaces       |
+| [@uniview/react-renderer](./packages/react-renderer) | Custom React reconciler producing UINode trees  |
+| [@uniview/solid-renderer](./packages/solid-renderer) | Solid universal renderer producing UINode trees |
+| [@uniview/react-runtime](./packages/react-runtime)   | React plugin bootstrap for Worker/WebSocket     |
+| [@uniview/solid-runtime](./packages/solid-runtime)   | Solid plugin bootstrap for Worker/WebSocket     |
+| [@uniview/host-sdk](./packages/host-sdk)             | Framework-agnostic host controller              |
+| [@uniview/host-svelte](./packages/host-svelte)       | Svelte 5 rendering adapter                      |
+| [@uniview/tui-core](./packages/tui-core)             | Framework-neutral terminal engine               |
+| [@uniview/tui-react](./packages/tui-react)           | Complete React terminal UI binding              |
+| [@uniview/tui-solid](./packages/tui-solid)           | Complete Solid terminal UI binding              |
+
+## Publishing the TUI packages
+
+The TUI release publishes exactly `@uniview/tui-core`, `@uniview/tui-react`, and
+`@uniview/tui-solid`. Run `pnpm publish:tui` only from a clean, up-to-date `main` branch under
+Node 24 or newer. It verifies the workspace, prepares `.tui-release/tui-tarballs.json` plus the
+three exact tarballs, runs normal and production-only smoke against those bytes, then publishes
+the descriptor paths sequentially in core, React, Solid order. `--ignore-scripts` prevents the
+source packages' `prepublishOnly` hooks from rebuilding different bytes; pnpm's normal git checks
+remain enabled. The artifact directory is preserved for audit after success or failure.
+
+`pnpm publish:tui:dry-run` follows the same path and adds pnpm's `--dry-run`. It does not upload,
+but pnpm may still perform registry-facing dry-run processing; automated tests therefore exercise
+the injected command plan rather than invoking either publication script.
 
 ## Quick Start
 

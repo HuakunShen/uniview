@@ -185,6 +185,15 @@ await new Promise((r) => setTimeout(r, 20));
 expect(surface.text({ trimRight: true })).toContain("Hi");
 ```
 
+<Callout type="warn" title="Custom surfaces are synchronous">
+  Every `CellSurface` lifecycle method completes in the calling stack:
+  `mount()`, `resize()`, and `destroy()` return `void`, and `present()` returns
+  `PresentStats`. Do not return a Promise or thenable. Queue asynchronous
+  transport work inside the surface if necessary, while completing the
+  renderer-visible operation synchronously; a returned thenable invalidates the
+  renderer.
+</Callout>
+
 You can also assert on the *style* of an individual cell — that a focused border really is
 green, say:
 

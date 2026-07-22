@@ -554,6 +554,7 @@ try {
   validateCorePackageFiles({
     manifest: packedCore.manifest,
     files: packedCore.contents,
+    requireSynchronousCellSurface: true,
   });
   validateBindingPackageFiles({
     manifest: packedReact.manifest,

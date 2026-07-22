@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import type { CellBuffer } from "../../src/buffer/cell-buffer";
 import { StyleTable } from "../../src/style/style-table";
 import { MemoryCellSurface } from "../../src/surface/memory-surface";
 import { AnsiCellSurface } from "../../src/surface/ansi-surface";
+import type {
+  CellSurface,
+  FrameUpdate,
+  PresentStats,
+  Size,
+} from "../../src/surface/types";
 import { isIdle, waitForIdle } from "../../src/scheduler/diagnostics";
 import { TuiRenderer, type RenderNode } from "../../src/renderer/tui-renderer";
 
@@ -24,6 +31,41 @@ const counter = (n: number): RenderNode => ({
     { type: "text", text: "Increment" },
   ],
 });
+
+type SurfaceOperation = "mount" | "resize" | "present" | "destroy";
+
+function surfaceReturningThenable(operation: SurfaceOperation): {
+  surface: CellSurface;
+  readonly destroyCalls: number;
+} {
+  let destroyCalls = 0;
+  const stats: PresentStats = { rowsPainted: 0, runsPainted: 0 };
+  const surface = {
+    kind: "memory" as const,
+    mount(_size: Size) {
+      if (operation === "mount") return Promise.resolve();
+    },
+    resize(_size: Size) {
+      if (operation === "resize") return { then() {} };
+    },
+    present(_frame: CellBuffer, _update: FrameUpdate) {
+      if (operation === "present") return Promise.resolve(stats);
+      return stats;
+    },
+    destroy() {
+      destroyCalls += 1;
+      if (operation === "destroy" && destroyCalls === 1) {
+        return { then() {} };
+      }
+    },
+  } as unknown as CellSurface;
+  return {
+    surface,
+    get destroyCalls() {
+      return destroyCalls;
+    },
+  };
+}
 
 describe("TuiRenderer", () => {
   it("renders a scene to the surface on flush", () => {
@@ -171,6 +213,107 @@ describe("TuiRenderer", () => {
     clock.drain();
     renderer.destroy();
     expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it("rejects an asynchronous mount contract at runtime", () => {
+    const fixture = surfaceReturningThenable("mount");
+    expect(
+      () =>
+        new TuiRenderer({
+          surface: fixture.surface,
+          size: { width: 10, height: 2 },
+        }),
+    ).toThrow(/CellSurface\.mount\(\) must complete synchronously/i);
+  });
+
+  it("rejects a resize thenable and invalidates the renderer", () => {
+    const fixture = surfaceReturningThenable("resize");
+    const renderer = new TuiRenderer({
+      surface: fixture.surface,
+      size: { width: 10, height: 2 },
+    });
+
+    expect(() => renderer.resize({ width: 20, height: 4 })).toThrow(
+      /CellSurface\.resize\(\) must complete synchronously/i,
+    );
+    expect(() => renderer.setRoot(counter(1))).toThrow(/teardown|destroy/i);
+    renderer.destroy();
+  });
+
+  it("rejects an asynchronous present and leaves no committed frame", () => {
+    const fixture = surfaceReturningThenable("present");
+    const clock = manualScheduler();
+    const renderer = new TuiRenderer({
+      surface: fixture.surface,
+      size: { width: 10, height: 2 },
+      schedule: clock.schedule,
+    });
+    renderer.setRoot({ id: "owned", type: "text", text: "Async" });
+
+    expect(() => renderer.flush()).toThrow(
+      /CellSurface\.present\(\) must complete synchronously/i,
+    );
+    expect(renderer.currentFrame).toBeNull();
+    expect(renderer.owners.size).toBe(1);
+    expect(renderer.diagnostics.renderRevision).toBe(0);
+    expect(renderer.diagnostics.schedulerPending).toBe(false);
+    expect(() => renderer.flush()).toThrow(/teardown|destroy/i);
+    clock.drain();
+    expect(renderer.currentFrame).toBeNull();
+    renderer.destroy();
+  });
+
+  it("rejects an asynchronous destroy and keeps teardown retryable", () => {
+    const fixture = surfaceReturningThenable("destroy");
+    const renderer = new TuiRenderer({
+      surface: fixture.surface,
+      size: { width: 10, height: 2 },
+    });
+
+    expect(() => renderer.destroy()).toThrow(
+      /CellSurface\.destroy\(\) must complete synchronously/i,
+    );
+    expect(() => renderer.flush()).toThrow(/teardown|destroy/i);
+    renderer.destroy();
+    renderer.destroy();
+    expect(fixture.destroyCalls).toBe(2);
+  });
+
+  it("does not recommit frame state when present synchronously destroys the renderer", () => {
+    const clock = manualScheduler();
+    let renderer: TuiRenderer;
+    let destroyCalls = 0;
+    const surface: CellSurface = {
+      kind: "memory",
+      mount() {},
+      resize() {},
+      present() {
+        renderer.destroy();
+        return { rowsPainted: 1, runsPainted: 1 };
+      },
+      destroy() {
+        destroyCalls += 1;
+      },
+    };
+    renderer = new TuiRenderer({
+      surface,
+      size: { width: 10, height: 2 },
+      schedule: clock.schedule,
+    });
+    renderer.setRoot({ id: "owned", type: "text", text: "Reentrant" });
+
+    renderer.flush();
+
+    expect(destroyCalls).toBe(1);
+    expect(renderer.currentFrame).toBeNull();
+    expect(renderer.owners.size).toBe(1);
+    expect(renderer.diagnostics.renderRevision).toBe(0);
+    expect(renderer.diagnostics.schedulerPending).toBe(false);
+    expect(() => renderer.setRoot(counter(1))).toThrow(/teardown|destroy/i);
+    expect(clock.length).toBe(1);
+    clock.drain();
+    expect(renderer.currentFrame).toBeNull();
+    expect(destroyCalls).toBe(1);
   });
 
   it("invalidates queued work and keeps every render path closed while teardown retries", () => {

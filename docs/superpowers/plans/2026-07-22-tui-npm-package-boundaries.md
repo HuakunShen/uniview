@@ -705,15 +705,16 @@ Create `scripts/smoke-tui-tarballs.mjs` so it:
 
 - [x] **Step 2: Expose the smoke command**
 
-Add the smoke command and an explicit three-package publish allowlist:
+Add the smoke command and reserve the publish command for an exact-tarball
+orchestrator (implemented in Task 9):
 
 ```json
-"smoke:tui-packages": "pnpm verify:tui-packages && node scripts/smoke-tui-tarballs.mjs",
-"publish:tui": "pnpm smoke:tui-packages && pnpm publish -r --filter @uniview/tui-core --filter @uniview/tui-react --filter @uniview/tui-solid"
+"smoke:tui-packages": "pnpm verify:tui-packages && node scripts/smoke-tui-tarballs.mjs"
 ```
 
-The implementation and verification work must not execute `publish:tui`; it exists for the
-later user-authorized registry release and prevents a broad workspace publish.
+The implementation and verification work must not execute `publish:tui`. Task 9 adds it only
+after the exact descriptor-backed tarball orchestrator exists; recursive workspace/source-tree
+publishing is not an acceptable release path.
 
 - [x] **Step 3: Run the isolated smoke suite**
 
@@ -783,3 +784,126 @@ git log --oneline -7
 Expected: no whitespace errors, only intentional scoped changes remain, and the task commits
 match this plan. Do not run `pnpm publish`; publication requires the user's separate explicit
 instruction after release-candidate review.
+
+---
+
+### Task 8: Enforce one synchronous `CellSurface` contract
+
+**Files:**
+- Modify: `packages/tui-core/src/surface/types.ts`
+- Modify: `packages/tui-core/src/renderer/tui-renderer.ts`
+- Modify: `packages/tui-core/tests/renderer/tui-renderer.test.ts`
+- Modify: `scripts/verify-tui-package-boundaries.mjs`
+- Modify: `scripts/verify-tui-package-boundaries.test.mjs`
+- Modify: `scripts/smoke-tui-tarballs.mjs`
+- Modify: `packages/tui-core/README.md`
+- Modify: `docs/content/docs/tui/getting-started.mdx`
+- Modify: `docs/superpowers/specs/2026-07-22-tui-npm-package-boundaries-design.md`
+
+**Interfaces:**
+- Consumes: the existing synchronous ANSI, memory, and SVG surfaces.
+- Produces: `CellSurface.mount/resize/destroy(...): void` and
+  `CellSurface.present(...): PresentStats`, with runtime rejection of Promise/thenable results.
+
+- [x] **Step 1: Add runtime and packed-declaration regressions**
+
+Add renderer tests whose structurally bypassed surfaces return a thenable from each lifecycle
+method. Each call must throw a `CellSurface.<method>() must complete synchronously` error. Add a
+surface whose synchronous `present()` calls `renderer.destroy()` and assert:
+
+```ts
+expect(renderer.currentFrame).toBeNull()
+expect(renderer.owners.size).toBe(1) // only the reserved no-owner slot
+expect(() => renderer.flush()).toThrow(/teardown|destroy/i)
+clock.drain()
+expect(renderer.currentFrame).toBeNull()
+```
+
+Add a declaration validator test that rejects the old `void | Promise<void>` /
+`PresentStats | Promise<PresentStats>` interface and accepts only the synchronous signatures.
+
+- [x] **Step 2: Run RED**
+
+```bash
+pnpm --filter @uniview/tui-core test -- tests/renderer/tui-renderer.test.ts
+node --test scripts/verify-tui-package-boundaries.test.mjs
+```
+
+Expected: the thenable and reentrant-present assertions fail against the dual sync/async
+contract, and the declaration validator is not yet exported.
+
+- [x] **Step 3: Narrow the type and enforce it at runtime**
+
+Change the public interface to synchronous return types. In `TuiRenderer`, inspect every
+surface call result; an object/function with a callable `then` is a fatal contract violation.
+Begin durable teardown before throwing, and commit `previous`, owners, and rendered diagnostics
+after `present()` only while lifecycle is still active.
+
+- [x] **Step 4: Run focused GREEN and document custom surfaces**
+
+Run the two RED commands again. Update core/user/design docs to state custom surfaces must finish
+mount, resize, frame presentation, and destruction synchronously; asynchronous I/O belongs
+behind a surface-owned queue and cannot be returned to the renderer.
+
+---
+
+### Task 9: Publish the descriptor-verified tarballs, never the source tree
+
+**Files:**
+- Create: `scripts/publish-tui-tarballs.mjs`
+- Create: `scripts/publish-tui-tarballs.test.mjs`
+- Modify: `package.json`
+- Modify: `.gitignore`
+- Modify: `README.md`
+- Modify: `docs/superpowers/specs/2026-07-22-tui-npm-package-boundaries-design.md`
+
+**Interfaces:**
+- Consumes: `verify:tui-packages`, `smoke-tui-tarballs.mjs --prepare/--reuse`, and
+  `loadTarballDescriptor()`.
+- Produces: `publish:tui` and `publish:tui:dry-run`, both using exact absolute descriptor
+  filenames in core, React, Solid order.
+
+- [x] **Step 1: Add an injected command-plan test**
+
+Test a wished-for `orchestrateTuiPublish({ dryRun, runCommand, resetArtifacts,
+loadDescriptor })`. Assert the final commands are exactly:
+
+```js
+["publish", coreTgz, "--access", "public", "--ignore-scripts", "--publish-branch", "main"]
+["publish", reactTgz, "--access", "public", "--ignore-scripts", "--publish-branch", "main"]
+["publish", solidTgz, "--access", "public", "--ignore-scripts", "--publish-branch", "main"]
+```
+
+Dry-run adds only `--dry-run`. Tests must prove no recursive/source publish, no glob inference,
+no `--no-git-checks`, stop-on-first-failure, and descriptor/tamper rejection before any publish.
+
+- [x] **Step 2: Run RED**
+
+```bash
+node --test scripts/publish-tui-tarballs.test.mjs
+```
+
+Expected: module/API missing; no registry command executes.
+
+- [x] **Step 3: Implement the safe orchestrator**
+
+Require root Node 24+, run full verification, safely replace only the exact ignored
+`.tui-release/` directory, prepare and load the exact four-file artifact, run `--reuse`, reload
+the descriptor, then execute the three positional tarball commands sequentially. Preserve the
+artifact on success and failure. The real runner uses `pnpm publish` with default git checks;
+`--ignore-scripts` prevents `prepublishOnly` from rebuilding source bytes.
+
+- [x] **Step 4: Run focused GREEN without publishing**
+
+```bash
+node --test scripts/publish-tui-tarballs.test.mjs
+```
+
+Do not run `publish:tui`. Do not run `publish:tui:dry-run` unless it is independently proven to
+avoid network and registry state; the injected command-plan test is the required safe proof.
+
+- [x] **Step 5: Run the complete release validation**
+
+Run all six release suites plus host, ten-package build/type checks, release gates, default
+packed smoke, one persistent descriptor reused on Node 25/18.20.8/20.19.0/24, docs checks,
+frozen install validation, static scans, and final diff/status review. No actual publish occurs.
