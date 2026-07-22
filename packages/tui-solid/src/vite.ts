@@ -18,7 +18,7 @@ export interface UniviewSolidVitePlugin {
     config: Record<string, unknown>,
     environment: { command: "build" | "serve"; mode: string },
   ): {
-    resolve: { conditions: string[] };
+    resolve: { conditions: string[]; dedupe: string[] };
     ssr: {
       noExternal: string[];
       resolve: { conditions: string[] };
@@ -60,6 +60,7 @@ export function univiewSolid(): UniviewSolidVitePlugin {
       return {
         resolve: {
           conditions,
+          dedupe: ["solid-js"],
         },
         ssr: {
           resolve: { conditions },

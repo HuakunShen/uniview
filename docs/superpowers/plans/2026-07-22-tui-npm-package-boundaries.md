@@ -28,8 +28,9 @@
   same scanner to sha256-verified core and binding files extracted from the packed artifact.
 - `pnpm test:tui-release` and `pnpm check-types:tui-release` permanently cover protocol, core,
   host, both renderers, content, charts, style, and both bindings. `verify:tui-packages` runs the
-  unit/parity command before builds, type checks, release-tool suites, and the boundary scan;
-  `smoke:tui-packages` and the publisher inherit that gate.
+  unit/parity command and the real Vite 5.4.21 Solid example suites before builds, type checks,
+  release-tool suites, and the boundary scan; `smoke:tui-packages` and the publisher inherit that
+  gate.
 - The packed core fixture remains the low-level memory-surface check. Packed React and Solid
   fixtures use each binding's public high-level `render()` with injected fake TTY streams and
   assert ANSI output, listener/raw-mode teardown, synchronous framework cleanup, replacement,
@@ -40,11 +41,12 @@
   `babel-preset-solid`. It exercises the public Vite transform and JSX augmentation, uses the
   repository's TypeScript executable only as compiler tooling, and does not inject
   `@types/node`, `typeRoots`, or internal packages.
-- Vite resolution sets shared and SSR conditions to
-  `module,browser,development|production`, keeps Solid and the public renderer non-externalized,
-  and is tested with Vite 8.1.5's real client/SSR environments. A separate packed consumer runs
-  real TSX through `vite-node` 6.0.0 and proves a signal produces a second frame; only Node 18 is
-  skipped by the release matrix because it is outside the current tool engine.
+- Vite resolution deduplicates `solid-js`, sets shared and SSR conditions to
+  `module,browser,development|production`, and keeps Solid and the public renderer
+  non-externalized. The mandatory pre-build gate runs both real Vite 5.4.21 Solid examples,
+  including lazygit signal reactivity. Vite 8.1.5's real client/SSR environments and a separate
+  packed TSX consumer through `vite-node` 6.0.0 cover the current endpoint; only Node 18 is skipped
+  by that packed current-tool smoke because it is outside the tool engine.
 - The private release-tool contract is Node `^24.15.0 || >=26.0.0` because tsdown and the
   publisher are build tooling; the three packed public packages retain their independent Node 18
   runtime contract.
@@ -700,7 +702,8 @@ Create `scripts/smoke-tui-tarballs.mjs` so it:
 
 - packs exactly core, React, and Solid and validates their packed manifests and exports;
 - supports a Node 24 `--prepare <directory>` phase that writes exactly those tarballs plus a
-  deterministic descriptor containing their package identities, manifests, files, and sha256;
+  canonical run-local descriptor containing their package identities, manifests, files, and
+  sha256; its identity is deterministic within that prepared run, not across separate pack calls;
 - supports a Node 18+ `--reuse <descriptor>` phase that validates and runs those exact existing
   tarballs without invoking tsdown, rebuilding, or repacking;
 - rejects unsafe/duplicate/out-of-bounds tar entries, unsupported links/devices, and any extra
@@ -1120,3 +1123,27 @@ on supported Node versions. Give every `TerminalDriver.start()` distinct data/re
 a monotonically increasing generation, reject stale EventEmitter snapshots before parser/timer/size
 work, recheck after user input callbacks, and snapshot session function values without retaining the
 caller's mutable receiver.
+
+---
+
+### Task 15: Close final review 16's Vite 5 release blocker
+
+- [x] **Step 1: Deduplicate the Solid runtime in the public Vite helper**
+
+Add `resolve.dedupe: ["solid-js"]` to `univiewSolid()` and its structural return type. Assert the
+exact list in the focused Vite unit suite so linked consumers cannot silently load a second Solid
+instance.
+
+- [x] **Step 2: Put real Vite 5 reactivity before packing**
+
+Add the durable `test:tui-vite5-solid` root command for both Vite 5.4.21 examples and make
+`verify:tui-packages` run it after the ten-package unit/parity gate but before release builds. Keep
+the lazygit no-rerender assertion as the behavioral proof that a signal mutation reaches the next
+terminal frame. Pin the ordering in the release workflow contract test.
+
+- [x] **Step 3: Scope release artifact determinism accurately**
+
+Document that a prepared descriptor and its tarball bytes form one immutable deterministic
+identity for smoke, reuse, and publication. Do not promise byte-identical `.tgz` output across
+independent `pnpm pack` invocations; package metadata ordering may change while packed content
+remains equivalent.

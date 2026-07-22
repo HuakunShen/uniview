@@ -117,7 +117,8 @@ The Solid package follows the same contract. It keeps `solid-js ^1.9.10` as a pe
 exactly `solid-js 1.9.10` for binding development/tests, matching the lower bound declared by
 the installed `babel-preset-solid`. It keeps `@uniview/tui-core` external and bundles
 `host-tui`, `solid-renderer`, `tui-content`, `tui-charts`, `protocol`, and `style` into
-JavaScript and declarations.
+JavaScript and declarations. Its structural Vite helper sets `resolve.dedupe: ["solid-js"]` so
+linked consumers and the binding share one reactive runtime.
 
 ## 4. Build and manifest changes
 
@@ -198,11 +199,13 @@ runtime floor of the three public tarballs, whose manifests remain `node >=18`.
 
 The release smoke therefore has two immutable phases. One non-matrix Node 24 job verifies,
 builds, and packs the exact three public packages into an explicit directory, then writes and
-uploads one named artifact containing a deterministic descriptor plus those tarballs. The
+uploads one named artifact containing a canonical descriptor for those run-local tarballs. The
 descriptor covers package names, versions, packed manifests, file lists, normalized safe tar
 paths, supported regular-file entry types, archive bounds, duplicate rejection, directory
-topology, and sha256 hashes. Every runtime matrix job downloads that same artifact, switches
-Node versions, and installs/runs the same existing bytes without rebuilding or repacking.
+topology, and sha256 hashes. That identity is deterministic and immutable within the prepared
+run; separate `pnpm pack` invocations are not required to produce byte-identical `.tgz` files.
+Every runtime matrix job downloads that same artifact, switches Node versions, and installs/runs
+the same existing bytes without rebuilding or repacking.
 
 Local publication uses the same descriptor model under the persistent ignored `.tui-release/`
 root. An exclusive sibling `.tui-release.lock` is acquired before the artifact root is created and
@@ -232,7 +235,9 @@ surfaced directly.
 Before publishing:
 
 1. Run `test:tui-release`, which covers protocol, core, host, both renderers, content, charts,
-   style, and both bindings inside the real `verify:tui-packages`/publication gate.
+   style, and both bindings. Then run the mandatory `test:tui-vite5-solid` gate against both
+   Vite 5.4.21 Solid examples, including lazygit's signal-driven second frame. Both commands run
+   inside the real `verify:tui-packages`/publication gate before release builds or packing.
 2. Build and type-check the three public packages and all implementation packages they use.
 3. Inspect emitted JavaScript: React/Solid may import `@uniview/tui-core`, but no other
    `@uniview/*` package. Independently scan every core JavaScript file with AST-derived imports
@@ -254,7 +259,8 @@ Before publishing:
 8. Run a React ANSI smoke app, a Solid ANSI smoke app, and a core-only memory-surface test in
    both normal and `NODE_ENV=production` modes. On Node versions supported by the current tools,
    also run packed Solid TSX through Vite 8.1.5 / `vite-node` 6.0.0, mutate a signal, and require a
-   second frame; the structural helper remains compatible with the Vite 5.4 examples.
+   second frame. Together with the mandatory Vite 5.4.21 example gate, this exercises both ends of
+   the documented Vite 5.4.21-through-8.1.5 compatibility range.
 9. In CI, make every actual Node 18.20.8, Node 20.19.0, and Node 24 runtime leg depend on the
    prepare job, download its shared artifact, and reuse it without invoking workspace build or
    pack tooling after the runtime switch.

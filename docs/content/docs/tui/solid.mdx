@@ -100,10 +100,13 @@ import type {} from "@uniview/tui-solid/jsx-runtime";
 ```
 
 <Callout type="info">
-The helper keeps the renderer in Vite's SSR graph and sets the required conditions. Add
-`vite`, `vite-node`, TypeScript, and `@types/node` as normal development tooling; they are not
-terminal-app runtime dependencies. The compatibility gate covers Vite 5.4.21 through 8.1.5 and
-runs the current Vite 8.1.5 / `vite-node` 6.0.0 pair on its supported Node versions.
+  The helper deduplicates `solid-js`, keeps the renderer in Vite's SSR graph,
+  and sets the required conditions. Add `vite`, `vite-node`, TypeScript, and
+  `@types/node` as normal development tooling; they are not terminal-app runtime
+  dependencies. The supported range is Vite 5.4.21 through 8.1.5: the mandatory
+  pre-packaging gate runs both Vite 5.4.21 Solid examples, including a
+  signal-driven second frame, and the packed-consumer gate runs Vite 8.1.5 /
+  `vite-node` 6.0.0 on its supported Node versions.
 </Callout>
 
 ## Reactivity notes

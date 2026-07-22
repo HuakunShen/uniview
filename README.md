@@ -58,6 +58,10 @@ user, global, environment, scoped registry, auth, and provenance configuration i
 `@npmcli/config`, while access is forced to public and the default tag to `latest`. Secrets are
 never logged or serialized by the release script. Every run directory is preserved for audit.
 
+That immutable identity is scoped to one prepared run: smoke, reuse, and publication consume its
+exact captured bytes. Separate `pnpm pack` invocations are not required to produce byte-identical
+`.tgz` files, even when their package contents and packed manifests are equivalent.
+
 Registry publication is sequential, not transactional. If core succeeds and a later package
 fails, the registry is partially released; the orchestrator stops before the next package and
 keeps the exact run directory for deliberate recovery. It never silently rebuilds, replaces, or

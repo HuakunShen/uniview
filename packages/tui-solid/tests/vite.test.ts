@@ -14,11 +14,12 @@ describe("univiewSolid", () => {
     expect(output?.code).not.toContain("@uniview/solid-renderer");
   });
 
-  it("sets cross-version browser conditions for shared and SSR resolution", () => {
+  it("sets cross-version browser conditions and deduplicates Solid", () => {
     const plugin = univiewSolid();
     const config = plugin.config({}, { command: "build", mode: "production" });
 
     const expected = ["module", "browser", "development|production"];
+    expect(config.resolve.dedupe).toEqual(["solid-js"]);
     expect(config.resolve.conditions).toEqual(expected);
     expect(config.ssr.resolve.conditions).toEqual(expected);
     expect(config.resolve.conditions).not.toContain("node");

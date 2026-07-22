@@ -17,14 +17,15 @@ dependencies of your terminal app:
 pnpm add -D vite vite-node typescript @types/node
 ```
 
-The helper is covered from Vite 5.4.21 through Vite 8.1.5. The current toolchain gate uses
-Vite 8.1.5 with `vite-node` 6.0.0 on its supported Node line; Vite 5 examples remain supported.
+The supported range is Vite 5.4.21 through Vite 8.1.5. The mandatory pre-packaging gate runs both
+Vite 5.4.21 Solid examples, including lazygit's signal-driven second frame. The packed-consumer
+gate separately runs Vite 8.1.5 with `vite-node` 6.0.0 on its supported Node line.
 
 ## Configure Vite and TypeScript
 
 Create `vite.config.ts` with the public helper. It lowers TSX to Uniview's terminal renderer,
-uses the reactive Solid development/browser conditions in Node, and keeps the relevant modules
-inside Vite's SSR graph:
+uses the reactive Solid development/browser conditions in Node, deduplicates `solid-js` across
+linked packages, and keeps the relevant modules inside Vite's SSR graph:
 
 ```ts
 import { univiewSolid } from "@uniview/tui-solid/vite";

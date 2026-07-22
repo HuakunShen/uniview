@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { MemoryCellSurface, StyleTable, type Color, type TuiInputEvent } from "@uniview/tui-core";
+import { version as viteVersion } from "vite";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  type Color,
+  type TuiInputEvent,
+} from "@uniview/tui-core";
 import { createTuiSolidRoot } from "@uniview/tui-solid";
 import { App, createAppState, handleKey, type AppHost } from "../src/app";
 
 const tick = async () => {
-  for (let i = 0; i < 25; i += 1) await new Promise<void>((r) => setTimeout(r, 0));
+  for (let i = 0; i < 25; i += 1)
+    await new Promise<void>((r) => setTimeout(r, 0));
 };
 
 function mount(width: number, height: number) {
@@ -30,6 +37,10 @@ const key = (k: string, shift = false): TuiInputEvent => ({
 const text = (t: string): TuiInputEvent => ({ type: "text", text: t });
 
 describe("lazygit demo (Solid)", () => {
+  it("runs the reactive example through the Vite 5 compatibility endpoint", () => {
+    expect(viteVersion).toBe("5.4.21");
+  });
+
   it("renders the five left panels, the log panel and the status bar", async () => {
     const { root, surface } = mount(100, 30);
     await tick();

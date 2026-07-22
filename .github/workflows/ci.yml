@@ -83,7 +83,7 @@ jobs:
         env:
           CF_PAGES: "1"
 
-      - name: Verify, build, and pack one immutable TUI artifact
+      - name: Verify Vite 5 compatibility, build, and pack one immutable TUI artifact
         run: |
           pnpm verify:tui-packages
           node scripts/smoke-tui-tarballs.mjs --prepare "$RUNNER_TEMP/uniview-tui-tarballs"
