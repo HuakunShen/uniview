@@ -51,7 +51,7 @@ export interface TerminalDriverOptions {
 export class TerminalDriver {
   private readonly parser = new InputParser();
   private readonly mode;
-  private entered = false;
+  private running = false;
   private rawModeEnabled = false;
   private inputResumed = false;
   private dataListenerAttached = false;
@@ -122,29 +122,42 @@ export class TerminalDriver {
     });
   };
 
+  private hasOwnedResources(): boolean {
+    return (
+      this.rawModeEnabled ||
+      this.inputResumed ||
+      this.dataListenerAttached ||
+      this.resizeListenerAttached ||
+      this.enterSequenceWritten
+    );
+  }
+
   start(): void {
-    if (this.entered) throw new Error("TerminalDriver already started");
-    this.entered = true;
+    if (this.running || this.hasOwnedResources()) {
+      throw new Error("TerminalDriver already started or cleanup is pending");
+    }
+    this.running = true;
 
     const { input, output } = this.options;
     try {
       if (input.isTTY && input.setRawMode) {
-        input.setRawMode(true);
         this.rawModeEnabled = true;
+        input.setRawMode(true);
       }
       if (input.resume) {
-        input.resume();
         this.inputResumed = true;
+        input.resume();
       }
-      input.on("data", this.onData);
       this.dataListenerAttached = true;
-      output.on("resize", this.onResize);
+      input.on("data", this.onData);
       this.resizeListenerAttached = true;
-      output.write(buildEnterSequence(this.mode));
+      output.on("resize", this.onResize);
       this.enterSequenceWritten = true;
+      output.write(buildEnterSequence(this.mode));
     } catch (error) {
+      this.running = false;
       try {
-        this.stop();
+        this.releaseResources();
       } catch {
         // Preserve the startup error after best-effort rollback.
       }
@@ -153,33 +166,70 @@ export class TerminalDriver {
   }
 
   stop(): void {
-    if (!this.entered) return;
-    this.entered = false;
+    if (!this.running && !this.hasOwnedResources()) return;
+    this.running = false;
     this.clearEscapeTimer();
 
+    this.releaseResources();
+  }
+
+  private releaseResources(): void {
+    let firstError: unknown;
+    let hasError = false;
+    const attempt = (release: () => void, released: () => void): void => {
+      try {
+        release();
+        released();
+      } catch (error) {
+        if (!hasError) {
+          firstError = error;
+          hasError = true;
+        }
+      }
+    };
+
     const { input, output } = this.options;
-    try {
-      if (this.enterSequenceWritten) {
-        this.enterSequenceWritten = false;
-        output.write(buildLeaveSequence(this.mode));
-      }
-    } finally {
-      if (this.dataListenerAttached) {
-        this.dataListenerAttached = false;
-        input.off("data", this.onData);
-      }
-      if (this.resizeListenerAttached) {
-        this.resizeListenerAttached = false;
-        output.off("resize", this.onResize);
-      }
-      if (this.rawModeEnabled) {
-        this.rawModeEnabled = false;
-        input.setRawMode?.(false);
-      }
-      if (this.inputResumed) {
-        this.inputResumed = false;
-        input.pause?.();
-      }
+    if (this.enterSequenceWritten) {
+      attempt(
+        () => output.write(buildLeaveSequence(this.mode)),
+        () => {
+          this.enterSequenceWritten = false;
+        },
+      );
     }
+    if (this.dataListenerAttached) {
+      attempt(
+        () => input.off("data", this.onData),
+        () => {
+          this.dataListenerAttached = false;
+        },
+      );
+    }
+    if (this.resizeListenerAttached) {
+      attempt(
+        () => output.off("resize", this.onResize),
+        () => {
+          this.resizeListenerAttached = false;
+        },
+      );
+    }
+    if (this.rawModeEnabled) {
+      attempt(
+        () => input.setRawMode?.(false),
+        () => {
+          this.rawModeEnabled = false;
+        },
+      );
+    }
+    if (this.inputResumed) {
+      attempt(
+        () => input.pause?.(),
+        () => {
+          this.inputResumed = false;
+        },
+      );
+    }
+
+    if (hasError) throw firstError;
   }
 }

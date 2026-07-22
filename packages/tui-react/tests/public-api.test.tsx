@@ -42,8 +42,11 @@ class FakeOutput implements TtyOutput {
   rows = 3;
   readonly chunks: string[] = [];
   readonly listeners = new Set<() => void>();
+  failWrite: ((chunk: string) => Error | undefined) | undefined;
 
   write(chunk: string): void {
+    const error = this.failWrite?.(chunk);
+    if (error) throw error;
     this.chunks.push(chunk);
   }
 
@@ -153,5 +156,51 @@ describe("public React TUI facade", () => {
     expect(input.rawModes).toEqual([true, false]);
     expect(input.listeners.size).toBe(0);
     expect(output.listeners.size).toBe(0);
+  });
+
+  it("stops the driver after host teardown fails, preserves that error, and permits retry", async () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    // Deliberately reuse the guard message: classification must use the stable
+    // renderer error identity, never text matching.
+    const hostError = new Error(
+      "Cannot destroy a React renderer during React work; schedule destroy outside render, commit, or effects (for example with queueMicrotask)",
+    );
+    const driverError = new Error("terminal leave failed");
+    let hostFailed = false;
+    let driverFailed = false;
+
+    const app = render(h(Text, null, "Cleanup"), { input, output });
+    await tick();
+
+    output.failWrite = (chunk) => {
+      if (!hostFailed && chunk === "\x1b[0m\x1b[?25h") {
+        hostFailed = true;
+        return hostError;
+      }
+      if (hostFailed && !driverFailed) {
+        driverFailed = true;
+        return driverError;
+      }
+      return undefined;
+    };
+
+    let caught: unknown;
+    try {
+      app.destroy();
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBe(hostError);
+    expect(hostFailed).toBe(true);
+    expect(driverFailed).toBe(true);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+    expect(() => app.render(h(Text, null, "Too late"))).toThrow(
+      /teardown has started/,
+    );
+
+    expect(() => app.destroy()).not.toThrow();
   });
 });

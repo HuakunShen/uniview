@@ -3,6 +3,7 @@ import {
   HandlerRegistry,
   MutationCollector,
   createRenderer,
+  isReactReentrantUnmountError,
   render as reactRender,
   serializeTree,
   unmount,
@@ -232,6 +233,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     unsubscribe = handle.subscribe(syncFull);
   }
   let destroyed = false;
+  let teardownStarted = false;
 
   return {
     host,
@@ -240,6 +242,11 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     render(element: ReactElement): void {
       if (destroyed) {
         throw new Error("Cannot render into a destroyed TUI React root");
+      }
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot render after TUI React root teardown has started",
+        );
       }
       // React (ConcurrentRoot) commits asynchronously; `sync` runs from the
       // bridge subscription on every commit, painting each frame. The Providers
@@ -260,11 +267,17 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
 
     destroy(): void {
       if (destroyed) return;
-      unmount(handle);
-      destroyed = true;
+      try {
+        unmount(handle);
+      } catch (error) {
+        if (!isReactReentrantUnmountError(error)) teardownStarted = true;
+        throw error;
+      }
+      teardownStarted = true;
       unsubscribe();
       registry.clear();
       host.destroy();
+      destroyed = true;
     },
   };
 }
@@ -314,7 +327,18 @@ export function render(
     render: (next) => root.render(next),
     dispatchInput: (event) => root.dispatchInput(event),
     destroy: () => {
-      root.destroy();
+      try {
+        root.destroy();
+      } catch (error) {
+        if (isReactReentrantUnmountError(error)) throw error;
+        try {
+          driver.stop();
+        } catch {
+          // The root teardown error is the actionable cause. Terminal cleanup
+          // remains best-effort and must not replace it.
+        }
+        throw error;
+      }
       driver.stop();
     },
   };

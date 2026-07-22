@@ -6,7 +6,13 @@
  */
 import { createElement, useEffect, useLayoutEffect } from "react";
 import { describe, expect, test } from "vitest";
-import { createRenderer, render, unmount } from "../src";
+import {
+  ReactReentrantUnmountError,
+  createRenderer,
+  isReactReentrantUnmountError,
+  render,
+  unmount,
+} from "../src";
 import { flush } from "./flush";
 
 describe("unmount", () => {
@@ -51,8 +57,19 @@ describe("unmount", () => {
     await flush();
 
     expect(error).toMatchObject({
+      name: "ReactReentrantUnmountError",
+      code: "UNIVIEW_REACT_REENTRANT_UNMOUNT",
       message: expect.stringMatching(/queueMicrotask/),
     });
+    expect(error).toBeInstanceOf(ReactReentrantUnmountError);
+    expect(isReactReentrantUnmountError(error)).toBe(true);
+    expect(
+      isReactReentrantUnmountError(
+        new Error(
+          "Cannot destroy a React renderer during React work; schedule destroy outside render, commit, or effects (for example with queueMicrotask)",
+        ),
+      ),
+    ).toBe(false);
     expect(renderer.rootInstance).not.toBeNull();
 
     unmount(renderer);
@@ -78,8 +95,12 @@ describe("unmount", () => {
     await flush();
 
     expect(error).toMatchObject({
+      name: "ReactReentrantUnmountError",
+      code: "UNIVIEW_REACT_REENTRANT_UNMOUNT",
       message: expect.stringMatching(/queueMicrotask/),
     });
+    expect(error).toBeInstanceOf(ReactReentrantUnmountError);
+    expect(isReactReentrantUnmountError(error)).toBe(true);
     expect(renderer.rootInstance).not.toBeNull();
 
     unmount(renderer);

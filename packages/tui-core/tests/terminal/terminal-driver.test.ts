@@ -53,6 +53,15 @@ function fakeTty(columns = 80, rows = 24) {
   };
 }
 
+function captureError(callback: () => void): unknown {
+  try {
+    callback();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected callback to throw");
+}
+
 describe("TerminalDriver — lifecycle", () => {
   it("enters raw mode and emits the enter sequence on start", () => {
     const tty = fakeTty();
@@ -119,7 +128,7 @@ describe("TerminalDriver — lifecycle", () => {
     expect(() => driver.start()).toThrow();
   });
 
-  it("rolls back only terminal setup completed before start fails", () => {
+  it("rolls back every terminal setup step that may have started before failure", () => {
     const rawModes: boolean[] = [];
     let resumeCount = 0;
     let pauseCount = 0;
@@ -154,11 +163,13 @@ describe("TerminalDriver — lifecycle", () => {
       onEvent: () => {},
     });
 
-    expect(() => driver.start()).toThrow(startError);
+    expect(captureError(() => driver.start())).toBe(startError);
     expect(rawModes).toEqual([true, false]);
     expect(resumeCount).toBe(1);
     expect(pauseCount).toBe(1);
-    expect(inputOffCount).toBe(0);
+    // The listener acquisition may have attached before throwing, so rollback
+    // must attempt the inverse even when this fake throws before side effects.
+    expect(inputOffCount).toBe(1);
     expect(outputOffCount).toBe(0);
     expect(writes).toEqual([]);
 
@@ -166,6 +177,303 @@ describe("TerminalDriver — lifecycle", () => {
     expect(rawModes).toEqual([true, false]);
     expect(pauseCount).toBe(1);
     expect(writes).toEqual([]);
+  });
+
+  const startSteps = [
+    "raw mode",
+    "input resume",
+    "data listener",
+    "resize listener",
+    "enter sequence",
+  ] as const;
+
+  it.each(startSteps)(
+    "rolls back a partially applied %s failure and can start again",
+    (failedStep) => {
+      const startError = new Error(`${failedStep} failed`);
+      const dataListeners = new Set<(chunk: Uint8Array | string) => void>();
+      const resizeListeners = new Set<() => void>();
+      let raw = false;
+      let resumed = false;
+      let enteredAlternateScreen = false;
+      let injected = false;
+
+      const failAfterSideEffect = (step: (typeof startSteps)[number]): void => {
+        if (failedStep === step && !injected) {
+          injected = true;
+          throw startError;
+        }
+      };
+
+      const input = {
+        isTTY: true,
+        setRawMode: (mode: boolean) => {
+          raw = mode;
+          if (mode) failAfterSideEffect("raw mode");
+        },
+        resume: () => {
+          resumed = true;
+          failAfterSideEffect("input resume");
+        },
+        pause: () => {
+          resumed = false;
+        },
+        on: (
+          _event: "data",
+          listener: (chunk: Uint8Array | string) => void,
+        ) => {
+          dataListeners.add(listener);
+          failAfterSideEffect("data listener");
+        },
+        off: (
+          _event: "data",
+          listener: (chunk: Uint8Array | string) => void,
+        ) => {
+          dataListeners.delete(listener);
+        },
+      };
+      const output = {
+        write: (chunk: string) => {
+          if (chunk.includes("\x1b[?1049h")) {
+            enteredAlternateScreen = true;
+            failAfterSideEffect("enter sequence");
+          }
+          if (chunk.includes("\x1b[?1049l")) enteredAlternateScreen = false;
+        },
+        on: (_event: "resize", listener: () => void) => {
+          resizeListeners.add(listener);
+          failAfterSideEffect("resize listener");
+        },
+        off: (_event: "resize", listener: () => void) => {
+          resizeListeners.delete(listener);
+        },
+      };
+      const driver = new TerminalDriver({ input, output, onEvent: () => {} });
+
+      expect(captureError(() => driver.start())).toBe(startError);
+      expect({
+        raw,
+        resumed,
+        dataListeners: dataListeners.size,
+        resizeListeners: resizeListeners.size,
+        enteredAlternateScreen,
+      }).toEqual({
+        raw: false,
+        resumed: false,
+        dataListeners: 0,
+        resizeListeners: 0,
+        enteredAlternateScreen: false,
+      });
+
+      expect(() => driver.start()).not.toThrow();
+      expect({
+        raw,
+        resumed,
+        dataListeners: dataListeners.size,
+        resizeListeners: resizeListeners.size,
+        enteredAlternateScreen,
+      }).toEqual({
+        raw: true,
+        resumed: true,
+        dataListeners: 1,
+        resizeListeners: 1,
+        enteredAlternateScreen: true,
+      });
+      driver.stop();
+    },
+  );
+
+  const stopSteps = [
+    "leave sequence",
+    "data listener",
+    "resize listener",
+    "raw mode",
+    "input pause",
+  ] as const;
+
+  it.each(stopSteps)(
+    "isolates and retries a failed %s release without repeating successful releases",
+    (failedStep) => {
+      const stopError = new Error(`${failedStep} failed`);
+      const dataListeners = new Set<(chunk: Uint8Array | string) => void>();
+      const resizeListeners = new Set<() => void>();
+      const releaseCalls = new Map<(typeof stopSteps)[number], number>();
+      let raw = false;
+      let resumed = false;
+      let enteredAlternateScreen = false;
+      let injectStopFailure = false;
+      let injected = false;
+
+      const release = (step: (typeof stopSteps)[number]): void => {
+        releaseCalls.set(step, (releaseCalls.get(step) ?? 0) + 1);
+        if (injectStopFailure && failedStep === step && !injected) {
+          injected = true;
+          throw stopError;
+        }
+      };
+
+      const input = {
+        isTTY: true,
+        setRawMode: (mode: boolean) => {
+          raw = mode;
+          if (!mode) release("raw mode");
+        },
+        resume: () => {
+          resumed = true;
+        },
+        pause: () => {
+          resumed = false;
+          release("input pause");
+        },
+        on: (
+          _event: "data",
+          listener: (chunk: Uint8Array | string) => void,
+        ) => {
+          dataListeners.add(listener);
+        },
+        off: (
+          _event: "data",
+          listener: (chunk: Uint8Array | string) => void,
+        ) => {
+          dataListeners.delete(listener);
+          release("data listener");
+        },
+      };
+      const output = {
+        write: (chunk: string) => {
+          if (chunk.includes("\x1b[?1049h")) enteredAlternateScreen = true;
+          if (chunk.includes("\x1b[?1049l")) {
+            enteredAlternateScreen = false;
+            release("leave sequence");
+          }
+        },
+        on: (_event: "resize", listener: () => void) => {
+          resizeListeners.add(listener);
+        },
+        off: (_event: "resize", listener: () => void) => {
+          resizeListeners.delete(listener);
+          release("resize listener");
+        },
+      };
+      const driver = new TerminalDriver({ input, output, onEvent: () => {} });
+      driver.start();
+      injectStopFailure = true;
+
+      expect(captureError(() => driver.stop())).toBe(stopError);
+      expect({
+        raw,
+        resumed,
+        dataListeners: dataListeners.size,
+        resizeListeners: resizeListeners.size,
+        enteredAlternateScreen,
+      }).toEqual({
+        raw: false,
+        resumed: false,
+        dataListeners: 0,
+        resizeListeners: 0,
+        enteredAlternateScreen: false,
+      });
+      for (const step of stopSteps) {
+        expect(releaseCalls.get(step)).toBe(1);
+      }
+
+      expect(() => driver.start()).toThrow(/started|cleanup/i);
+      expect(() => driver.stop()).not.toThrow();
+      for (const step of stopSteps) {
+        expect(releaseCalls.get(step)).toBe(step === failedStep ? 2 : 1);
+      }
+
+      driver.stop();
+      for (const step of stopSteps) {
+        expect(releaseCalls.get(step)).toBe(step === failedStep ? 2 : 1);
+      }
+    },
+  );
+
+  it("preserves the startup error while isolating rollback failures", () => {
+    const startError = new Error("enter failed");
+    const cleanupErrors = stopSteps.map(
+      (step) => new Error(`${step} rollback failed`),
+    );
+    const cleanupAttempts = new Map<(typeof stopSteps)[number], number>();
+    let raw = false;
+    let resumed = false;
+    let dataAttached = false;
+    let resizeAttached = false;
+    let enteredAlternateScreen = false;
+    let failCleanup = true;
+
+    const cleanup = (step: (typeof stopSteps)[number]): void => {
+      cleanupAttempts.set(step, (cleanupAttempts.get(step) ?? 0) + 1);
+      if (failCleanup) throw cleanupErrors[stopSteps.indexOf(step)];
+    };
+
+    const driver = new TerminalDriver({
+      input: {
+        isTTY: true,
+        setRawMode: (mode) => {
+          raw = mode;
+          if (!mode) cleanup("raw mode");
+        },
+        resume: () => {
+          resumed = true;
+        },
+        pause: () => {
+          resumed = false;
+          cleanup("input pause");
+        },
+        on: () => {
+          dataAttached = true;
+        },
+        off: () => {
+          dataAttached = false;
+          cleanup("data listener");
+        },
+      },
+      output: {
+        write: (chunk) => {
+          if (chunk.includes("\x1b[?1049h")) {
+            enteredAlternateScreen = true;
+            throw startError;
+          }
+          if (chunk.includes("\x1b[?1049l")) {
+            enteredAlternateScreen = false;
+            cleanup("leave sequence");
+          }
+        },
+        on: () => {
+          resizeAttached = true;
+        },
+        off: () => {
+          resizeAttached = false;
+          cleanup("resize listener");
+        },
+      },
+      onEvent: () => {},
+    });
+
+    expect(captureError(() => driver.start())).toBe(startError);
+    expect({
+      raw,
+      resumed,
+      dataAttached,
+      resizeAttached,
+      enteredAlternateScreen,
+    }).toEqual({
+      raw: false,
+      resumed: false,
+      dataAttached: false,
+      resizeAttached: false,
+      enteredAlternateScreen: false,
+    });
+    for (const step of stopSteps) expect(cleanupAttempts.get(step)).toBe(1);
+    expect(() => driver.start()).toThrow(/started|cleanup/i);
+
+    failCleanup = false;
+    expect(() => driver.stop()).not.toThrow();
+    for (const step of stopSteps) expect(cleanupAttempts.get(step)).toBe(2);
+    expect(() => driver.stop()).not.toThrow();
+    for (const step of stopSteps) expect(cleanupAttempts.get(step)).toBe(2);
   });
 });
 

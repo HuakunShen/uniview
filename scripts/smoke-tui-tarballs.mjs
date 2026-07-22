@@ -513,7 +513,12 @@ class FakeOutput {
   rows = 2
   chunks = []
   resizeListeners = new Set()
-  write(chunk) { this.chunks.push(chunk) }
+  failWrite
+  write(chunk) {
+    const error = this.failWrite?.(chunk)
+    if (error) throw error
+    this.chunks.push(chunk)
+  }
   on(event, listener) {
     assert.equal(event, "resize")
     this.resizeListeners.add(listener)
@@ -568,6 +573,44 @@ assert.equal(output.resizeListeners.size, 0)
 app.destroy()
 assert.equal(cleanupCount, 1)
 assert.deepEqual(input.rawModes, [true, false])
+
+const cleanupInput = new FakeInput()
+const cleanupOutput = new FakeOutput()
+const hostError = new Error("host teardown failed")
+const driverError = new Error("terminal leave failed")
+let hostFailed = false
+let driverFailed = false
+const cleanupApp = render(createElement(Text, null, "Cleanup failure"), {
+  input: cleanupInput,
+  output: cleanupOutput,
+})
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+cleanupOutput.failWrite = (chunk) => {
+  const escape = String.fromCharCode(27)
+  if (!hostFailed && chunk === escape + "[0m" + escape + "[?25h") {
+    hostFailed = true
+    return hostError
+  }
+  if (hostFailed && !driverFailed) {
+    driverFailed = true
+    return driverError
+  }
+}
+assert.throws(
+  () => cleanupApp.destroy(),
+  (error) => error === hostError,
+)
+assert.equal(hostFailed, true)
+assert.equal(driverFailed, true)
+assert.deepEqual(cleanupInput.rawModes, [true, false])
+assert.equal(cleanupInput.dataListeners.size, 0)
+assert.equal(cleanupOutput.resizeListeners.size, 0)
+assert.throws(
+  () => cleanupApp.render(createElement(Text, null, "Too late")),
+  /teardown has started/,
+)
+cleanupApp.destroy()
 `,
   });
 
@@ -627,7 +670,21 @@ class FakeOutput {
   rows = 2
   chunks = []
   resizeListeners = new Set()
-  write(chunk) { this.chunks.push(chunk) }
+  leaveWriteAttempts = 0
+  successfulLeaveWrites = 0
+  leaveWriteFailuresRemaining = 0
+  write(chunk) {
+    const leaveSequence = String.fromCharCode(27) + "[?1049l"
+    if (chunk.includes(leaveSequence)) {
+      this.leaveWriteAttempts += 1
+      if (this.leaveWriteFailuresRemaining > 0) {
+        this.leaveWriteFailuresRemaining -= 1
+        throw new Error("leave write failed")
+      }
+      this.successfulLeaveWrites += 1
+    }
+    this.chunks.push(chunk)
+  }
   on(event, listener) {
     assert.equal(event, "resize")
     this.resizeListeners.add(listener)
@@ -720,6 +777,51 @@ assert.equal(input.pauseCount, 1)
 standby.render(() => createComponent(Text, { children: "Standby" }))
 assert.match(standbySurface.text({ trimRight: true }), /Standby/)
 standby.destroy()
+
+const failedInput = new FakeInput()
+const failedOutput = new FakeOutput()
+const replacementError = new Error("replacement mount failed")
+const failedApp = render(
+  () => createComponent(Text, { children: "Before failure" }),
+  { input: failedInput, output: failedOutput },
+)
+failedOutput.leaveWriteFailuresRemaining = 1
+assert.throws(
+  () => failedApp.render(() => { throw replacementError }),
+  (error) => error === replacementError,
+)
+assert.equal(failedOutput.leaveWriteAttempts, 1)
+assert.equal(failedOutput.successfulLeaveWrites, 0)
+assert.deepEqual(failedInput.rawModes, [true, false])
+assert.equal(failedInput.resumeCount, 1)
+assert.equal(failedInput.pauseCount, 1)
+assert.equal(failedInput.dataListeners.size, 0)
+assert.equal(failedOutput.resizeListeners.size, 0)
+
+failedApp.destroy()
+failedApp.destroy()
+assert.equal(failedOutput.leaveWriteAttempts, 2)
+assert.equal(failedOutput.successfulLeaveWrites, 1)
+assert.ok(
+  failedOutput.chunks.join("").includes(String.fromCharCode(27) + "[?1049l"),
+)
+
+const nextOwner = render(
+  () => createComponent(Text, { children: "Owner after failure" }),
+  { input: failedInput, output: failedOutput },
+)
+assert.match(failedOutput.chunks.join(""), /Owner after failure/)
+assert.deepEqual(failedInput.rawModes, [true, false, true])
+assert.equal(failedInput.dataListeners.size, 1)
+assert.equal(failedOutput.resizeListeners.size, 1)
+nextOwner.destroy()
+assert.equal(failedOutput.leaveWriteAttempts, 3)
+assert.equal(failedOutput.successfulLeaveWrites, 2)
+assert.deepEqual(failedInput.rawModes, [true, false, true, false])
+assert.equal(failedInput.resumeCount, 2)
+assert.equal(failedInput.pauseCount, 2)
+assert.equal(failedInput.dataListeners.size, 0)
+assert.equal(failedOutput.resizeListeners.size, 0)
 `,
     typeScriptFixture: {
       source: `

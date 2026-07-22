@@ -22,6 +22,33 @@ interface RendererHandle extends RenderBridge {
   _container?: ReturnType<typeof reconciler.createContainer>;
 }
 
+const REENTRANT_UNMOUNT_ERROR_CODE = "UNIVIEW_REACT_REENTRANT_UNMOUNT";
+
+/**
+ * Signals that unmount was rejected before teardown began because React is
+ * currently rendering or committing. Callers may safely leave the surrounding
+ * runtime active and retry outside React work.
+ *
+ * @internal
+ */
+export class ReactReentrantUnmountError extends Error {
+  readonly code = REENTRANT_UNMOUNT_ERROR_CODE;
+
+  constructor() {
+    super(
+      "Cannot destroy a React renderer during React work; schedule destroy outside render, commit, or effects (for example with queueMicrotask)",
+    );
+    this.name = "ReactReentrantUnmountError";
+  }
+}
+
+/** @internal */
+export function isReactReentrantUnmountError(
+  error: unknown,
+): error is ReactReentrantUnmountError {
+  return error instanceof ReactReentrantUnmountError;
+}
+
 export function createRenderer(): RendererHandle {
   const bridge = createRenderBridge();
   return { ...bridge, _container: undefined };
@@ -64,9 +91,7 @@ export function render(element: ReactElement, handle: RendererHandle): void {
  */
 export function unmount(handle: RendererHandle): void {
   if (synchronousReconciler.isAlreadyRendering()) {
-    throw new Error(
-      "Cannot destroy a React renderer during React work; schedule destroy outside render, commit, or effects (for example with queueMicrotask)",
-    );
+    throw new ReactReentrantUnmountError();
   }
 
   const container = handle._container;

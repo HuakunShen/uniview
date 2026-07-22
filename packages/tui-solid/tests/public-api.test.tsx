@@ -46,7 +46,18 @@ class FakeOutput implements TtyOutput {
   rows = 3;
   readonly chunks: string[] = [];
   readonly listeners = new Set<() => void>();
+  leaveWriteAttempts = 0;
+  successfulLeaveWrites = 0;
+  leaveWriteFailuresRemaining = 0;
   write(chunk: string): void {
+    if (chunk.includes("\x1b[?1049l")) {
+      this.leaveWriteAttempts += 1;
+      if (this.leaveWriteFailuresRemaining > 0) {
+        this.leaveWriteFailuresRemaining -= 1;
+        throw new Error("leave write failed");
+      }
+      this.successfulLeaveWrites += 1;
+    }
     this.chunks.push(chunk);
   }
   on(_event: "resize", listener: () => void): void {
@@ -104,6 +115,102 @@ describe("public Solid TUI facade", () => {
     expect(output.listeners.size).toBe(0);
     expect(cleanupCount).toBe(1);
     expect(getRootNode()).toBeNull();
+  });
+
+  it("stops the driver when a replacement app mount throws", () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const error = new Error("replacement mount failed");
+    const app = render(() => <Text>First</Text>, { input, output });
+    let replacement: ReturnType<typeof render> | null = null;
+
+    try {
+      let caught: unknown;
+      try {
+        app.render(() => {
+          throw error;
+        });
+      } catch (renderError) {
+        caught = renderError;
+      }
+
+      expect(caught).toBe(error);
+      expect(input.rawModes).toEqual([true, false]);
+      expect(input.resumeCount).toBe(1);
+      expect(input.pauseCount).toBe(1);
+      expect(input.listeners.size).toBe(0);
+      expect(output.listeners.size).toBe(0);
+      expect(getRootNode()).toBeNull();
+
+      replacement = render(() => <Text>Replacement</Text>, { input, output });
+      expect(input.rawModes).toEqual([true, false, true]);
+      expect(input.listeners.size).toBe(1);
+      expect(output.listeners.size).toBe(1);
+      expect(output.chunks.join("")).toContain("Replacement");
+    } finally {
+      replacement?.destroy();
+      app.destroy();
+    }
+
+    expect(input.rawModes).toEqual([true, false, true, false]);
+    expect(input.resumeCount).toBe(2);
+    expect(input.pauseCount).toBe(2);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+  });
+
+  it("preserves a replacement mount error and retries failed driver cleanup", () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const error = new Error("replacement mount failed");
+    const app = render(() => <Text>First</Text>, { input, output });
+    output.leaveWriteFailuresRemaining = 1;
+
+    let caught: unknown;
+    try {
+      app.render(() => {
+        throw error;
+      });
+    } catch (renderError) {
+      caught = renderError;
+    }
+
+    expect(caught).toBe(error);
+    expect(output.leaveWriteAttempts).toBe(1);
+    expect(output.successfulLeaveWrites).toBe(0);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.resumeCount).toBe(1);
+    expect(input.pauseCount).toBe(1);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    app.destroy();
+    app.destroy();
+    expect(output.leaveWriteAttempts).toBe(2);
+    expect(output.successfulLeaveWrites).toBe(1);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.resumeCount).toBe(1);
+    expect(input.pauseCount).toBe(1);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    const replacement = render(() => <Text>Replacement</Text>, {
+      input,
+      output,
+    });
+    expect(input.rawModes).toEqual([true, false, true]);
+    expect(input.listeners.size).toBe(1);
+    expect(output.listeners.size).toBe(1);
+    expect(output.chunks.join("")).toContain("Replacement");
+    replacement.destroy();
+
+    expect(output.leaveWriteAttempts).toBe(3);
+    expect(output.successfulLeaveWrites).toBe(2);
+    expect(input.rawModes).toEqual([true, false, true, false]);
+    expect(input.resumeCount).toBe(2);
+    expect(input.pauseCount).toBe(2);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
   });
 
   it("rejects a second terminal app before starting its driver", async () => {

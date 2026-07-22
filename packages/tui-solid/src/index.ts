@@ -470,7 +470,23 @@ export function render(
     host: mountedRoot.host,
     clock: mountedRoot.clock,
     driver: activeDriver,
-    render: (next) => mountedRoot.render(next),
+    render: (next) => {
+      try {
+        mountedRoot.render(next);
+      } catch (error) {
+        try {
+          mountedRoot.destroy();
+        } catch {
+          // Preserve the replacement mount error after best-effort root cleanup.
+        }
+        try {
+          activeDriver.stop();
+        } catch {
+          // Preserve the replacement mount error after best-effort terminal cleanup.
+        }
+        throw error;
+      }
+    },
     dispatchInput: (event) => mountedRoot.dispatchInput(event),
     destroy: () => {
       try {

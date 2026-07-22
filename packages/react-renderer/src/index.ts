@@ -1,6 +1,8 @@
 
 export {
+  ReactReentrantUnmountError,
   createRenderer,
+  isReactReentrantUnmountError,
   render,
   unmount,
   createRenderBridge,
