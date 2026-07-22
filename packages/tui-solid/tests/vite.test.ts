@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveConfig, version as viteVersion } from "vite";
 import { univiewSolid } from "../src/vite";
 
 describe("univiewSolid", () => {
@@ -13,12 +14,30 @@ describe("univiewSolid", () => {
     expect(output?.code).not.toContain("@uniview/solid-renderer");
   });
 
-  it("does not force development resolution in production builds", () => {
+  it("sets cross-version browser conditions for shared and SSR resolution", () => {
     const plugin = univiewSolid();
     const config = plugin.config({}, { command: "build", mode: "production" });
 
-    expect(config.resolve.conditions).toEqual(["browser"]);
-    expect(config.resolve.conditions).not.toContain("development");
-    expect(config.resolve.conditions).not.toContain("production");
+    const expected = ["module", "browser", "development|production"];
+    expect(config.resolve.conditions).toEqual(expected);
+    expect(config.ssr.resolve.conditions).toEqual(expected);
+    expect(config.resolve.conditions).not.toContain("node");
+    expect(config.ssr.resolve.conditions).not.toContain("node");
+  });
+
+  it("resolves browser and never node conditions in current Vite environments", async () => {
+    expect(viteVersion).toBe("8.1.5");
+    const config = await resolveConfig(
+      { configFile: false, plugins: [univiewSolid()] },
+      "serve",
+    );
+
+    for (const environment of [
+      config.environments.client,
+      config.environments.ssr,
+    ]) {
+      expect(environment.resolve.conditions).toContain("browser");
+      expect(environment.resolve.conditions).not.toContain("node");
+    }
   });
 });

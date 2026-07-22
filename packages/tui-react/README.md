@@ -6,7 +6,11 @@ Render **React** components to a terminal with a custom reconciler — no `react
 
 ```bash
 pnpm add @uniview/tui-react react
+pnpm add -D typescript @types/react @types/node
 ```
+
+The second line is TypeScript/TSX and `process` development tooling only. The runtime install
+remains `@uniview/tui-react` plus `react`.
 
 ## Quick start
 

@@ -555,6 +555,45 @@ test("stops on the first publisher failure, releases the lock, and preserves the
   );
 });
 
+test("preserves the release failure when lock release also fails", async () => {
+  const publishError = new Error("registry rejected core");
+  const releaseError = new Error("release lock unlink failed");
+  const fixture = injectedOptions();
+  fixture.options.publisher = async () => {
+    throw publishError;
+  };
+  fixture.options.acquireLock = async () => ({
+    release: async () => {
+      throw releaseError;
+    },
+  });
+
+  await assert.rejects(
+    () => orchestrateTuiPublish(fixture.options),
+    (error) => {
+      assert.ok(error instanceof AggregateError);
+      assert.equal(error.cause, publishError);
+      assert.deepEqual(error.errors, [publishError, releaseError]);
+      return true;
+    },
+  );
+});
+
+test("surfaces a lock release failure when the release operation succeeds", async () => {
+  const releaseError = new Error("release lock unlink failed");
+  const fixture = injectedOptions();
+  fixture.options.acquireLock = async () => ({
+    release: async () => {
+      throw releaseError;
+    },
+  });
+
+  await assert.rejects(
+    () => orchestrateTuiPublish(fixture.options),
+    (error) => error === releaseError,
+  );
+});
+
 test("root scripts route actual and dry-run releases through the tarball orchestrator", async () => {
   const manifest = JSON.parse(
     await readFile(join(actualRepoDirectory, "package.json"), "utf8"),
@@ -571,6 +610,24 @@ test("root scripts route actual and dry-run releases through the tarball orchest
     manifest.scripts["verify:tui-packages"],
     /publish-tui-tarballs\.test\.mjs/,
   );
+  assert.match(
+    manifest.scripts["verify:tui-packages"],
+    /^pnpm test:tui-release &&/,
+  );
+  for (const packageName of [
+    "@uniview/protocol",
+    "@uniview/tui-core",
+    "@uniview/host-tui",
+    "@uniview/react-renderer",
+    "@uniview/solid-renderer",
+    "@uniview/tui-content",
+    "@uniview/tui-charts",
+    "@uniview/style",
+    "@uniview/tui-react",
+    "@uniview/tui-solid",
+  ]) {
+    assert.match(manifest.scripts["test:tui-release"], new RegExp(packageName));
+  }
   assert.doesNotMatch(
     manifest.scripts["publish:tui"],
     /publish -r|--recursive/,

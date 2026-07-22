@@ -9,12 +9,16 @@ Render **Solid** components to a terminal. It is feature-for-feature equivalent 
 pnpm add @uniview/tui-solid solid-js
 ```
 
-The package includes its Solid compiler integration. Vite, `vite-node`, and TypeScript remain
-normal project tooling, not runtime dependencies of your terminal app:
+The package includes its Solid compiler integration. Vite, `vite-node`, TypeScript, and the Node
+types used by the `process` shutdown handler remain normal project tooling, not runtime
+dependencies of your terminal app:
 
 ```bash
-pnpm add -D vite vite-node typescript
+pnpm add -D vite vite-node typescript @types/node
 ```
+
+The helper is covered from Vite 5.4.21 through Vite 8.1.5. The current toolchain gate uses
+Vite 8.1.5 with `vite-node` 6.0.0 on its supported Node line; Vite 5 examples remain supported.
 
 ## Configure Vite and TypeScript
 

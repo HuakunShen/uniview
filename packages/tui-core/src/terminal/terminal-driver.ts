@@ -76,9 +76,10 @@ const outputOwners = new WeakMap<TtyOutput, TerminalDriver>();
  * and always restores the terminal.
  */
 export class TerminalDriver {
-  private readonly parser = new InputParser();
+  private parser = new InputParser();
   private readonly mode;
   private state: TerminalDriverState = "idle";
+  private generation = 0;
   private streamsReserved = false;
   private rawModeEnabled = false;
   private inputResumed = false;
@@ -87,6 +88,8 @@ export class TerminalDriver {
   private enterSequenceWritten = false;
   private currentSize: Size;
   private escapeTimer: ReturnType<typeof setTimeout> | null = null;
+  private dataListener: ((chunk: Uint8Array | string) => void) | null = null;
+  private resizeListener: (() => void) | null = null;
   private cleanupBarrier: TerminalCleanupBarrier | null = null;
 
   constructor(private readonly options: TerminalDriverOptions) {
@@ -113,29 +116,41 @@ export class TerminalDriver {
     };
   }
 
-  private readonly onData = (chunk: Uint8Array | string): void => {
-    this.clearEscapeTimer();
-    this.parser.push(chunk);
-    this.emitEvents();
-    this.armEscapeFlush();
-  };
+  private isCurrentCallback(generation: number): boolean {
+    return this.state === "running" && generation === this.generation;
+  }
 
-  private emitEvents(): void {
+  private onData(chunk: Uint8Array | string, generation: number): void {
+    if (!this.isCurrentCallback(generation)) return;
+    this.clearEscapeTimer();
+    if (!this.isCurrentCallback(generation)) return;
+    this.parser.push(chunk);
+    this.emitEvents(generation);
+    if (!this.isCurrentCallback(generation)) return;
+    this.armEscapeFlush(generation);
+  }
+
+  private emitEvents(generation: number): void {
+    if (!this.isCurrentCallback(generation)) return;
     for (const event of this.parser.takeEvents()) {
-      if (this.state !== "running") return;
+      if (!this.isCurrentCallback(generation)) return;
       this.options.onEvent(event);
     }
   }
 
   /** After input goes idle, resolve a held lone ESC as an Escape keypress. */
-  private armEscapeFlush(): void {
-    if (!this.parser.awaitingEscape) return;
-    this.escapeTimer = setTimeout(() => {
+  private armEscapeFlush(generation: number): void {
+    if (!this.isCurrentCallback(generation) || !this.parser.awaitingEscape)
+      return;
+    const timer = setTimeout(() => {
+      if (!this.isCurrentCallback(generation) || this.escapeTimer !== timer)
+        return;
       this.escapeTimer = null;
       this.parser.flush();
-      this.emitEvents();
+      this.emitEvents(generation);
     }, this.options.escapeFlushMs ?? 40);
-    this.escapeTimer.unref?.();
+    this.escapeTimer = timer;
+    timer.unref?.();
   }
 
   private clearEscapeTimer(): void {
@@ -145,14 +160,15 @@ export class TerminalDriver {
     }
   }
 
-  private readonly onResize = (): void => {
+  private onResize(generation: number): void {
+    if (!this.isCurrentCallback(generation)) return;
     this.currentSize = this.readSize();
     this.options.onEvent({
       type: "resize",
       width: this.currentSize.width,
       height: this.currentSize.height,
     });
-  };
+  }
 
   private hasOwnedResources(): boolean {
     return (
@@ -234,8 +250,8 @@ export class TerminalDriver {
     }
     this.cleanupBarrier = session
       ? Object.freeze({
-          cleanup: session.cleanup.bind(session),
-          retainSessionOnError: session.retainSessionOnError?.bind(session),
+          cleanup: session.cleanup,
+          retainSessionOnError: session.retainSessionOnError,
         })
       : null;
     this.state = "starting";
@@ -249,6 +265,17 @@ export class TerminalDriver {
     }
 
     const { input, output } = this.options;
+    const generation = this.generation + 1;
+    this.generation = generation;
+    this.parser = new InputParser();
+    const dataListener = (chunk: Uint8Array | string): void => {
+      this.onData(chunk, generation);
+    };
+    const resizeListener = (): void => {
+      this.onResize(generation);
+    };
+    this.dataListener = dataListener;
+    this.resizeListener = resizeListener;
     try {
       if (input.isTTY && input.setRawMode) {
         this.rawModeEnabled = true;
@@ -261,9 +288,9 @@ export class TerminalDriver {
         input.resume();
       }
       this.dataListenerAttached = true;
-      input.on("data", this.onData);
+      input.on("data", dataListener);
       this.resizeListenerAttached = true;
-      output.on("resize", this.onResize);
+      output.on("resize", resizeListener);
       this.enterSequenceWritten = true;
       output.write(buildEnterSequence(this.mode));
       this.state = "running";
@@ -368,19 +395,24 @@ export class TerminalDriver {
         },
       );
     }
-    if (this.dataListenerAttached) {
+    if (this.dataListenerAttached && this.dataListener) {
+      const dataListener = this.dataListener;
       attempt(
-        () => input.off("data", this.onData),
+        () => input.off("data", dataListener),
         () => {
           this.dataListenerAttached = false;
+          if (this.dataListener === dataListener) this.dataListener = null;
         },
       );
     }
-    if (this.resizeListenerAttached) {
+    if (this.resizeListenerAttached && this.resizeListener) {
+      const resizeListener = this.resizeListener;
       attempt(
-        () => output.off("resize", this.onResize),
+        () => output.off("resize", resizeListener),
         () => {
           this.resizeListenerAttached = false;
+          if (this.resizeListener === resizeListener)
+            this.resizeListener = null;
         },
       );
     }

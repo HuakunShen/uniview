@@ -9,9 +9,14 @@ plugin/RPC infrastructure required. Use one public binding package with its fram
 
 ```bash
 pnpm add @uniview/tui-react react
+pnpm add -D typescript @types/react @types/node
 # or
 pnpm add @uniview/tui-solid solid-js
+pnpm add -D typescript vite vite-node @types/node
 ```
+
+Those `-D` packages are TSX/compiler and Node `process` tooling. Solid does not need
+`@types/react`; each runtime installation remains one binding plus its framework.
 
 The bindings share the same framework-neutral terminal engine and expose matching components.
 For the complete installation, first frame, custom-surface, and input examples, see the

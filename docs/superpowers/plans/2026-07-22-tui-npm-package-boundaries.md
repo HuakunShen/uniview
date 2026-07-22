@@ -11,7 +11,10 @@
 - `TerminalDriver.start({ cleanup })` owns framework/root/surface cleanup and driver resources
   as one retryable session. Both stream identities remain reserved while either side is pending;
   a next owner of either stream retries before acquisition, and stale handles are inert after a
-  successful transfer. React uses the typed pre-mutation retain predicate for reentrant unmounts.
+  successful transfer. Per-start generation closures also reject EventEmitter snapshots and old
+  ESC/input work across stop/restart. Callback values are snapshotted without retaining the
+  caller's mutable session object. React uses the typed pre-mutation retain predicate for
+  reentrant unmounts.
 - `TuiRenderer` and `TuiHost` enter durable teardown before surface cleanup: queued scheduler
   callbacks are invalidated and all later mutation/render/dispatch paths reject while cleanup is
   pending or complete. `TerminalDriver` snapshots its cleanup options and contains exceptions
@@ -23,9 +26,10 @@
   marker across ESM, CommonJS, and TypeScript artifact extensions, rejects Zod and undeclared
   runtime packages, checks every declaration family for imports and `Buffer`, and applies the
   same scanner to sha256-verified core and binding files extracted from the packed artifact.
-- `pnpm check-types:tui-release` permanently covers protocol, core, host, both renderers,
-  content, charts, style, and both bindings. `verify:tui-packages` and
-  `smoke:tui-packages` invoke it.
+- `pnpm test:tui-release` and `pnpm check-types:tui-release` permanently cover protocol, core,
+  host, both renderers, content, charts, style, and both bindings. `verify:tui-packages` runs the
+  unit/parity command before builds, type checks, release-tool suites, and the boundary scan;
+  `smoke:tui-packages` and the publisher inherit that gate.
 - The packed core fixture remains the low-level memory-surface check. Packed React and Solid
   fixtures use each binding's public high-level `render()` with injected fake TTY streams and
   assert ANSI output, listener/raw-mode teardown, synchronous framework cleanup, replacement,
@@ -36,19 +40,32 @@
   `babel-preset-solid`. It exercises the public Vite transform and JSX augmentation, uses the
   repository's TypeScript executable only as compiler tooling, and does not inject
   `@types/node`, `typeRoots`, or internal packages.
-- The private workspace build contract is Node 24 or newer because tsdown is build tooling;
-  the three packed public packages retain their independent Node 18 runtime contract.
+- Vite resolution sets shared and SSR conditions to
+  `module,browser,development|production`, keeps Solid and the public renderer non-externalized,
+  and is tested with Vite 8.1.5's real client/SSR environments. A separate packed consumer runs
+  real TSX through `vite-node` 6.0.0 and proves a signal produces a second frame; only Node 18 is
+  skipped by the release matrix because it is outside the current tool engine.
+- The private release-tool contract is Node `^24.15.0 || >=26.0.0` because tsdown and the
+  publisher are build tooling; the three packed public packages retain their independent Node 18
+  runtime contract.
 - One non-matrix CI job verifies/builds under Node 24 and uploads one named immutable artifact
   containing the descriptor plus exactly three tarballs. The Node 18.20.8, 20.19.0, and 24
   matrix jobs all download that same artifact and reuse those exact sha256-checked bytes without
   rebuilding or repacking. The script logs and validates `process.version`; it never downloads
   a second Node executable itself.
+- The implemented publisher requires Node `^24.15.0 || >=26.0.0`, holds the sibling
+  `.tui-release.lock`, captures and hashes all three immutable tarball Buffers, loads official npm
+  configuration, and calls `libnpmpublish` as public/latest after an initial and per-package git
+  preflight. Its dry-run is local and registry-free, and partial publication remains an explicit
+  recovery boundary.
 
 **Goal:** Make `@uniview/tui-core`, `@uniview/tui-react`, and `@uniview/tui-solid` the only packages required for the TUI npm release, with one-package installation for React or Solid users.
 
 **Architecture:** Keep the framework-neutral terminal engine external as `@uniview/tui-core`. Bundle the host, framework renderer, content, charts, protocol, and style workspace modules into each framework binding's JavaScript and declaration output. Keep React/Solid as peers and keep only third-party imports plus `tui-core` as runtime dependencies.
 
-**Tech Stack:** Node 24+ workspace build tooling, Node 18+ public package runtime, TypeScript 5.9, pnpm 10.28, tsdown 0.22, Vitest 2, React 19, Solid 1.9, Fumadocs/Next.js documentation.
+**Tech Stack:** Node `^24.15.0 || >=26.0.0` private release tooling, Node 18+ public package
+runtime, TypeScript 5.9, pnpm 10.28, tsdown 0.22, Vitest 2, React 19, Solid 1.9,
+Fumadocs/Next.js documentation.
 
 ## Global Constraints
 
@@ -1068,3 +1085,38 @@ Never invoke actual publish or registry-facing dry-run.
 Record RED/GREEN and exact validation evidence in `.superpowers/sdd/final-fix-report.md`, stage only
 the scoped tracked files, create one narrow commit, and report its full hash with the preserved
 run-unique descriptor path.
+
+---
+
+### Task 14: Supersede the historical positional-pnpm publisher and close final review 15
+
+The checked steps below are the current implementation record. They supersede Task 9's historical
+positional `pnpm publish` command examples; those examples are retained only as plan history and
+must not be interpreted as the final release mechanism.
+
+- [x] **Step 1: Use the implemented immutable Buffer publisher**
+
+Require Node `^24.15.0 || >=26.0.0`, acquire the sibling `.tui-release.lock`, create one preserved
+run-unique artifact directory, snapshot and reload its descriptor, then capture and sha256-check all
+three tarballs as Buffers. Load npmrc/auth/provenance settings with `@npmcli/config` and publish the
+verified core, React, and Solid Buffers through `libnpmpublish` as public/latest. Run a real clean,
+synchronized-main preflight initially and again before each package. Preserve the unavoidable
+partial-release boundary and both the primary release error and any lock-cleanup error.
+
+- [x] **Step 2: Keep dry-run local and put unit/parity suites in the release gate**
+
+`publish:tui:dry-run` runs verification, packing, normal/production smoke, immutable descriptor
+comparison, and Buffer capture without git release checks, npm config loading, publisher calls, or
+registry access. `test:tui-release` covers all ten release-relevant packages and runs first inside
+`verify:tui-packages`, so neither actual publication nor local dry-run can pack artifacts before
+unit/parity success.
+
+- [x] **Step 3: Harden current Solid tooling and terminal callback generations**
+
+Set both Vite shared and SSR resolution conditions to
+`module,browser,development|production`, retain Solid/public-renderer non-externalization, and test
+real Vite 8 environments plus packed TSX signal reactivity through Vite 8.1.5 / `vite-node` 6.0.0
+on supported Node versions. Give every `TerminalDriver.start()` distinct data/resize closures with
+a monotonically increasing generation, reject stale EventEmitter snapshots before parser/timer/size
+work, recheck after user input callbacks, and snapshot session function values without retaining the
+caller's mutable receiver.

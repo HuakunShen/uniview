@@ -19,7 +19,10 @@ export interface UniviewSolidVitePlugin {
     environment: { command: "build" | "serve"; mode: string },
   ): {
     resolve: { conditions: string[] };
-    ssr: { noExternal: string[] };
+    ssr: {
+      noExternal: string[];
+      resolve: { conditions: string[] };
+    };
   };
 }
 
@@ -53,12 +56,13 @@ export function univiewSolid(): UniviewSolidVitePlugin {
       return { code: result.code, map: result.map };
     },
     config(_config, _environment) {
+      const conditions = ["module", "browser", "development|production"];
       return {
         resolve: {
-          // Vite supplies the mode-specific development/production condition.
-          conditions: ["browser"],
+          conditions,
         },
         ssr: {
+          resolve: { conditions },
           noExternal: [
             "solid-js",
             "@uniview/tui-solid",

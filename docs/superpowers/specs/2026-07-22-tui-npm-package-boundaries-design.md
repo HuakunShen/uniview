@@ -192,8 +192,8 @@ recursive publish command.
 
 ### Build runtime versus package runtime
 
-The private workspace uses Node 24 or newer for installs, builds, tests, docs, and packaging.
-This is a build-tool contract: tsdown 0.22 does not support Node 18. It does not raise the
+The private release workspace requires Node `^24.15.0 || >=26.0.0` for installs, builds, tests,
+docs, packaging, and publication tooling. This is a build-tool contract; it does not raise the
 runtime floor of the three public tarballs, whose manifests remain `node >=18`.
 
 The release smoke therefore has two immutable phases. One non-matrix Node 24 job verifies,
@@ -205,28 +205,35 @@ topology, and sha256 hashes. Every runtime matrix job downloads that same artifa
 Node versions, and installs/runs the same existing bytes without rebuilding or repacking.
 
 Local publication uses the same descriptor model under the persistent ignored `.tui-release/`
-root. An exclusive `.publish.lock` is acquired before verification and held through the final
-registry command. Concurrent invocations stop before verify/prepare; a crash-stale lock requires
-manual artifact audit and removal rather than automatic stealing. Each invocation creates a real,
-run-unique `run-*` child with `mkdtemp`; traversal and symlink escapes are rejected, the shared root
-is never reset, and every run remains after success or failure.
+root. An exclusive sibling `.tui-release.lock` is acquired before the artifact root is created and
+is held through the final registry operation. Concurrent invocations stop before verify/prepare;
+a crash-stale lock requires manual artifact audit and removal rather than automatic stealing. Each
+invocation creates a real, run-unique `run-*` child with `mkdtemp`; traversal and symlink escapes
+are rejected, the shared root is never reset, and every run remains after success or failure.
 
 The first validated descriptor becomes an immutable identity containing its absolute path and
 sha256 plus exact package names, versions, basenames, tar sha256 values, manifests, and file lists.
-The descriptor is reloaded and compared exactly after normal/production smoke and again
-immediately before each publish. Commands remain bound to the original snapshot's absolute
-tarballs in core, React, Solid order with `--access public`, `--ignore-scripts`, and
-`--publish-branch main`. A different but internally self-consistent descriptor is still rejected.
-Publication never recursively publishes source directories and never disables pnpm git checks.
-The dry-run entry adds pnpm's `--dry-run`; automated tests validate its injected command plan
-without contacting a registry.
+After normal/production smoke, the descriptor is reloaded and compared exactly. All three tarballs
+are then read into `Buffer`s and independently re-hashed before npm configuration or publication
+begins; later filesystem changes cannot change the captured bytes.
+
+The actual publisher loads official npm configuration through `@npmcli/config` and sends those
+three verified Buffers through `libnpmpublish`, sequentially in core, React, Solid order with
+`access: "public"` and `defaultTag: "latest"`. A real git preflight requires clean synchronized
+`main` before any verification and is repeated immediately before each package. Publication never
+recursively publishes source directories. The local `publish:tui:dry-run` performs verification,
+packing, smoke, descriptor comparison, and Buffer capture but deliberately skips git release
+readiness, npm configuration, the publisher, and all registry access. If both the release and lock
+cleanup fail, the aggregate preserves the release error as its cause; a cleanup-only failure is
+surfaced directly.
 
 ## 7. Verification and release gates
 
 Before publishing:
 
-1. Build and type-check the three public packages and all implementation packages they use.
-2. Run their targeted unit tests plus the React/Solid parity tests.
+1. Run `test:tui-release`, which covers protocol, core, host, both renderers, content, charts,
+   style, and both bindings inside the real `verify:tui-packages`/publication gate.
+2. Build and type-check the three public packages and all implementation packages they use.
 3. Inspect emitted JavaScript: React/Solid may import `@uniview/tui-core`, but no other
    `@uniview/*` package. Independently scan every core JavaScript file with AST-derived imports
    for undeclared runtime packages, any Zod import, and bundled Zod markers. Cover ESM,
@@ -245,7 +252,9 @@ Before publishing:
    resolution, then repeat every runtime fixture in a separate production-only
    `pnpm install --prod` project.
 8. Run a React ANSI smoke app, a Solid ANSI smoke app, and a core-only memory-surface test in
-   both normal and `NODE_ENV=production` modes.
+   both normal and `NODE_ENV=production` modes. On Node versions supported by the current tools,
+   also run packed Solid TSX through Vite 8.1.5 / `vite-node` 6.0.0, mutate a signal, and require a
+   second frame; the structural helper remains compatible with the Vite 5.4 examples.
 9. In CI, make every actual Node 18.20.8, Node 20.19.0, and Node 24 runtime leg depend on the
    prepare job, download its shared artifact, and reuse it without invoking workspace build or
    pack tooling after the runtime switch.

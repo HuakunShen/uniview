@@ -11,14 +11,22 @@ icon: Play
 
 ```bash
 pnpm add @uniview/tui-react react
+pnpm add -D typescript @types/react @types/node
 ```
+
+The development-only line supplies React TSX and Node `process` types; it does not change the
+runtime package boundary.
 
 </Tab>
 <Tab value="Solid">
 
 ```bash
 pnpm add @uniview/tui-solid solid-js
+pnpm add -D typescript vite vite-node @types/node
 ```
+
+Solid does not require `@types/react`. Its development-only line supplies the TSX compiler,
+Vite runner, and Node `process` types.
 
 </Tab>
 </Tabs>
@@ -49,7 +57,7 @@ process.on("SIGINT", () => {
 <Callout type="info" title="Compile Solid TSX through the Uniview Vite helper">
 This example is not runnable through plain `tsx`/esbuild. Solid TSX must use
 `univiewSolid()` and load the public `@uniview/tui-solid/jsx-runtime` augmentation. `vite`,
-`vite-node`, and TypeScript are development tooling only; the runtime install remains
+`vite-node`, TypeScript, and `@types/node` are development tooling only; the runtime install remains
 `@uniview/tui-solid` plus `solid-js`. See the [complete Solid setup](/docs/tui/solid).
 </Callout>
 

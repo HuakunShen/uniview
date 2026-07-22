@@ -13,7 +13,8 @@
     "test:e2e:cypress": "bun scripts/run-cypress.ts",
     "build:tui-release": "pnpm --filter @uniview/protocol --filter @uniview/tui-core --filter @uniview/host-tui --filter @uniview/react-renderer --filter @uniview/solid-renderer --filter @uniview/tui-content --filter @uniview/tui-charts --filter @uniview/style --filter @uniview/tui-react --filter @uniview/tui-solid build",
     "check-types:tui-release": "pnpm --filter @uniview/protocol --filter @uniview/tui-core --filter @uniview/host-tui --filter @uniview/react-renderer --filter @uniview/solid-renderer --filter @uniview/tui-content --filter @uniview/tui-charts --filter @uniview/style --filter @uniview/tui-react --filter @uniview/tui-solid check-types",
-    "verify:tui-packages": "pnpm build:tui-release && pnpm check-types:tui-release && node --test scripts/verify-tui-package-boundaries.test.mjs scripts/tui-tarball-descriptor.test.mjs scripts/tui-release-workflow.test.mjs scripts/publish-tui-tarballs.test.mjs && node scripts/verify-tui-package-boundaries.mjs",
+    "test:tui-release": "pnpm --filter @uniview/protocol --filter @uniview/tui-core --filter @uniview/host-tui --filter @uniview/react-renderer --filter @uniview/solid-renderer --filter @uniview/tui-content --filter @uniview/tui-charts --filter @uniview/style --filter @uniview/tui-react --filter @uniview/tui-solid test",
+    "verify:tui-packages": "pnpm test:tui-release && pnpm build:tui-release && pnpm check-types:tui-release && node --test scripts/verify-tui-package-boundaries.test.mjs scripts/tui-tarball-descriptor.test.mjs scripts/tui-release-workflow.test.mjs scripts/publish-tui-tarballs.test.mjs && node scripts/verify-tui-package-boundaries.mjs",
     "smoke:tui-packages": "pnpm verify:tui-packages && node scripts/smoke-tui-tarballs.mjs",
     "publish:tui": "node scripts/publish-tui-tarballs.mjs",
     "publish:tui:dry-run": "node scripts/publish-tui-tarballs.mjs --dry-run",
@@ -30,7 +31,9 @@
     "prettier-plugin-svelte": "^3.4.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "turbo": "2.7.5",
-    "typescript": "5.9.2"
+    "typescript": "5.9.2",
+    "vite": "8.1.5",
+    "vite-node": "6.0.0"
   },
   "packageManager": "pnpm@10.28.2",
   "engines": {

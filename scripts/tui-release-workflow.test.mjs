@@ -6,6 +6,11 @@ import { fileURLToPath } from "node:url";
 
 const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 const workflow = await readFile(join(repo, ".github/workflows/ci.yml"), "utf8");
+const manifest = JSON.parse(await readFile(join(repo, "package.json"), "utf8"));
+const smoke = await readFile(
+  join(repo, "scripts/smoke-tui-tarballs.mjs"),
+  "utf8",
+);
 
 function job(name, nextName) {
   const start = workflow.indexOf(`  ${name}:\n`);
@@ -26,6 +31,18 @@ test("prepares one immutable TUI artifact outside the runtime matrix", () => {
   assert.equal(workflow.match(/smoke-tui-tarballs\.mjs --prepare/g)?.length, 1);
 });
 
+test("runs all release package suites inside the publication verification gate", () => {
+  assert.match(
+    manifest.scripts["verify:tui-packages"],
+    /^pnpm test:tui-release &&/,
+  );
+  assert.match(manifest.scripts["publish:tui"], /publish-tui-tarballs\.mjs/);
+  assert.match(
+    manifest.scripts["test:tui-release"],
+    /@uniview\/protocol.*@uniview\/tui-core.*@uniview\/host-tui.*@uniview\/react-renderer.*@uniview\/solid-renderer.*@uniview\/tui-content.*@uniview\/tui-charts.*@uniview\/style.*@uniview\/tui-react.*@uniview\/tui-solid/,
+  );
+});
+
 test("all runtime legs download and reuse the same prepared artifact", () => {
   const smoke = job("tui-release-smoke", "e2e");
   assert.match(smoke, /needs: tui-release-prepare/);
@@ -42,4 +59,15 @@ test("all runtime legs download and reuse the same prepared artifact", () => {
   assert.doesNotMatch(afterRuntimeSwitch, /pnpm verify:tui-packages/);
   assert.doesNotMatch(afterRuntimeSwitch, /--prepare/);
   assert.doesNotMatch(afterRuntimeSwitch, /\bpnpm\b/);
+});
+
+test("runs a current vite-node Solid reactivity smoke on supported runtime legs", () => {
+  assert.equal(manifest.devDependencies.vite, "8.1.5");
+  assert.equal(manifest.devDependencies["vite-node"], "6.0.0");
+  assert.match(smoke, /currentViteNodeSupported/);
+  assert.match(smoke, /vite-node.*6\.0\.0/s);
+  assert.match(smoke, /@uniview\/tui-solid\/vite/);
+  assert.match(smoke, /createSignal/);
+  assert.match(smoke, /second reactive frame/i);
+  assert.match(smoke, /NAPI_RS_NATIVE_LIBRARY_PATH/);
 });

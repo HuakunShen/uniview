@@ -435,6 +435,8 @@ export async function orchestrateTuiPublish({
     repoDirectory,
     releaseRootDirectory,
   });
+  let operationError;
+  let operationFailed = false;
   try {
     if (!dryRun) {
       assertGitReleaseReady(await inspectGit({ repoDirectory }));
@@ -483,8 +485,23 @@ export async function orchestrateTuiPublish({
     }
 
     return snapshot;
+  } catch (error) {
+    operationError = error;
+    operationFailed = true;
+    throw error;
   } finally {
-    await releaseLock.release();
+    try {
+      await releaseLock.release();
+    } catch (releaseError) {
+      if (operationFailed) {
+        throw new AggregateError(
+          [operationError, releaseError],
+          "TUI release failed and release lock cleanup also failed",
+          { cause: operationError },
+        );
+      }
+      throw releaseError;
+    }
   }
 }
 

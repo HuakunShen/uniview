@@ -28,7 +28,14 @@ import {
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const cli = parseSmokeArguments(process.argv.slice(2));
-const nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
+const [nodeMajor, nodeMinor] = process.versions.node
+  .split(".")
+  .slice(0, 2)
+  .map((part) => Number.parseInt(part, 10));
+const currentViteNodeSupported =
+  (nodeMajor === 20 && nodeMinor >= 19) ||
+  (nodeMajor === 22 && nodeMinor >= 12) ||
+  nodeMajor >= 23;
 assert.ok(
   nodeMajor >= (cli.mode === "reuse" ? 18 : 24),
   cli.mode === "reuse"
@@ -172,6 +179,25 @@ async function collectOfflineOverrides(seedDirectories) {
     }
   }
   return overrides;
+}
+
+async function resolveRolldownNativeLibrary(viteDirectory) {
+  const rolldownDirectory = await resolveInstalledDependency(
+    viteDirectory,
+    "rolldown",
+  );
+  const manifest = await readJson(join(rolldownDirectory, "package.json"));
+  const require = createRequire(join(rolldownDirectory, "package.json"));
+  for (const name of Object.keys(manifest.optionalDependencies ?? {})) {
+    try {
+      return await realpath(require.resolve(name));
+    } catch (error) {
+      if (error.code !== "MODULE_NOT_FOUND") throw error;
+    }
+  }
+  throw new Error(
+    `cannot find the installed Rolldown native binding for ${process.platform}-${process.arch}`,
+  );
 }
 
 function assertNoWorkspaceRuntimeSpecs(manifest) {
@@ -433,6 +459,130 @@ ${source}`,
   );
   run(process.execPath, ["smoke.mjs"], productionDirectory, {
     NODE_ENV: "production",
+  });
+}
+
+async function runCurrentViteNodeSolidSmoke({
+  directory,
+  coreTarball,
+  solidTarball,
+  offlineOverrides,
+}) {
+  const localVite = await realpath(join(repo, "node_modules/vite"));
+  const localViteNode = await realpath(join(repo, "node_modules/vite-node"));
+  const [viteManifest, viteNodeManifest] = await Promise.all([
+    readJson(join(localVite, "package.json")),
+    readJson(join(localViteNode, "package.json")),
+  ]);
+  assert.equal(viteManifest.version, "8.1.5");
+  assert.equal(viteNodeManifest.version, "6.0.0");
+  const toolingOverrides = await collectOfflineOverrides([
+    localVite,
+    localViteNode,
+  ]);
+  const rolldownNativeLibrary = await resolveRolldownNativeLibrary(localVite);
+
+  await mkdir(join(directory, "src"), { recursive: true });
+  await writeJson(join(directory, "package.json"), {
+    private: true,
+    type: "module",
+    dependencies: {
+      "@uniview/tui-solid": `file:${solidTarball}`,
+      "solid-js": "1.9.10",
+    },
+    devDependencies: {
+      vite: `file:${localVite}`,
+      "vite-node": `file:${localViteNode}`,
+    },
+    pnpm: {
+      overrides: {
+        ...offlineOverrides,
+        ...toolingOverrides,
+        "@uniview/tui-core": `file:${coreTarball}`,
+      },
+    },
+  });
+  await writeFile(
+    join(directory, "vite.config.ts"),
+    `
+import { univiewSolid } from "@uniview/tui-solid/vite"
+import { defineConfig } from "vite"
+
+export default defineConfig({ plugins: [univiewSolid()] })
+`,
+  );
+  await writeFile(
+    join(directory, "src/main.tsx"),
+    `
+import assert from "node:assert/strict"
+import { createSignal } from "solid-js"
+import { Text, render } from "@uniview/tui-solid"
+import "@uniview/tui-solid/jsx-runtime"
+
+class FakeInput {
+  isTTY = true
+  dataListeners = new Set()
+  setRawMode(_mode) {}
+  resume() {}
+  pause() {}
+  on(_event, listener) { this.dataListeners.add(listener) }
+  off(_event, listener) { this.dataListeners.delete(listener) }
+}
+
+class FakeOutput {
+  columns = 20
+  rows = 2
+  chunks = []
+  resizeListeners = new Set()
+  write(chunk) { this.chunks.push(chunk) }
+  on(_event, listener) { this.resizeListeners.add(listener) }
+  off(_event, listener) { this.resizeListeners.delete(listener) }
+}
+
+const input = new FakeInput()
+const output = new FakeOutput()
+const [count, setCount] = createSignal(0)
+const app = render(() => <Text>Count {count()}</Text>, { input, output })
+const firstFrameEnd = output.chunks.length
+assert.match(output.chunks.join(""), /Count 0/)
+
+setCount(1)
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+
+assert.ok(
+  output.chunks.length > firstFrameEnd,
+  "expected a second reactive frame after the Solid signal update",
+)
+assert.match(output.chunks.slice(firstFrameEnd).join(""), /1/)
+app.destroy()
+`,
+  );
+
+  run(
+    pnpm,
+    [
+      "install",
+      "--offline",
+      "--ignore-scripts",
+      "--no-optional",
+      "--no-frozen-lockfile",
+    ],
+    directory,
+  );
+  const fixtureManifest = await readJson(join(directory, "package.json"));
+  assert.deepEqual(Object.keys(fixtureManifest.dependencies).sort(), [
+    "@uniview/tui-solid",
+    "solid-js",
+  ]);
+  assert.deepEqual(Object.keys(fixtureManifest.devDependencies).sort(), [
+    "vite",
+    "vite-node",
+  ]);
+  run(pnpm, ["exec", "vite-node", "src/main.tsx"], directory, {
+    // The offline fixture deliberately skips optional packages. Point Rolldown
+    // at the platform binding from the already-installed pinned toolchain.
+    NAPI_RS_NATIVE_LIBRARY_PATH: rolldownNativeLibrary,
   });
 }
 
@@ -1984,6 +2134,19 @@ void plugin
       },
     },
   });
+
+  if (currentViteNodeSupported) {
+    await runCurrentViteNodeSolidSmoke({
+      directory: join(temporaryRoot, "solid-vite-node-current"),
+      coreTarball: packs.core.filename,
+      solidTarball: packs.solid.filename,
+      offlineOverrides: solidOfflineOverrides,
+    });
+  } else {
+    console.log(
+      `Skipping Vite 8.1.5/vite-node 6.0.0 Solid smoke outside its Node engine: ${process.version}`,
+    );
+  }
 
   const coreManifest = await installedManifest(
     coreProject,

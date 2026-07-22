@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { TerminalDriver } from "../../src/terminal/terminal-driver";
 import type { TuiInputEvent } from "../../src/input/events";
@@ -51,6 +52,35 @@ function fakeTty(columns = 80, rows = 24) {
     resizeListenerCount: () => resizeListeners.size,
     isRaw: () => raw,
   };
+}
+
+function eventEmitterTty(columns = 80, rows = 24) {
+  const inputEvents = new EventEmitter();
+  const outputEvents = new EventEmitter();
+  const input = {
+    isTTY: true as const,
+    setRawMode: vi.fn(),
+    resume: vi.fn(),
+    pause: vi.fn(),
+    on: (event: "data", listener: (chunk: Uint8Array | string) => void) => {
+      inputEvents.on(event, listener);
+    },
+    off: (event: "data", listener: (chunk: Uint8Array | string) => void) => {
+      inputEvents.off(event, listener);
+    },
+  };
+  const output = {
+    columns,
+    rows,
+    write: vi.fn(),
+    on: (event: "resize", listener: () => void) => {
+      outputEvents.on(event, listener);
+    },
+    off: (event: "resize", listener: () => void) => {
+      outputEvents.off(event, listener);
+    },
+  };
+  return { input, inputEvents, output, outputEvents };
 }
 
 function captureError(callback: () => void): unknown {
@@ -165,6 +195,103 @@ describe("TerminalDriver — lifecycle", () => {
 
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ type: "key", key: "ArrowUp" });
+  });
+
+  it("rejects a snapshotted resize callback after ownership transfers during emission", () => {
+    const tty = eventEmitterTty();
+    const oldEvents: TuiInputEvent[] = [];
+    const replacementEvents: TuiInputEvent[] = [];
+    const oldDriver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: (event) => oldEvents.push(event),
+    });
+    const replacement = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: (event) => replacementEvents.push(event),
+    });
+    let transferred = false;
+    tty.outputEvents.on("resize", () => {
+      if (transferred) return;
+      transferred = true;
+      oldDriver.stop();
+      replacement.start();
+    });
+    oldDriver.start();
+
+    tty.output.columns = 100;
+    tty.output.rows = 30;
+    tty.outputEvents.emit("resize");
+
+    expect(oldEvents).toEqual([]);
+    expect(replacementEvents).toEqual([]);
+    expect(oldDriver.size).toEqual({ width: 80, height: 24 });
+
+    tty.outputEvents.emit("resize");
+    expect(replacementEvents).toEqual([
+      { type: "resize", width: 100, height: 30 },
+    ]);
+    replacement.stop();
+  });
+
+  it("rejects stale data and resize closures after the same driver restarts", () => {
+    vi.useFakeTimers();
+    try {
+      const tty = eventEmitterTty();
+      const events: TuiInputEvent[] = [];
+      const driver = new TerminalDriver({
+        input: tty.input,
+        output: tty.output,
+        escapeFlushMs: 20,
+        onEvent: (event) => events.push(event),
+      });
+      driver.start();
+      const staleData = tty.inputEvents.listeners("data")[0];
+      const staleResize = tty.outputEvents.listeners("resize")[0];
+      expect(staleData).toBeTypeOf("function");
+      expect(staleResize).toBeTypeOf("function");
+      driver.stop();
+      driver.start();
+
+      tty.output.columns = 90;
+      tty.output.rows = 25;
+      tty.outputEvents.emit("resize");
+      expect(driver.size).toEqual({ width: 90, height: 25 });
+      events.length = 0;
+
+      tty.output.columns = 120;
+      tty.output.rows = 40;
+      staleResize?.();
+      staleData?.("\x1b");
+
+      expect(events).toEqual([]);
+      expect(driver.size).toEqual({ width: 90, height: 25 });
+      expect(vi.getTimerCount()).toBe(0);
+      driver.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not re-arm an escape timer after an input callback stops the driver", () => {
+    vi.useFakeTimers();
+    try {
+      const tty = fakeTty();
+      let driver: TerminalDriver;
+      driver = new TerminalDriver({
+        input: tty.input,
+        output: tty.output,
+        onEvent: () => driver.stop(),
+      });
+      driver.start();
+
+      tty.emitData("a\x1b");
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("throws if started twice", () => {
@@ -792,6 +919,46 @@ describe("TerminalDriver — lifecycle", () => {
     nextOwner.start();
     expect(cleanupAttempts).toBe(3);
     nextOwner.stop();
+  });
+
+  it("snapshots callbacks without retaining their mutable session receiver", () => {
+    const tty = fakeTty();
+    const cleanupError = new Error("cleanup is still pending");
+    let blockCleanup = true;
+    let observedCleanup: (() => void) | undefined;
+    let observedRetain: ((error: unknown) => boolean) | undefined;
+    function originalCleanup(this: { cleanup: () => void }): void {
+      observedCleanup = this.cleanup;
+      if (blockCleanup) throw cleanupError;
+    }
+    function originalRetain(
+      this: { retainSessionOnError?: (error: unknown) => boolean },
+      error: unknown,
+    ): boolean {
+      observedRetain = this.retainSessionOnError;
+      return error === cleanupError;
+    }
+    const replacementCleanup = (): void => {};
+    const replacementRetain = (): boolean => false;
+    const session = {
+      cleanup: originalCleanup,
+      retainSessionOnError: originalRetain,
+    };
+    const driver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    driver.start(session);
+    session.cleanup = replacementCleanup;
+    session.retainSessionOnError = replacementRetain;
+
+    expect(captureError(() => driver.stop())).toBe(cleanupError);
+    expect(observedCleanup).toBe(originalCleanup);
+    expect(observedRetain).toBe(originalRetain);
+
+    blockCleanup = false;
+    driver.stop();
   });
 
   it("contains a throwing retain predicate and preserves the cleanup error", () => {
