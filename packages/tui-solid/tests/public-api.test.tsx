@@ -415,6 +415,97 @@ describe("public Solid TUI facade", () => {
     expect(terminal.resizeListeners.size).toBe(0);
   });
 
+  it("keeps both streams pending until failed host cleanup is retried by a core driver", () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const cleanupError = new Error("Solid surface reset failed");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    output.failWrite = (chunk) => {
+      if (chunk === "\x1b[0m\x1b[?25h") {
+        cleanupAttempts += 1;
+        if (blockCleanup) return cleanupError;
+      }
+      return undefined;
+    };
+
+    const app = render(() => <Text>Old Solid app</Text>, { input, output });
+    expect(() => app.destroy()).toThrow(cleanupError);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    const blockedDriver = new TerminalDriver({
+      input,
+      output,
+      onEvent: () => {},
+    });
+    let blockedDriverStarted = false;
+    try {
+      const beforeBlocked = {
+        rawModes: [...input.rawModes],
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+        enterWrites: output.chunks.filter((chunk) =>
+          chunk.includes("\x1b[?1049h"),
+        ).length,
+      };
+      let blockedError: unknown;
+      try {
+        blockedDriver.start();
+        blockedDriverStarted = true;
+      } catch (error) {
+        blockedError = error;
+      }
+      expect(blockedError).toBe(cleanupError);
+      expect({
+        rawModes: input.rawModes,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+        enterWrites: output.chunks.filter((chunk) =>
+          chunk.includes("\x1b[?1049h"),
+        ).length,
+      }).toEqual(beforeBlocked);
+
+      blockCleanup = false;
+      const replacement = new TerminalDriver({
+        input,
+        output,
+        onEvent: () => {},
+      });
+      replacement.start();
+      expect(cleanupAttempts).toBe(3);
+      const beforeStaleUse = {
+        rawModes: [...input.rawModes],
+        chunks: [...output.chunks],
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      };
+      app.destroy();
+      expect(() => app.render(() => <Text>Stale render</Text>)).toThrow(
+        /teardown|destroyed/i,
+      );
+      expect(() => app.dispatchInput({ type: "text", text: "x" })).toThrow(
+        /teardown|destroyed/i,
+      );
+      expect({
+        rawModes: input.rawModes,
+        chunks: output.chunks,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      }).toEqual(beforeStaleUse);
+
+      replacement.stop();
+      expect(input.rawModes).toEqual([true, false, true, false]);
+      expect(input.listeners.size).toBe(0);
+      expect(output.listeners.size).toBe(0);
+    } finally {
+      blockCleanup = false;
+      if (blockedDriverStarted) blockedDriver.stop();
+      app.destroy();
+    }
+  });
+
   it("throws a driver-only cleanup error and retries the pending terminal release", () => {
     const terminal = new FaultyTerminal();
     const driverError = new Error("driver-only leave failed");

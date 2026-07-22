@@ -11,6 +11,7 @@ import {
   parseSmokeArguments,
   writeTarballDescriptor,
 } from "./tui-tarball-descriptor.mjs";
+import { validateCorePackageFiles } from "./verify-tui-package-boundaries.mjs";
 
 const definitions = {
   core: "@uniview/tui-core",
@@ -348,5 +349,37 @@ test("rejects extra files beside the descriptor and three tarballs", async () =>
     );
   } finally {
     await rm(value.directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects a descriptor-inspected packed core containing a Zod import", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "uniview-packed-core-test-"));
+  try {
+    const filename = await writeSyntheticTarball(directory, [
+      {
+        path: "package/package.json",
+        content: JSON.stringify({
+          name: definitions.core,
+          version: "0.0.1",
+          dependencies: { zod: "^4.0.0" },
+        }),
+      },
+      { path: "package/dist/index.mjs", content: `import "zod"` },
+      {
+        path: "package/dist/index.d.mts",
+        content: `export interface Safe { value: string }`,
+      },
+    ]);
+    const inspection = await inspectTarball(filename);
+    assert.throws(
+      () =>
+        validateCorePackageFiles({
+          manifest: inspection.manifest,
+          files: inspection.contents,
+        }),
+      /dist\/index\.mjs: zod must not be imported/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
   }
 });

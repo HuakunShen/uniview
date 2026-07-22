@@ -58,6 +58,13 @@ fragile. Rejected for the TUI release.
 It has no dependency on another `@uniview/*` package. Its third-party runtime dependencies
 remain normal `dependencies`.
 
+`TerminalDriver` is also the ownership authority for the complete terminal session. Low-level
+composers register renderer/framework cleanup with `start({ cleanup })`; `stop()` runs that
+cleanup first and then releases driver resources best-effort. If cleanup remains pending, both
+input and output identities remain reserved and either stream's next owner retries the exact
+callback before acquisition. A typed retain predicate may leave a demonstrably unmodified live
+session in place; stale handles are inert once ownership transfers.
+
 ### `@uniview/tui-react`
 
 The React package is a complete user-facing binding. It keeps:
@@ -95,8 +102,9 @@ self-contained is forbidden.
 
 Third-party dependency declarations are derived from emitted imports, not copied blindly
 from workspace manifests. At minimum, the audit covers `react-reconciler`, `marked`,
-`lowlight`, `zod`, `get-east-asian-width`, and `yoga-layout`. Core owns the last two; each
-binding owns any of the others that remain external in its output.
+`lowlight`, Zod 4, `get-east-asian-width`, and `yoga-layout`. Core owns the last two and must
+neither import nor contain bundled Zod; each binding owns any other dependency that remains
+external in its output.
 
 `workspace:*` is retained for `@uniview/tui-core` during workspace development. pnpm rewrites
 it to the concrete release version in the packed manifest. All three packages release at the
@@ -174,8 +182,11 @@ Before publishing:
 1. Build and type-check the three public packages and all implementation packages they use.
 2. Run their targeted unit tests plus the React/Solid parity tests.
 3. Inspect emitted JavaScript: React/Solid may import `@uniview/tui-core`, but no other
-   `@uniview/*` package.
-4. Inspect emitted declarations under the same rule.
+   `@uniview/*` package. Independently scan every core JavaScript file with AST-derived imports
+   for undeclared runtime packages, any Zod import, and bundled Zod markers.
+4. Inspect emitted declarations under the same package-boundary rule and reject Node `Buffer`
+   leakage. Apply the same JavaScript/declaration scan to descriptor- and sha256-verified core
+   files read directly from the immutable packed tarball.
 5. Inspect packed manifests: `workspace:*` must be rewritten to the concrete core version,
    framework peers must remain peers, and every emitted third-party import must be declared.
 6. In one non-matrix Node 24 job, pack the exact three tarballs, verify their immutable

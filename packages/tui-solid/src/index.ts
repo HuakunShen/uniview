@@ -482,32 +482,61 @@ export function render(
   reserveSolidRootOwnership(owner);
 
   let root: TuiSolidRoot | null = null;
-  let driver: TerminalDriver | null = null;
+  let surface: AnsiCellSurface | null = null;
+  let surfaceDestroyed = false;
+  const cleanupRoot = (): void => {
+    if (root) {
+      destroySolidRoot(owner, root);
+      return;
+    }
+
+    let firstError: unknown;
+    let hasError = false;
+    if (surface && !surfaceDestroyed) {
+      try {
+        surface.destroy();
+        surfaceDestroyed = true;
+      } catch (error) {
+        firstError = error;
+        hasError = true;
+      }
+    }
+    try {
+      releaseSolidRootOwnership(owner);
+    } catch (error) {
+      if (!hasError) {
+        firstError = error;
+        hasError = true;
+      }
+    }
+    if (hasError) throw firstError;
+  };
+  const driver = new TerminalDriver({
+    input,
+    output,
+    onEvent: (event) => {
+      if (!root) return;
+      if (event.type === "resize") {
+        root.host.renderer.resize({
+          width: event.width,
+          height: event.height,
+        });
+      } else {
+        root.dispatchInput(event);
+      }
+    },
+  });
 
   try {
-    driver = new TerminalDriver({
-      input,
-      output,
-      onEvent: (event) => {
-        if (!root) return;
-        if (event.type === "resize") {
-          root.host.renderer.resize({
-            width: event.width,
-            height: event.height,
-          });
-        } else {
-          root.dispatchInput(event);
-        }
-      },
-    });
-    driver.start();
+    driver.start({ cleanup: cleanupRoot });
     const styles = new StyleTable();
+    surface = new AnsiCellSurface({
+      write: (chunk) => output.write(chunk),
+      styles,
+    });
     root = createTuiSolidRootInternal(
       {
-        surface: new AnsiCellSurface({
-          write: (chunk) => output.write(chunk),
-          styles,
-        }),
+        surface,
         styles,
         size: {
           width: options.width ?? output.columns ?? 80,
@@ -523,62 +552,35 @@ export function render(
     root.render(App);
   } catch (error) {
     try {
-      if (root) destroySolidRoot(owner, root);
+      driver.stop();
     } catch {
-      // Preserve the initial mount error after attempting root cleanup.
+      // Preserve the initial reservation/startup/mount error while the core
+      // session retains any pending Solid root or surface cleanup barrier.
     }
     if (!root) releaseSolidRootOwnership(owner);
-    try {
-      driver?.stop();
-    } catch {
-      // Preserve the initial reservation, startup, or mount error.
-    }
     throw error;
   }
 
   const mountedRoot = root;
-  const activeDriver = driver;
 
   return {
     host: mountedRoot.host,
     clock: mountedRoot.clock,
-    driver: activeDriver,
+    driver,
     render: (next) => {
       try {
         mountedRoot.render(next);
       } catch (error) {
         try {
-          destroySolidRoot(owner, mountedRoot);
+          driver.stop();
         } catch {
-          // Preserve the replacement mount error after best-effort root cleanup.
-        }
-        try {
-          activeDriver.stop();
-        } catch {
-          // Preserve the replacement mount error after best-effort terminal cleanup.
+          // Preserve the replacement error while the core session retains
+          // pending root and terminal cleanup for the next owner.
         }
         throw error;
       }
     },
     dispatchInput: (event) => mountedRoot.dispatchInput(event),
-    destroy: () => {
-      let firstError: unknown;
-      let hasError = false;
-      try {
-        destroySolidRoot(owner, mountedRoot);
-      } catch (error) {
-        firstError = error;
-        hasError = true;
-      }
-      try {
-        activeDriver.stop();
-      } catch (error) {
-        if (!hasError) {
-          firstError = error;
-          hasError = true;
-        }
-      }
-      if (hasError) throw firstError;
-    },
+    destroy: () => driver.stop(),
   };
 }

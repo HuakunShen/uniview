@@ -101,20 +101,15 @@ import {
 } from "@uniview/tui-react";
 
 const styles = new StyleTable();
-const root = createTuiReactRoot({
-  surface: new AnsiCellSurface({
-    write: (chunk) => process.stdout.write(chunk),
-    styles,
-  }),
-  styles,
-  size: { width: process.stdout.columns ?? 80, height: process.stdout.rows ?? 24 },
-});
+let surface: AnsiCellSurface | undefined;
+let root: ReturnType<typeof createTuiReactRoot> | undefined;
 
 const driver = new TerminalDriver({
   input: process.stdin,
   output: process.stdout,
   mouse: "motion", // or "off"
   onEvent: (event) => {
+    if (!root) return;
     if (event.type === "resize") {
       root.host.renderer.resize({ width: event.width, height: event.height });
       return;
@@ -123,8 +118,40 @@ const driver = new TerminalDriver({
   },
 });
 
-driver.start();
+try {
+  driver.start({
+    cleanup: () => {
+      if (root) root.destroy();
+      else surface?.destroy();
+    },
+  });
+  surface = new AnsiCellSurface({
+    write: (chunk) => process.stdout.write(chunk),
+    styles,
+  });
+  root = createTuiReactRoot({
+    surface,
+    styles,
+    size: {
+      width: process.stdout.columns ?? 80,
+      height: process.stdout.rows ?? 24,
+    },
+  });
+} catch (error) {
+  try {
+    driver.stop();
+  } catch {
+    // Preserve the construction error; the pending cleanup remains retryable.
+  }
+  throw error;
+}
+
+process.on("SIGINT", () => driver.stop());
 ```
+
+The cleanup callback and terminal resources form one ownership session. A failed cleanup keeps
+both stream identities reserved, so this driver or the next owner retries it before terminal
+acquisition; a stale root cannot interfere with the replacement session.
 
 <Callout type="warn" title="Keys reach the focused node">
 A key event only reaches a component that is **focused** and has an `onKeyDown` — bubbling

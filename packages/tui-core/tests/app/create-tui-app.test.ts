@@ -36,6 +36,8 @@ function fakeTty(columns = 20, rows = 5) {
     },
     out: () => writes.join(""),
     reset: () => (writes.length = 0),
+    dataListenerCount: () => dataListeners.size,
+    resizeListenerCount: () => resizeListeners.size,
   };
 }
 
@@ -188,6 +190,181 @@ describe("createTuiApp", () => {
     app.destroy();
     expect(rendererDestroyAttempts).toBe(1);
     expect(driverStopAttempts).toBe(2);
+  });
+
+  it("keeps both streams pending until failed renderer cleanup is retried by the next app", () => {
+    const tty = fakeTty();
+    const cleanupError = new Error("surface reset failed");
+    const originalWrite = tty.output.write;
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    tty.output.write = (chunk: string) => {
+      if (chunk === "\x1b[0m\x1b[?25h") {
+        cleanupAttempts += 1;
+        if (blockCleanup) throw cleanupError;
+      }
+      return originalWrite(chunk);
+    };
+
+    const app = createTuiApp({ input: tty.input, output: tty.output });
+    app.render(label("Old app"));
+    expect(captureError(() => app.destroy())).toBe(cleanupError);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+    expect(tty.dataListenerCount()).toBe(0);
+    expect(tty.resizeListenerCount()).toBe(0);
+
+    let unexpectedReplacement: ReturnType<typeof createTuiApp> | undefined;
+    try {
+      let blockedError: unknown;
+      const beforeBlocked = {
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      };
+      try {
+        unexpectedReplacement = createTuiApp({
+          input: tty.input,
+          output: tty.output,
+        });
+      } catch (error) {
+        blockedError = error;
+      }
+      expect(blockedError).toBe(cleanupError);
+      expect({
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      }).toEqual(beforeBlocked);
+
+      blockCleanup = false;
+      const replacement = createTuiApp({
+        input: tty.input,
+        output: tty.output,
+      });
+      replacement.render(label("Replacement"));
+      expect(cleanupAttempts).toBe(3);
+
+      const beforeStaleUse = {
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      };
+      app.destroy();
+      expect(() => app.render(label("Stale render"))).toThrow(/teardown/i);
+      expect(() => app.onInput(() => {})).toThrow(/teardown/i);
+      expect({
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      }).toEqual(beforeStaleUse);
+
+      replacement.destroy();
+      expect(tty.input.setRawMode.mock.calls).toEqual([
+        [true],
+        [false],
+        [true],
+        [false],
+      ]);
+      expect(tty.dataListenerCount()).toBe(0);
+      expect(tty.resizeListenerCount()).toBe(0);
+    } finally {
+      blockCleanup = false;
+      unexpectedReplacement?.destroy();
+      app.destroy();
+    }
+  });
+
+  it("routes replacement render failures through the shared cleanup barrier", () => {
+    const tty = fakeTty();
+    const renderError = new Error("replacement frame failed");
+    const cleanupError = new Error("replacement cleanup failed");
+    const originalWrite = tty.output.write;
+    let failRender = false;
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    tty.output.write = (chunk: string) => {
+      if (failRender && chunk.includes("\x1b[?2026h")) {
+        failRender = false;
+        throw renderError;
+      }
+      if (chunk === "\x1b[0m\x1b[?25h") {
+        cleanupAttempts += 1;
+        if (blockCleanup) throw cleanupError;
+      }
+      return originalWrite(chunk);
+    };
+
+    const app = createTuiApp({ input: tty.input, output: tty.output });
+    app.render(label("Stable scene"));
+    failRender = true;
+    expect(captureError(() => app.render(label("Broken scene")))).toBe(
+      renderError,
+    );
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+    expect(tty.dataListenerCount()).toBe(0);
+    expect(tty.resizeListenerCount()).toBe(0);
+
+    let unexpectedReplacement: ReturnType<typeof createTuiApp> | undefined;
+    try {
+      const beforeBlocked = {
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      };
+      let blockedError: unknown;
+      try {
+        unexpectedReplacement = createTuiApp({
+          input: tty.input,
+          output: tty.output,
+        });
+      } catch (error) {
+        blockedError = error;
+      }
+      expect(blockedError).toBe(cleanupError);
+      expect({
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      }).toEqual(beforeBlocked);
+
+      blockCleanup = false;
+      const replacement = createTuiApp({
+        input: tty.input,
+        output: tty.output,
+      });
+      replacement.render(label("Recovered scene"));
+      expect(cleanupAttempts).toBe(3);
+
+      const beforeStaleUse = {
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      };
+      app.destroy();
+      expect(() => app.render(label("Stale render"))).toThrow(/teardown/i);
+      expect(() => app.onInput(() => {})).toThrow(/teardown/i);
+      expect({
+        rawCalls: tty.input.setRawMode.mock.calls.length,
+        writes: tty.out(),
+        dataListeners: tty.dataListenerCount(),
+        resizeListeners: tty.resizeListenerCount(),
+      }).toEqual(beforeStaleUse);
+
+      replacement.destroy();
+      expect(tty.dataListenerCount()).toBe(0);
+      expect(tty.resizeListenerCount()).toBe(0);
+    } finally {
+      blockCleanup = false;
+      unexpectedReplacement?.destroy();
+      app.destroy();
+    }
   });
 
   it("recovers a lost startup handle through the shared stream registry", () => {

@@ -15,10 +15,12 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  inspectTarball,
   loadTarballDescriptor,
   parseSmokeArguments,
   writeTarballDescriptor,
 } from "./tui-tarball-descriptor.mjs";
+import { validateCorePackageFiles } from "./verify-tui-package-boundaries.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -541,6 +543,11 @@ try {
   assertPackedPackage(packs.core, packedManifests.core, publicPackages.core);
   assertPackedPackage(packs.react, packedManifests.react, publicPackages.react);
   assertPackedPackage(packs.solid, packedManifests.solid, publicPackages.solid);
+  const packedCore = await inspectTarball(packs.core.filename);
+  validateCorePackageFiles({
+    manifest: packedCore.manifest,
+    files: packedCore.contents,
+  });
 
   const localReact = await realpath(
     join(repo, "packages/tui-react/node_modules/react"),
@@ -576,11 +583,104 @@ try {
     offlineOverrides: coreOfflineOverrides,
     source: `
 import assert from "node:assert/strict"
-import { MemoryCellSurface, StyleTable, stringCellWidth } from "@uniview/tui-core"
+import {
+  MemoryCellSurface,
+  StyleTable,
+  createTuiApp,
+  stringCellWidth,
+} from "@uniview/tui-core"
 const styles = new StyleTable()
 const surface = new MemoryCellSurface({ styles })
 assert.ok(surface)
 assert.equal(stringCellWidth("界"), 2)
+
+class FakeInput {
+  isTTY = true
+  rawModes = []
+  dataListeners = new Set()
+  setRawMode(mode) { this.rawModes.push(mode) }
+  resume() {}
+  pause() {}
+  on(_event, listener) { this.dataListeners.add(listener) }
+  off(_event, listener) { this.dataListeners.delete(listener) }
+}
+class FakeOutput {
+  columns = 20
+  rows = 2
+  chunks = []
+  resizeListeners = new Set()
+  failWrite
+  write(chunk) {
+    const error = this.failWrite?.(chunk)
+    if (error) throw error
+    this.chunks.push(chunk)
+  }
+  on(_event, listener) { this.resizeListeners.add(listener) }
+  off(_event, listener) { this.resizeListeners.delete(listener) }
+}
+const input = new FakeInput()
+const output = new FakeOutput()
+const renderError = new Error("packed core replacement frame failed")
+const cleanupError = new Error("packed core surface cleanup failed")
+const reset = String.fromCharCode(27) + "[0m" + String.fromCharCode(27) + "[?25h"
+const frameStart = String.fromCharCode(27) + "[?2026h"
+let failRender = false
+let blockCleanup = true
+let cleanupAttempts = 0
+output.failWrite = (chunk) => {
+  if (failRender && chunk.includes(frameStart)) {
+    failRender = false
+    return renderError
+  }
+  if (chunk === reset) {
+    cleanupAttempts += 1
+    if (blockCleanup) return cleanupError
+  }
+}
+const app = createTuiApp({ input, output })
+app.render({ type: "text", text: "Old core app" })
+failRender = true
+assert.throws(
+  () => app.render({ type: "text", text: "Broken core replacement" }),
+  (error) => error === renderError,
+)
+assert.deepEqual(input.rawModes, [true, false])
+assert.equal(input.dataListeners.size, 0)
+assert.equal(output.resizeListeners.size, 0)
+const enter = String.fromCharCode(27) + "[?1049h"
+const enterWritesBeforeBlocked = output.chunks.filter((chunk) => chunk.includes(enter)).length
+assert.throws(
+  () => createTuiApp({ input, output }),
+  (error) => error === cleanupError,
+)
+assert.equal(
+  output.chunks.filter((chunk) => chunk.includes(enter)).length,
+  enterWritesBeforeBlocked,
+)
+assert.deepEqual(input.rawModes, [true, false])
+blockCleanup = false
+const replacement = createTuiApp({ input, output })
+replacement.render({ type: "text", text: "Core replacement" })
+assert.equal(cleanupAttempts, 3)
+const beforeStaleUse = {
+  rawModes: [...input.rawModes],
+  chunks: [...output.chunks],
+  dataListeners: input.dataListeners.size,
+  resizeListeners: output.resizeListeners.size,
+}
+app.destroy()
+assert.throws(() => app.render({ type: "text", text: "Stale" }), /teardown/i)
+assert.throws(() => app.onInput(() => {}), /teardown/i)
+assert.deepEqual({
+  rawModes: input.rawModes,
+  chunks: output.chunks,
+  dataListeners: input.dataListeners.size,
+  resizeListeners: output.resizeListeners.size,
+}, beforeStaleUse)
+replacement.destroy()
+assert.deepEqual(input.rawModes, [true, false, true, false])
+assert.equal(input.dataListeners.size, 0)
+assert.equal(output.resizeListeners.size, 0)
 `,
   });
 
@@ -722,6 +822,77 @@ assert.throws(
 )
 cleanupApp.destroy()
 
+const barrierInput = new FakeInput()
+const barrierOutput = new FakeOutput()
+const barrierError = new Error("packed React surface cleanup failed")
+const barrierReset = String.fromCharCode(27) + "[0m" + String.fromCharCode(27) + "[?25h"
+let blockBarrierCleanup = true
+let barrierCleanupAttempts = 0
+barrierOutput.failWrite = (chunk) => {
+  if (chunk === barrierReset) {
+    barrierCleanupAttempts += 1
+    if (blockBarrierCleanup) return barrierError
+  }
+}
+const barrierApp = render(createElement(Text, null, "Old barrier app"), {
+  input: barrierInput,
+  output: barrierOutput,
+})
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.throws(() => barrierApp.destroy(), (error) => error === barrierError)
+const barrierEnter = String.fromCharCode(27) + "[?1049h"
+const barrierEnterWritesBeforeBlocked = barrierOutput.chunks.filter((chunk) =>
+  chunk.includes(barrierEnter),
+).length
+assert.throws(
+  () => render(createElement(Text, null, "Must not mount"), {
+    input: barrierInput,
+    output: barrierOutput,
+  }),
+  (error) => error === barrierError,
+)
+assert.equal(
+  barrierOutput.chunks.filter((chunk) => chunk.includes(barrierEnter)).length,
+  barrierEnterWritesBeforeBlocked,
+)
+assert.deepEqual(barrierInput.rawModes, [true, false])
+assert.equal(barrierInput.dataListeners.size, 0)
+assert.equal(barrierOutput.resizeListeners.size, 0)
+blockBarrierCleanup = false
+const barrierReplacement = render(createElement(Text, null, "Barrier replacement"), {
+  input: barrierInput,
+  output: barrierOutput,
+})
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.equal(barrierCleanupAttempts, 3)
+const beforeBarrierStaleUse = {
+  rawModes: [...barrierInput.rawModes],
+  chunks: [...barrierOutput.chunks],
+  dataListeners: barrierInput.dataListeners.size,
+  resizeListeners: barrierOutput.resizeListeners.size,
+}
+barrierApp.destroy()
+assert.throws(
+  () => barrierApp.render(createElement(Text, null, "Stale render")),
+  /teardown|destroyed/i,
+)
+assert.throws(
+  () => barrierApp.dispatchInput({ type: "text", text: "x" }),
+  /teardown|destroyed/i,
+)
+assert.deepEqual({
+  rawModes: barrierInput.rawModes,
+  chunks: barrierOutput.chunks,
+  dataListeners: barrierInput.dataListeners.size,
+  resizeListeners: barrierOutput.resizeListeners.size,
+}, beforeBarrierStaleUse)
+barrierReplacement.destroy()
+assert.deepEqual(barrierInput.rawModes, [true, false, true, false])
+assert.equal(barrierInput.dataListeners.size, 0)
+assert.equal(barrierOutput.resizeListeners.size, 0)
+
 const compatInput = new FakeInput()
 const compatOutput = new FakeOutput()
 const compatRootError = new Error(
@@ -784,6 +955,82 @@ compatReplacement.destroy()
 assert.deepEqual(compatInput.rawModes, [true, false, true, false])
 assert.equal(compatInput.dataListeners.size, 0)
 assert.equal(compatOutput.resizeListeners.size, 0)
+
+const compatBarrierInput = new FakeInput()
+const compatBarrierOutput = new FakeOutput()
+const compatBarrierError = new Error("packed compat surface cleanup failed")
+const compatBarrierReset = String.fromCharCode(27) + "[0m" + String.fromCharCode(27) + "[?25h"
+let blockCompatBarrierCleanup = true
+let compatBarrierCleanupAttempts = 0
+compatBarrierOutput.failWrite = (chunk) => {
+  if (chunk === compatBarrierReset) {
+    compatBarrierCleanupAttempts += 1
+    if (blockCompatBarrierCleanup) return compatBarrierError
+  }
+}
+const compatBarrierRoot = createTuiRoot({
+  input: compatBarrierInput,
+  output: compatBarrierOutput,
+})
+compatBarrierRoot.render(createElement(CompatText, null, "Old compat barrier"))
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.throws(
+  () => compatBarrierRoot.destroy(),
+  (error) => error === compatBarrierError,
+)
+const compatBarrierEnter = String.fromCharCode(27) + "[?1049h"
+const compatBarrierEnterWritesBeforeBlocked = compatBarrierOutput.chunks.filter((chunk) =>
+  chunk.includes(compatBarrierEnter),
+).length
+assert.throws(
+  () => createTuiRoot({
+    input: compatBarrierInput,
+    output: compatBarrierOutput,
+  }),
+  (error) => error === compatBarrierError,
+)
+assert.equal(
+  compatBarrierOutput.chunks.filter((chunk) =>
+    chunk.includes(compatBarrierEnter),
+  ).length,
+  compatBarrierEnterWritesBeforeBlocked,
+)
+assert.deepEqual(compatBarrierInput.rawModes, [true, false])
+assert.equal(compatBarrierInput.dataListeners.size, 0)
+assert.equal(compatBarrierOutput.resizeListeners.size, 0)
+blockCompatBarrierCleanup = false
+const compatBarrierReplacement = createTuiRoot({
+  input: compatBarrierInput,
+  output: compatBarrierOutput,
+})
+compatBarrierReplacement.render(
+  createElement(CompatText, null, "Compat barrier replacement"),
+)
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+assert.equal(compatBarrierCleanupAttempts, 3)
+const beforeCompatBarrierStaleUse = {
+  rawModes: [...compatBarrierInput.rawModes],
+  chunks: [...compatBarrierOutput.chunks],
+  dataListeners: compatBarrierInput.dataListeners.size,
+  resizeListeners: compatBarrierOutput.resizeListeners.size,
+}
+compatBarrierRoot.destroy()
+assert.throws(
+  () => compatBarrierRoot.render(createElement(CompatText, null, "Stale")),
+  /teardown|destroyed/i,
+)
+assert.deepEqual({
+  rawModes: compatBarrierInput.rawModes,
+  chunks: compatBarrierOutput.chunks,
+  dataListeners: compatBarrierInput.dataListeners.size,
+  resizeListeners: compatBarrierOutput.resizeListeners.size,
+}, beforeCompatBarrierStaleUse)
+compatBarrierReplacement.destroy()
+assert.deepEqual(compatBarrierInput.rawModes, [true, false, true, false])
+assert.equal(compatBarrierInput.dataListeners.size, 0)
+assert.equal(compatBarrierOutput.resizeListeners.size, 0)
 
 const compatDriverOnlyInput = new FakeInput()
 const compatDriverOnlyOutput = new FakeOutput()
@@ -958,6 +1205,7 @@ import { createComponent, onCleanup } from "solid-js"
 import {
   MemoryCellSurface,
   StyleTable,
+  TerminalDriver,
   Text,
   createTuiSolidRoot,
   render,
@@ -1291,6 +1539,84 @@ assert.equal(doubleCleanupInput.resumeCount, 2)
 assert.equal(doubleCleanupInput.pauseCount, 2)
 assert.equal(doubleCleanupInput.dataListeners.size, 0)
 assert.equal(doubleCleanupOutput.resizeListeners.size, 0)
+
+const solidBarrierInput = new FakeInput()
+const solidBarrierOutput = new FakeOutput()
+const solidBarrierError = new Error("packed Solid surface cleanup failed")
+const solidBarrierReset = String.fromCharCode(27) + "[0m" + String.fromCharCode(27) + "[?25h"
+let blockSolidBarrierCleanup = true
+let solidBarrierCleanupAttempts = 0
+solidBarrierOutput.failWrite = (chunk) => {
+  if (chunk === solidBarrierReset) {
+    solidBarrierCleanupAttempts += 1
+    if (blockSolidBarrierCleanup) return solidBarrierError
+  }
+}
+const solidBarrierApp = render(
+  () => createComponent(Text, { children: "Old Solid barrier" }),
+  { input: solidBarrierInput, output: solidBarrierOutput },
+)
+assert.throws(
+  () => solidBarrierApp.destroy(),
+  (error) => error === solidBarrierError,
+)
+const blockedCoreDriver = new TerminalDriver({
+  input: solidBarrierInput,
+  output: solidBarrierOutput,
+  onEvent: () => {},
+})
+const solidBarrierEnter = String.fromCharCode(27) + "[?1049h"
+const solidBarrierEnterWritesBeforeBlocked = solidBarrierOutput.chunks.filter((chunk) =>
+  chunk.includes(solidBarrierEnter),
+).length
+assert.throws(
+  () => blockedCoreDriver.start(),
+  (error) => error === solidBarrierError,
+)
+assert.equal(
+  solidBarrierOutput.chunks.filter((chunk) =>
+    chunk.includes(solidBarrierEnter),
+  ).length,
+  solidBarrierEnterWritesBeforeBlocked,
+)
+assert.deepEqual(solidBarrierInput.rawModes, [true, false])
+assert.equal(solidBarrierInput.dataListeners.size, 0)
+assert.equal(solidBarrierOutput.resizeListeners.size, 0)
+blockSolidBarrierCleanup = false
+const solidCoreReplacement = new TerminalDriver({
+  input: solidBarrierInput,
+  output: solidBarrierOutput,
+  onEvent: () => {},
+})
+solidCoreReplacement.start()
+assert.equal(solidBarrierCleanupAttempts, 3)
+const beforeSolidBarrierStaleUse = {
+  rawModes: [...solidBarrierInput.rawModes],
+  chunks: [...solidBarrierOutput.chunks],
+  dataListeners: solidBarrierInput.dataListeners.size,
+  resizeListeners: solidBarrierOutput.resizeListeners.size,
+}
+solidBarrierApp.destroy()
+assert.throws(
+  () => solidBarrierApp.render(
+    () => createComponent(Text, { children: "Stale Solid render" }),
+  ),
+  /teardown|destroyed/i,
+)
+assert.throws(
+  () => solidBarrierApp.dispatchInput({ type: "text", text: "x" }),
+  /teardown|destroyed/i,
+)
+assert.deepEqual({
+  rawModes: solidBarrierInput.rawModes,
+  chunks: solidBarrierOutput.chunks,
+  dataListeners: solidBarrierInput.dataListeners.size,
+  resizeListeners: solidBarrierOutput.resizeListeners.size,
+}, beforeSolidBarrierStaleUse)
+solidCoreReplacement.stop()
+assert.deepEqual(solidBarrierInput.rawModes, [true, false, true, false])
+assert.equal(solidBarrierInput.dataListeners.size, 0)
+assert.equal(solidBarrierOutput.resizeListeners.size, 0)
 
 const driverOnlyInput = new FakeInput()
 const driverOnlyOutput = new FakeOutput()

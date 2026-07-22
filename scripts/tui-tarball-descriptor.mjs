@@ -70,6 +70,7 @@ export async function inspectTarball(filename) {
     `${filename}: tar archive exceeds 512-byte bounds`,
   );
   const files = [];
+  const contents = new Map();
   const seenFiles = new Set();
   let manifest;
   let offset = 0;
@@ -131,16 +132,16 @@ export async function inspectTarball(filename) {
     );
     seenFiles.add(packagePath);
     files.push(packagePath);
+    const content = archive.subarray(contentStart, contentEnd);
+    contents.set(packagePath, Buffer.from(content));
     if (packagePath === "package.json") {
-      manifest = JSON.parse(
-        archive.subarray(contentStart, contentEnd).toString("utf8"),
-      );
+      manifest = JSON.parse(content.toString("utf8"));
     }
     offset = paddedEnd;
   }
   assert.ok(foundEndOfArchive, `${filename}: missing two-block tar EOF trailer`);
   assert.ok(manifest, `${filename}: missing packed package/package.json`);
-  return { manifest, files: files.sort() };
+  return { manifest, files: files.sort(), contents };
 }
 
 async function sha256(filename) {

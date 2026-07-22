@@ -207,6 +207,83 @@ describe("compat facade", () => {
     expect(output.listeners.size).toBe(0);
   });
 
+  it("keeps compat streams reserved until failed root cleanup is retried by the next root", async () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const cleanupError = new Error("compat surface reset failed");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    output.failWrite = (chunk) => {
+      if (chunk === "\x1b[0m\x1b[?25h") {
+        cleanupAttempts += 1;
+        if (blockCleanup) return cleanupError;
+      }
+      return undefined;
+    };
+
+    const root = createTuiRoot({ input, output });
+    root.render(h(Text, null, "Old compat root"));
+    await tick();
+    expect(() => root.destroy()).toThrow(cleanupError);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    let unexpectedReplacement: TuiRoot | undefined;
+    try {
+      const beforeBlocked = {
+        rawModes: [...input.rawModes],
+        chunks: [...output.chunks],
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      };
+      let blockedError: unknown;
+      try {
+        unexpectedReplacement = createTuiRoot({ input, output });
+      } catch (error) {
+        blockedError = error;
+      }
+      expect(blockedError).toBe(cleanupError);
+      expect({
+        rawModes: input.rawModes,
+        chunks: output.chunks,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      }).toEqual(beforeBlocked);
+
+      blockCleanup = false;
+      const replacement = createTuiRoot({ input, output });
+      replacement.render(h(Text, null, "Replacement"));
+      await tick();
+      expect(cleanupAttempts).toBe(3);
+      const beforeStaleUse = {
+        rawModes: [...input.rawModes],
+        chunks: [...output.chunks],
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      };
+      root.destroy();
+      expect(() => root.render(h(Text, null, "Stale render"))).toThrow(
+        /teardown|destroyed/i,
+      );
+      expect({
+        rawModes: input.rawModes,
+        chunks: output.chunks,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      }).toEqual(beforeStaleUse);
+
+      replacement.destroy();
+      expect(input.rawModes).toEqual([true, false, true, false]);
+      expect(input.listeners.size).toBe(0);
+      expect(output.listeners.size).toBe(0);
+    } finally {
+      blockCleanup = false;
+      unexpectedReplacement?.destroy();
+      root.destroy();
+    }
+  });
+
   it("throws a driver-only cleanup error and retries the pending terminal release", async () => {
     const input = new FakeInput();
     const output = new FakeOutput();

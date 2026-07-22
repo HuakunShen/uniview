@@ -638,6 +638,107 @@ describe("TerminalDriver — lifecycle", () => {
     expect(rawModes).toEqual([true, false, true, false]);
   });
 
+  it("holds both stream mappings until an external cleanup barrier succeeds", () => {
+    const tty = fakeTty();
+    const cleanupError = new Error("external cleanup failed");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    const oldOwner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    oldOwner.start({
+      cleanup: () => {
+        cleanupAttempts += 1;
+        if (blockCleanup) throw cleanupError;
+      },
+    });
+
+    expect(captureError(() => oldOwner.stop())).toBe(cleanupError);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+    expect(tty.dataListenerCount()).toBe(0);
+    expect(tty.resizeListenerCount()).toBe(0);
+
+    const nextOwner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    const writesBeforeBlockedStart = tty.output_writes();
+    expect(captureError(() => nextOwner.start())).toBe(cleanupError);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+    expect(tty.output_writes()).toBe(writesBeforeBlockedStart);
+
+    blockCleanup = false;
+    nextOwner.start();
+    expect(cleanupAttempts).toBe(3);
+    const beforeStaleStop = {
+      rawCalls: tty.input.setRawMode.mock.calls.length,
+      writes: tty.output_writes(),
+      dataListeners: tty.dataListenerCount(),
+      resizeListeners: tty.resizeListenerCount(),
+    };
+    oldOwner.stop();
+    expect({
+      rawCalls: tty.input.setRawMode.mock.calls.length,
+      writes: tty.output_writes(),
+      dataListeners: tty.dataListenerCount(),
+      resizeListeners: tty.resizeListenerCount(),
+    }).toEqual(beforeStaleStop);
+
+    nextOwner.stop();
+    expect(tty.input.setRawMode.mock.calls).toEqual([
+      [true],
+      [false],
+      [true],
+      [false],
+    ]);
+  });
+
+  it("keeps a live session untouched when the cleanup policy retains it", () => {
+    const tty = fakeTty();
+    const cleanupError = new Error("pre-mutation cleanup rejection");
+    let blockCleanup = true;
+    const owner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    owner.start({
+      cleanup: () => {
+        if (blockCleanup) throw cleanupError;
+      },
+      retainSessionOnError: (error) => error === cleanupError,
+    });
+
+    const beforeRejectedStop = {
+      rawCalls: tty.input.setRawMode.mock.calls.length,
+      writes: tty.output_writes(),
+      dataListeners: tty.dataListenerCount(),
+      resizeListeners: tty.resizeListenerCount(),
+    };
+    expect(captureError(() => owner.stop())).toBe(cleanupError);
+    expect({
+      rawCalls: tty.input.setRawMode.mock.calls.length,
+      writes: tty.output_writes(),
+      dataListeners: tty.dataListenerCount(),
+      resizeListeners: tty.resizeListenerCount(),
+    }).toEqual(beforeRejectedStop);
+
+    const competitor = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    expect(() => competitor.start()).toThrow(/already owned/);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true]]);
+
+    blockCleanup = false;
+    owner.stop();
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+  });
+
   it("preflights healthy owners and deduplicates distinct pending owners", () => {
     const makeSession = () => {
       let failLeave = false;

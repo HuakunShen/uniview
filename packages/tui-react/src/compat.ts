@@ -138,41 +138,74 @@ export function createTuiRoot(options: CreateTuiRootOptions = {}): TuiRoot {
   };
 
   const styles = new StyleTable();
-  const surface = new AnsiCellSurface({
-    write: (chunk) => output.write(chunk),
-    styles,
-  });
-  const root = createTuiReactRoot({ surface, styles, size });
+  let surface: AnsiCellSurface | null = null;
+  let root: ReturnType<typeof createTuiReactRoot> | null = null;
+  let surfaceDestroyed = false;
+  const cleanupRoot = (): void => {
+    if (root) {
+      root.destroy();
+      return;
+    }
+    if (!surface || surfaceDestroyed) return;
+    surface.destroy();
+    surfaceDestroyed = true;
+  };
 
   const driver = new TerminalDriver({
     input,
     output,
     onEvent: (event) => {
+      const activeRoot = root;
+      if (!activeRoot) return;
       if (event.type === "resize") {
-        root.host.renderer.resize({ width: event.width, height: event.height });
+        activeRoot.host.renderer.resize({
+          width: event.width,
+          height: event.height,
+        });
       } else {
-        root.dispatchInput(event);
+        activeRoot.dispatchInput(event);
       }
     },
   });
-  driver.start();
+
+  try {
+    driver.start({
+      cleanup: cleanupRoot,
+      retainSessionOnError: isReactReentrantUnmountError,
+    });
+    surface = new AnsiCellSurface({
+      write: (chunk) => output.write(chunk),
+      styles,
+    });
+    root = createTuiReactRoot({ surface, styles, size });
+  } catch (error) {
+    try {
+      driver.stop();
+    } catch {
+      // Preserve startup/construction failure; the core driver keeps any
+      // pending generic cleanup barrier registered on the streams.
+    }
+    throw error;
+  }
+
+  const mountedRoot = root;
+  if (!mountedRoot) {
+    throw new Error("TUI React compatibility root initialization failed");
+  }
 
   return {
-    render: (element) => root.render(element),
-    destroy: () => {
+    render: (element) => {
       try {
-        root.destroy();
+        mountedRoot.render(element);
       } catch (error) {
-        if (isReactReentrantUnmountError(error)) throw error;
         try {
           driver.stop();
         } catch {
-          // Preserve the root teardown error. Terminal cleanup remains
-          // retryable through this handle and the core stream registry.
+          // Preserve the replacement render error while retaining cleanup.
         }
         throw error;
       }
-      driver.stop();
     },
+    destroy: () => driver.stop(),
   };
 }

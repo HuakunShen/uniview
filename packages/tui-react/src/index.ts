@@ -268,6 +268,14 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     },
 
     dispatchInput(event: TuiInputEvent): void {
+      if (cleanupComplete()) {
+        throw new Error("Cannot dispatch input to a destroyed TUI React root");
+      }
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot dispatch input after TUI React root teardown has started",
+        );
+      }
       router.dispatch(event);
     },
 
@@ -337,6 +345,17 @@ export function render(
   const output = options.output ?? (process.stdout as unknown as TtyOutput);
   const styles = new StyleTable();
   let root: TuiReactRoot | null = null;
+  let surface: AnsiCellSurface | null = null;
+  let surfaceDestroyed = false;
+  const cleanupRoot = (): void => {
+    if (root) {
+      root.destroy();
+      return;
+    }
+    if (!surface || surfaceDestroyed) return;
+    surface.destroy();
+    surfaceDestroyed = true;
+  };
   const driver = new TerminalDriver({
     input,
     output,
@@ -351,12 +370,16 @@ export function render(
   });
 
   try {
-    driver.start();
+    driver.start({
+      cleanup: cleanupRoot,
+      retainSessionOnError: isReactReentrantUnmountError,
+    });
+    surface = new AnsiCellSurface({
+      write: (chunk) => output.write(chunk),
+      styles,
+    });
     root = createTuiReactRoot({
-      surface: new AnsiCellSurface({
-        write: (chunk) => output.write(chunk),
-        styles,
-      }),
+      surface,
       styles,
       size: {
         width: options.width ?? output.columns ?? 80,
@@ -371,14 +394,10 @@ export function render(
     root.render(element);
   } catch (error) {
     try {
-      root?.destroy();
-    } catch {
-      // Preserve the startup or initial render error.
-    }
-    try {
       driver.stop();
     } catch {
-      // Pending terminal cleanup remains discoverable through the core registry.
+      // Preserve the startup/construction/render error. The core session keeps
+      // the generic root/surface barrier discoverable for the next owner.
     }
     throw error;
   }
@@ -389,22 +408,19 @@ export function render(
     host: mountedRoot.host,
     clock: mountedRoot.clock,
     driver,
-    render: (next) => mountedRoot.render(next),
-    dispatchInput: (event) => mountedRoot.dispatchInput(event),
-    destroy: () => {
+    render: (next) => {
       try {
-        mountedRoot.destroy();
+        mountedRoot.render(next);
       } catch (error) {
-        if (isReactReentrantUnmountError(error)) throw error;
         try {
           driver.stop();
         } catch {
-          // The root teardown error is the actionable cause. Terminal cleanup
-          // remains best-effort and must not replace it.
+          // Preserve the replacement render error while retaining cleanup.
         }
         throw error;
       }
-      driver.stop();
     },
+    dispatchInput: (event) => mountedRoot.dispatchInput(event),
+    destroy: () => driver.stop(),
   };
 }

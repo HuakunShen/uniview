@@ -42,6 +42,16 @@ process.on("SIGINT", () => {
 });
 ```
 
+`createTuiApp()` owns the renderer and terminal as one session. If renderer cleanup fails,
+the driver releases terminal resources best-effort but keeps both stream identities reserved;
+`destroy()` or the next owner of either stream retries the same cleanup before acquiring the
+terminal.
+
+When composing `TerminalDriver` with a custom renderer, register that renderer's cleanup with
+`driver.start({ cleanup })` and let `driver.stop()` tear down the whole session. The optional
+`retainSessionOnError` predicate is only for a typed error that guarantees cleanup made no
+mutation; returning `true` leaves the live session untouched.
+
 ## The pipeline
 
 ```

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   extractModuleSpecifiers,
+  validateCorePackageFiles,
   validateManifest,
   validatePortableCoreDeclaration,
   validateSource,
@@ -221,5 +222,66 @@ test("rejects Node Buffer leakage from core declarations", () => {
         source: `interface Input { push(chunk: Buffer | string): void }`,
       }),
     /index\.d\.mts: public declaration leaks Node Buffer/,
+  );
+});
+
+test("rejects a declared zod runtime import from core JavaScript", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: { zod: "^4.0.0" } },
+        files: new Map([["dist/index.mjs", `import "zod"`]]),
+      }),
+    /dist\/index\.mjs: zod must not be imported/,
+  );
+});
+
+test("rejects an undeclared runtime import from core JavaScript", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([["dist/index.js", `import "undeclared-core"`]]),
+      }),
+    /dist\/index\.js: undeclared runtime import undeclared-core/,
+  );
+});
+
+test("rejects bundled Zod implementation markers from core JavaScript", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([
+          ["dist/index.mjs", `const source = "node_modules/.pnpm/zod@4"`],
+        ]),
+      }),
+    /dist\/index\.mjs: bundled zod implementation/,
+  );
+});
+
+test("applies import boundaries and Buffer portability to core declarations", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([
+          [
+            "dist/index.d.mts",
+            `export type Hidden = import("@uniview/hidden").Type`,
+          ],
+        ]),
+      }),
+    /dist\/index\.d\.mts: @uniview\/hidden/,
+  );
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([
+          ["dist/index.d.mts", `export type Chunk = Buffer | string`],
+        ]),
+      }),
+    /public declaration leaks Node Buffer/,
   );
 });

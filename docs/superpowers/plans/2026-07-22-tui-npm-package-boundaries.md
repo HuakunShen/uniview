@@ -8,6 +8,14 @@
 
 - Public byte-facing terminal APIs use `Uint8Array | string`; consuming the declarations
   does not require Node's `Buffer` type or borrowed monorepo type roots.
+- `TerminalDriver.start({ cleanup })` owns framework/root/surface cleanup and driver resources
+  as one retryable session. Both stream identities remain reserved while either side is pending;
+  a next owner of either stream retries before acquisition, and stale handles are inert after a
+  successful transfer. React uses the typed pre-mutation retain predicate for reentrant unmounts.
+- The release boundary verifier scans every emitted core JavaScript import and bundled-code
+  marker, rejects Zod and undeclared runtime packages, checks declarations for imports and
+  `Buffer`, and applies the same scanner to sha256-verified core files extracted from the packed
+  artifact.
 - `pnpm check-types:tui-release` permanently covers protocol, core, host, both renderers,
   content, charts, style, and both bindings. `verify:tui-packages` and
   `smoke:tui-packages` invoke it.

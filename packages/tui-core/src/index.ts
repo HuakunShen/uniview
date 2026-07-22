@@ -139,6 +139,7 @@ export type { CommittedOutputOptions } from "./app/committed-output";
 export { TerminalDriver } from "./terminal/terminal-driver";
 export type {
   TerminalDriverOptions,
+  TerminalDriverStartOptions,
   TtyInput,
   TtyOutput,
 } from "./terminal/terminal-driver";

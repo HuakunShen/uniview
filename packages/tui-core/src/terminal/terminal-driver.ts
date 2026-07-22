@@ -42,6 +42,14 @@ export interface TerminalDriverOptions {
   onEvent: (event: TuiInputEvent) => void;
 }
 
+/** A generic teardown barrier owned by the terminal session. */
+export interface TerminalDriverStartOptions {
+  /** Runs before terminal resources are released and is retried by the next owner. */
+  cleanup: () => void;
+  /** Return true only when the error means the live session must remain untouched. */
+  retainSessionOnError?: (error: unknown) => boolean;
+}
+
 type TerminalDriverState =
   | "idle"
   | "starting"
@@ -74,6 +82,7 @@ export class TerminalDriver {
   private enterSequenceWritten = false;
   private currentSize: Size;
   private escapeTimer: ReturnType<typeof setTimeout> | null = null;
+  private cleanupBarrier: TerminalDriverStartOptions | null = null;
 
   constructor(private readonly options: TerminalDriverOptions) {
     this.mode = {
@@ -211,16 +220,18 @@ export class TerminalDriver {
     this.streamsReserved = false;
   }
 
-  start(): void {
+  start(session?: TerminalDriverStartOptions): void {
     if (this.state !== "idle" || this.hasOwnedResources()) {
       throw new Error("TerminalDriver already started or cleanup is pending");
     }
+    this.cleanupBarrier = session ?? null;
     this.state = "starting";
 
     try {
       this.reserveStreams();
     } catch (error) {
       this.state = "idle";
+      this.cleanupBarrier = null;
       throw error;
     }
 
@@ -244,41 +255,74 @@ export class TerminalDriver {
       output.write(buildEnterSequence(this.mode));
       this.state = "running";
     } catch (error) {
-      this.state = "stopping";
       try {
-        this.releaseResources();
+        this.stopSession(false);
       } catch {
         // Preserve the startup error after best-effort rollback.
-      }
-      if (this.hasOwnedResources()) {
-        this.state = "cleanup-pending";
-      } else {
-        this.state = "idle";
-        this.releaseStreams();
       }
       throw error;
     }
   }
 
   stop(): void {
-    if (this.state === "idle" && !this.hasOwnedResources()) return;
+    if (
+      this.state === "idle" &&
+      !this.hasOwnedResources() &&
+      this.cleanupBarrier === null
+    )
+      return;
     if (this.state === "starting" || this.state === "stopping") {
       throw new Error(
         "TerminalDriver lifecycle transition is already in progress",
       );
     }
+    this.stopSession(true);
+  }
+
+  private stopSession(allowRetainSession: boolean): void {
+    const previousState = this.state;
     this.state = "stopping";
+
+    let firstError: unknown;
+    let hasError = false;
+    if (this.cleanupBarrier) {
+      const barrier = this.cleanupBarrier;
+      try {
+        barrier.cleanup();
+        if (this.cleanupBarrier === barrier) this.cleanupBarrier = null;
+      } catch (error) {
+        if (
+          allowRetainSession &&
+          barrier.retainSessionOnError?.(error) === true
+        ) {
+          this.state =
+            previousState === "cleanup-pending" ? "cleanup-pending" : "running";
+          throw error;
+        }
+        firstError = error;
+        hasError = true;
+      }
+    }
+
     this.clearEscapeTimer();
 
     try {
       this.releaseResources();
     } catch (error) {
-      this.state = "cleanup-pending";
-      throw error;
+      if (!hasError) {
+        firstError = error;
+        hasError = true;
+      }
     }
 
-    this.state = "idle";
-    this.releaseStreams();
+    if (this.cleanupBarrier || this.hasOwnedResources()) {
+      this.state = "cleanup-pending";
+    } else {
+      this.state = "idle";
+      this.releaseStreams();
+    }
+
+    if (hasError) throw firstError;
   }
 
   private releaseResources(): void {

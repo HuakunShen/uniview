@@ -44,11 +44,17 @@ export interface TuiApp {
 export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
   const styles = options.styles ?? new StyleTable();
   const handlers = new Set<(event: TuiInputEvent) => void>();
+  let surface: AnsiCellSurface | null = null;
+  let renderer: TuiRenderer | null = null;
+  let teardownStarted = false;
+  let rendererDestroyed = false;
 
-  const surface = new AnsiCellSurface({
-    write: (chunk) => options.output.write(chunk),
-    styles,
-  });
+  const cleanupRenderer = (): void => {
+    if (rendererDestroyed) return;
+    if (renderer) renderer.destroy();
+    else surface?.destroy();
+    rendererDestroyed = true;
+  };
 
   const driver = new TerminalDriver({
     input: options.input,
@@ -58,17 +64,6 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
     onEvent: dispatch,
   });
 
-  const renderer = new TuiRenderer({
-    surface,
-    styles,
-    size: driver.size,
-    cursor: options.cursor,
-  });
-
-  let teardownStarted = false;
-  let rendererDestroyed = false;
-  let driverStopped = false;
-
   const assertActive = (): void => {
     if (teardownStarted) {
       throw new Error("Cannot use a TUI app after teardown has started");
@@ -76,7 +71,7 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
   };
 
   function dispatch(event: TuiInputEvent): void {
-    if (teardownStarted) return;
+    if (teardownStarted || !renderer) return;
     if (event.type === "resize") {
       renderer.resize({ width: event.width, height: event.height });
       renderer.flush();
@@ -86,34 +81,55 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
   }
 
   try {
-    driver.start();
+    driver.start({ cleanup: cleanupRenderer });
+    surface = new AnsiCellSurface({
+      write: (chunk) => options.output.write(chunk),
+      styles,
+    });
+    renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: driver.size,
+      cursor: options.cursor,
+    });
   } catch (error) {
     teardownStarted = true;
     handlers.clear();
     try {
-      renderer.destroy();
-      rendererDestroyed = true;
-    } catch {
-      // Preserve the terminal startup error.
-    }
-    try {
       driver.stop();
-      driverStopped = true;
     } catch {
-      // A later app on the same streams can retry pending driver cleanup.
+      // Preserve the startup/construction error. The driver retains any
+      // pending renderer barrier for the next owner to retry.
     }
     throw error;
   }
 
+  const activeRenderer = renderer;
+  if (!activeRenderer) {
+    throw new Error("TUI renderer initialization did not complete");
+  }
+
   return {
-    renderer,
+    renderer: activeRenderer,
     get size(): Size {
       return driver.size;
     },
     render(scene: RenderNode | null): void {
       assertActive();
-      renderer.setRoot(scene);
-      renderer.flush();
+      try {
+        activeRenderer.setRoot(scene);
+        activeRenderer.flush();
+      } catch (error) {
+        teardownStarted = true;
+        handlers.clear();
+        try {
+          driver.stop();
+        } catch {
+          // Preserve the replacement render error. Any pending cleanup stays
+          // registered with the driver for this or the next owner to retry.
+        }
+        throw error;
+      }
     },
     onInput(handler: (event: TuiInputEvent) => void): () => void {
       assertActive();
@@ -121,42 +137,9 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
       return () => handlers.delete(handler);
     },
     destroy(): void {
-      if (rendererDestroyed && driverStopped) return;
       teardownStarted = true;
       handlers.clear();
-
-      let firstError: unknown;
-      let hasError = false;
-      const attempt = (cleanup: () => void, complete: () => void): void => {
-        try {
-          cleanup();
-          complete();
-        } catch (error) {
-          if (!hasError) {
-            firstError = error;
-            hasError = true;
-          }
-        }
-      };
-
-      if (!rendererDestroyed) {
-        attempt(
-          () => renderer.destroy(),
-          () => {
-            rendererDestroyed = true;
-          },
-        );
-      }
-      if (!driverStopped) {
-        attempt(
-          () => driver.stop(),
-          () => {
-            driverStopped = true;
-          },
-        );
-      }
-
-      if (hasError) throw firstError;
+      driver.stop();
     },
   };
 }

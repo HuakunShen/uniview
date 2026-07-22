@@ -90,7 +90,12 @@ export function extractModuleSpecifiers(source, file = "artifact.mjs") {
   return specifiers;
 }
 
-export function validateSource({ file, source, declaredRuntime }) {
+export function validateSource({
+  file,
+  source,
+  declaredRuntime,
+  allowedInternal = allowedUniview,
+}) {
   assert.ok(
     !bundledZodPattern.test(source),
     `${file}: bundled zod implementation`,
@@ -99,7 +104,7 @@ export function validateSource({ file, source, declaredRuntime }) {
     if (specifier.startsWith(".") || specifier.startsWith("node:")) continue;
     const name = packageName(specifier);
     if (name.startsWith("@uniview/")) {
-      assert.ok(allowedUniview.has(name), `${file}: ${name}`);
+      assert.ok(allowedInternal.has(name), `${file}: ${name}`);
     }
     assert.notEqual(name, "zod", `${file}: zod must not be imported`);
     assert.ok(
@@ -114,6 +119,37 @@ export function validatePortableCoreDeclaration({ file, source }) {
     !/\bBuffer\b/.test(source),
     `${file}: public declaration leaks Node Buffer`,
   );
+}
+
+function declaredRuntimeDependencies(manifest) {
+  return new Set([
+    ...Object.keys(manifest.dependencies ?? {}),
+    ...Object.keys(manifest.peerDependencies ?? {}),
+    ...Object.keys(manifest.optionalDependencies ?? {}),
+  ]);
+}
+
+export function validateCorePackageFiles({ manifest, files }) {
+  const declaredRuntime = declaredRuntimeDependencies(manifest);
+  assert.deepEqual(
+    [...declaredRuntime].filter((name) => name.startsWith("@uniview/")),
+    [],
+    "@uniview/tui-core must not depend on another @uniview package",
+  );
+
+  for (const [file, content] of files) {
+    const declaration = file.endsWith(".d.mts") || file.endsWith(".d.ts");
+    if (!declaration && ![".mjs", ".js"].includes(extname(file))) continue;
+    const source =
+      typeof content === "string" ? content : content.toString("utf8");
+    validateSource({
+      file,
+      source,
+      declaredRuntime,
+      allowedInternal: new Set(),
+    });
+    if (declaration) validatePortableCoreDeclaration({ file, source });
+  }
 }
 
 export function validateManifest(binding, manifest) {
@@ -134,11 +170,7 @@ async function verifyBinding(binding) {
   const manifest = JSON.parse(
     await readFile(join(packageDir, "package.json"), "utf8"),
   );
-  const declaredRuntime = new Set([
-    ...Object.keys(manifest.dependencies ?? {}),
-    ...Object.keys(manifest.peerDependencies ?? {}),
-    ...Object.keys(manifest.optionalDependencies ?? {}),
-  ]);
+  const declaredRuntime = declaredRuntimeDependencies(manifest);
 
   for (const file of await filesBelow(join(packageDir, "dist"))) {
     if (!sourceExtensions.has(extname(file)) && !file.endsWith(".d.mts")) {
@@ -151,14 +183,22 @@ async function verifyBinding(binding) {
   validateManifest(binding, manifest);
 }
 
-export async function main() {
-  for (const file of await filesBelow(join(root, "packages/tui-core/dist"))) {
-    if (!file.endsWith(".d.mts") && !file.endsWith(".d.ts")) continue;
-    validatePortableCoreDeclaration({
-      file,
-      source: await readFile(file, "utf8"),
-    });
+export async function verifyCore() {
+  const packageDir = join(root, "packages/tui-core");
+  const manifest = JSON.parse(
+    await readFile(join(packageDir, "package.json"), "utf8"),
+  );
+  const files = new Map();
+  for (const file of await filesBelow(join(packageDir, "dist"))) {
+    const declaration = file.endsWith(".d.mts") || file.endsWith(".d.ts");
+    if (!declaration && ![".mjs", ".js"].includes(extname(file))) continue;
+    files.set(file, await readFile(file, "utf8"));
   }
+  validateCorePackageFiles({ manifest, files });
+}
+
+export async function main() {
+  await verifyCore();
   for (const binding of bindings) await verifyBinding(binding);
   console.log("TUI package boundaries verified");
 }

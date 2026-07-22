@@ -285,6 +285,90 @@ describe("public React TUI facade", () => {
     expect(() => app.destroy()).not.toThrow();
   });
 
+  it("keeps the terminal reserved until failed host cleanup is retried by the next app", async () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const cleanupError = new Error("React surface reset failed");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    output.failWrite = (chunk) => {
+      if (chunk === "\x1b[0m\x1b[?25h") {
+        cleanupAttempts += 1;
+        if (blockCleanup) return cleanupError;
+      }
+      return undefined;
+    };
+
+    const app = render(h(Text, null, "Old React app"), { input, output });
+    await tick();
+    expect(() => app.destroy()).toThrow(cleanupError);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+
+    let unexpectedReplacement: TuiReactApp | undefined;
+    try {
+      const beforeBlocked = {
+        rawModes: [...input.rawModes],
+        chunks: [...output.chunks],
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      };
+      let blockedError: unknown;
+      try {
+        unexpectedReplacement = render(h(Text, null, "Must not mount"), {
+          input,
+          output,
+        });
+      } catch (error) {
+        blockedError = error;
+      }
+      expect(blockedError).toBe(cleanupError);
+      expect({
+        rawModes: input.rawModes,
+        chunks: output.chunks,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      }).toEqual(beforeBlocked);
+
+      blockCleanup = false;
+      const replacement = render(h(Text, null, "Replacement"), {
+        input,
+        output,
+      });
+      await tick();
+      expect(cleanupAttempts).toBe(3);
+      const beforeStaleUse = {
+        rawModes: [...input.rawModes],
+        chunks: [...output.chunks],
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      };
+      app.destroy();
+      expect(() => app.render(h(Text, null, "Stale render"))).toThrow(
+        /teardown|destroyed/i,
+      );
+      expect(() => app.dispatchInput({ type: "text", text: "x" })).toThrow(
+        /teardown|destroyed/i,
+      );
+      expect({
+        rawModes: input.rawModes,
+        chunks: output.chunks,
+        inputListeners: input.listeners.size,
+        outputListeners: output.listeners.size,
+      }).toEqual(beforeStaleUse);
+
+      replacement.destroy();
+      expect(input.rawModes).toEqual([true, false, true, false]);
+      expect(input.listeners.size).toBe(0);
+      expect(output.listeners.size).toBe(0);
+    } finally {
+      blockCleanup = false;
+      unexpectedReplacement?.destroy();
+      app.destroy();
+    }
+  });
+
   it.each([
     ["raw-on", "raw-off"],
     ["resume", "pause"],
