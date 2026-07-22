@@ -19,14 +19,18 @@
 - The isolated Solid TSX consumer declares only `@uniview/tui-solid` and `solid-js` as direct
   runtime dependencies. It uses the repository's TypeScript executable only as compiler
   tooling and does not inject `@types/node`, `typeRoots`, or internal packages.
-- CI runs the packed release smoke on actual Node 18 and Node 20 runtimes. The script logs and
+- The private workspace build contract is Node 24 or newer because tsdown is build tooling;
+  the three packed public packages retain their independent Node 18 runtime contract.
+- CI verifies/builds under Node 24, writes an immutable descriptor for exactly three tarballs,
+  then switches to actual Node 18.20.8, 20.19.0, and 24 matrix runtimes. Runtime jobs reuse
+  those exact sha256-checked tarballs without rebuilding or repacking. The script logs and
   validates `process.version`; it never downloads a second Node executable itself.
 
 **Goal:** Make `@uniview/tui-core`, `@uniview/tui-react`, and `@uniview/tui-solid` the only packages required for the TUI npm release, with one-package installation for React or Solid users.
 
 **Architecture:** Keep the framework-neutral terminal engine external as `@uniview/tui-core`. Bundle the host, framework renderer, content, charts, protocol, and style workspace modules into each framework binding's JavaScript and declaration output. Keep React/Solid as peers and keep only third-party imports plus `tui-core` as runtime dependencies.
 
-**Tech Stack:** TypeScript 5.9, pnpm 10.28, tsdown 0.22, Vitest 2, React 19, Solid 1.9, Fumadocs/Next.js documentation.
+**Tech Stack:** Node 24+ workspace build tooling, Node 18+ public package runtime, TypeScript 5.9, pnpm 10.28, tsdown 0.22, Vitest 2, React 19, Solid 1.9, Fumadocs/Next.js documentation.
 
 ## Global Constraints
 
@@ -54,7 +58,8 @@
 - `packages/tui-solid/tsdown.config.ts`: Solid implementation-module bundling and allowed emitted imports.
 - `packages/{tui-core,tui-react,tui-solid}/package.json`: public metadata and runtime/build dependency boundaries.
 - `scripts/verify-tui-package-boundaries.mjs`: deterministic emitted-file and manifest boundary audit.
-- `scripts/smoke-tui-tarballs.mjs`: pack and install the three tarballs in clean temporary projects.
+- `scripts/smoke-tui-tarballs.mjs`: prepare immutable tarballs or reuse their descriptor in clean runtime projects.
+- `scripts/tui-tarball-descriptor.mjs`: exact-package, manifest, file-list, path, and sha256 descriptor validation.
 - `package.json`: release-verification scripts.
 - `packages/{tui-core,tui-react,tui-solid}/README.md`: npm-facing installation and API documentation.
 - `docs/content/docs/tui/*.mdx`: current React/Solid/core user guide.
@@ -657,6 +662,10 @@ git commit -m "docs(tui): document three-package npm release"
 Create `scripts/smoke-tui-tarballs.mjs` so it:
 
 - packs exactly core, React, and Solid and validates their packed manifests and exports;
+- supports a Node 24 `--prepare <directory>` phase that writes exactly those tarballs plus a
+  deterministic descriptor containing their package identities, manifests, files, and sha256;
+- supports a Node 18+ `--reuse <descriptor>` phase that validates and runs those exact existing
+  tarballs without invoking tsdown, rebuilding, or repacking;
 - keeps a low-level core-only memory-surface fixture;
 - installs React with only the packed binding plus React as direct runtime dependencies, then
   exercises the public high-level `render()` through an injected fake TTY;
@@ -668,7 +677,8 @@ Create `scripts/smoke-tui-tarballs.mjs` so it:
   `pnpm install --prod`, and runs it with `NODE_ENV=production`;
 - type-checks an isolated Solid TSX consumer without internal packages, borrowed
   `@types/node`, `typeRoots`, or a `types` injection, only in the normal install;
-- logs the actual Node version and rejects runtimes below the declared Node 18 engine.
+- logs the actual Node version, requires Node 24 for default/prepare mode, and rejects reuse
+  runtimes below the public packages' declared Node 18 engine.
 
 - [x] **Step 2: Expose the smoke command**
 
@@ -687,7 +697,9 @@ later user-authorized registry release and prevents a broad workspace publish.
 Run: `pnpm smoke:tui-packages`
 
 Expected: builds succeed, boundary verification succeeds, all normal and production-only
-offline installs succeed, and the script reports its actual Node version plus both runtime modes.
+offline installs succeed, and the script reports its actual build/runtime Node version plus both
+runtime modes. CI separately prepares under Node 24 and reuses one descriptor on Node 18.20.8,
+20.19.0, and 24.
 
 - [x] **Step 4: Commit release smoke automation**
 

@@ -151,6 +151,18 @@ that separate product decision.
 Release tooling must use an explicit allowlist for the three TUI packages instead of a broad
 recursive publish command.
 
+### Build runtime versus package runtime
+
+The private workspace uses Node 24 or newer for installs, builds, tests, docs, and packaging.
+This is a build-tool contract: tsdown 0.22 does not support Node 18. It does not raise the
+runtime floor of the three public tarballs, whose manifests remain `node >=18`.
+
+The release smoke therefore has two immutable phases. Node 24 verifies, builds, and packs the
+exact three public packages into an explicit directory, then writes a deterministic descriptor
+covering package names, versions, packed manifests, file lists, safe relative filenames, and
+sha256 hashes. Runtime validation loads that descriptor after CI switches Node versions and
+installs/runs the same existing bytes without rebuilding or repacking.
+
 ## 7. Verification and release gates
 
 Before publishing:
@@ -162,12 +174,16 @@ Before publishing:
 4. Inspect emitted declarations under the same rule.
 5. Inspect packed manifests: `workspace:*` must be rewritten to the concrete core version,
    framework peers must remain peers, and every emitted third-party import must be declared.
-6. Install the three tarballs into clean temporary projects using strict pnpm resolution, then
-   repeat every runtime fixture in a separate production-only `pnpm install --prod` project.
-7. Run a React ANSI smoke app, a Solid ANSI smoke app, and a core-only memory-surface test in
+6. Under Node 24, pack the exact three tarballs and verify their immutable descriptor before
+   any runtime-version switch.
+7. Install those descriptor-verified tarballs into clean temporary projects using strict pnpm
+   resolution, then repeat every runtime fixture in a separate production-only
+   `pnpm install --prod` project.
+8. Run a React ANSI smoke app, a Solid ANSI smoke app, and a core-only memory-surface test in
    both normal and `NODE_ENV=production` modes.
-8. Run the packed release smoke in CI on actual Node 18 and Node 20 runtimes.
-9. Confirm each package includes README, license metadata, exports, types, repository metadata,
+9. In CI, build only on Node 24, then reuse the same tarballs on actual Node 18.20.8, Node
+   20.19.0, and Node 24 runtimes without invoking workspace build tooling.
+10. Confirm each package includes README, license metadata, exports, types, repository metadata,
    and the supported Node engine.
 
 The publication order is `tui-core`, then `tui-react` and `tui-solid`. A failed gate publishes

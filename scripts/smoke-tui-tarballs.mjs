@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import {
   mkdtemp,
   mkdir,
+  readdir,
   readFile,
   realpath,
   rm,
@@ -12,16 +13,26 @@ import {
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { gunzipSync } from "node:zlib";
+
+import {
+  loadTarballDescriptor,
+  parseSmokeArguments,
+  writeTarballDescriptor,
+} from "./tui-tarball-descriptor.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const cli = parseSmokeArguments(process.argv.slice(2));
 const nodeMajor = Number.parseInt(process.versions.node.split(".")[0], 10);
 assert.ok(
-  nodeMajor >= 18,
-  `TUI packages require Node >=18, got ${process.version}`,
+  nodeMajor >= (cli.mode === "reuse" ? 18 : 24),
+  cli.mode === "reuse"
+    ? `TUI packages require Node >=18, got ${process.version}`
+    : `TUI release preparation requires Node >=24, got ${process.version}`,
 );
-console.log(`TUI tarball smoke runtime: ${process.version}`);
+console.log(
+  `${cli.mode === "reuse" ? "TUI tarball smoke" : "TUI tarball preparation"} runtime: ${process.version}`,
+);
 const publicPackages = {
   core: {
     directory: join(repo, "packages/tui-core"),
@@ -259,37 +270,6 @@ async function installedManifest(projectDirectory, packageName) {
   );
 }
 
-function tarString(archive, offset, length) {
-  const field = archive.subarray(offset, offset + length);
-  const terminator = field.indexOf(0);
-  return field
-    .subarray(0, terminator === -1 ? field.length : terminator)
-    .toString("utf8")
-    .trim();
-}
-
-async function packedManifest(tarball) {
-  const archive = gunzipSync(await readFile(tarball));
-  let offset = 0;
-  while (offset + 512 <= archive.length) {
-    const name = tarString(archive, offset, 100);
-    if (!name) break;
-    const prefix = tarString(archive, offset + 345, 155);
-    const path = prefix ? `${prefix}/${name}` : name;
-    const sizeField = tarString(archive, offset + 124, 12);
-    const size = Number.parseInt(sizeField || "0", 8);
-    assert.ok(Number.isSafeInteger(size), `${tarball}: invalid tar entry size`);
-    const contentStart = offset + 512;
-    if (path === "package/package.json") {
-      return JSON.parse(
-        archive.subarray(contentStart, contentStart + size).toString("utf8"),
-      );
-    }
-    offset = contentStart + Math.ceil(size / 512) * 512;
-  }
-  assert.fail(`${tarball}: missing packed package/package.json`);
-}
-
 async function createProject({
   directory,
   dependencies,
@@ -410,26 +390,55 @@ async function packPackage(definition, tarballDirectory) {
   return pack;
 }
 
+async function prepareTarballs(tarballDirectory) {
+  await mkdir(tarballDirectory, { recursive: true });
+  assert.deepEqual(
+    await readdir(tarballDirectory),
+    [],
+    `artifact directory must be empty: ${tarballDirectory}`,
+  );
+  const tarballs = {};
+  for (const [key, definition] of Object.entries(publicPackages)) {
+    const pack = await packPackage(definition, tarballDirectory);
+    assert.equal(pack.name, definition.name, `${key}: packed package name`);
+    tarballs[key] = pack.filename;
+  }
+  const descriptorPath = await writeTarballDescriptor({
+    directory: tarballDirectory,
+    tarballs,
+  });
+  return loadTarballDescriptor({ descriptorPath });
+}
+
+if (cli.mode === "prepare") {
+  const prepared = await prepareTarballs(resolve(cli.outputDirectory));
+  console.log(`Prepared immutable TUI tarballs: ${prepared.descriptorPath}`);
+  // Artifact writes and descriptor verification are complete; do not create or
+  // run consumer fixtures in the build-only phase.
+  process.exit(0);
+}
+
 const temporaryRoot = await mkdtemp(join(tmpdir(), "uniview-tui-release-"));
 try {
-  const tarballDirectory = join(temporaryRoot, "tarballs");
-  await mkdir(tarballDirectory);
-  const packs = {};
-  for (const [key, definition] of Object.entries(publicPackages)) {
-    packs[key] = await packPackage(definition, tarballDirectory);
-  }
-  assert.equal(
-    Object.keys(packs).length,
-    3,
-    "release smoke must pack exactly three packages",
+  const prepared =
+    cli.mode === "reuse"
+      ? await loadTarballDescriptor({
+          descriptorPath: resolve(cli.descriptorPath),
+        })
+      : await prepareTarballs(join(temporaryRoot, "tarballs"));
+  const packs = prepared.packages;
+  assert.deepEqual(
+    Object.keys(packs),
+    ["core", "react", "solid"],
+    "release smoke must use exactly three packages",
   );
 
-  // Inspect the real packed manifests before local offline overrides can alter
-  // resolution. Exact objects make dependency-range drift a release failure.
+  // Inspect the descriptor-verified packed manifests before local offline
+  // overrides can alter resolution. Exact objects make drift a release failure.
   const packedManifests = {
-    core: await packedManifest(packs.core.filename),
-    react: await packedManifest(packs.react.filename),
-    solid: await packedManifest(packs.solid.filename),
+    core: packs.core.manifest,
+    react: packs.react.manifest,
+    solid: packs.solid.manifest,
   };
   const releaseVersion = packedManifests.core.version;
   assert.equal(packedManifests.react.version, releaseVersion);
@@ -725,6 +734,73 @@ compatReplacement.destroy()
 assert.deepEqual(compatInput.rawModes, [true, false, true, false])
 assert.equal(compatInput.dataListeners.size, 0)
 assert.equal(compatOutput.resizeListeners.size, 0)
+
+const compatDriverOnlyInput = new FakeInput()
+const compatDriverOnlyOutput = new FakeOutput()
+const compatDriverOnlyError = new Error("compat driver-only leave failed")
+let blockCompatDriverOnlyCleanup = true
+let compatDriverOnlyRootCleanup = 0
+function CompatDriverOnlyApp() {
+  useEffect(() => () => { compatDriverOnlyRootCleanup += 1 }, [])
+  return createElement(CompatText, null, "Compat driver-only cleanup")
+}
+const compatDriverOnlyRoot = createTuiRoot({
+  input: compatDriverOnlyInput,
+  output: compatDriverOnlyOutput,
+})
+compatDriverOnlyRoot.render(createElement(CompatDriverOnlyApp))
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+compatDriverOnlyOutput.failWrite = (chunk) => {
+  const leave = String.fromCharCode(27) + "[?1049l"
+  if (blockCompatDriverOnlyCleanup && chunk.includes(leave)) {
+    return compatDriverOnlyError
+  }
+}
+assert.throws(
+  () => compatDriverOnlyRoot.destroy(),
+  (error) => error === compatDriverOnlyError,
+)
+assert.equal(compatDriverOnlyRootCleanup, 1)
+assert.deepEqual(compatDriverOnlyInput.rawModes, [true, false])
+assert.equal(compatDriverOnlyInput.resumeCount, 1)
+assert.equal(compatDriverOnlyInput.pauseCount, 1)
+assert.equal(compatDriverOnlyInput.dataListeners.size, 0)
+assert.equal(compatDriverOnlyOutput.resizeListeners.size, 0)
+assert.throws(
+  () => compatDriverOnlyRoot.render(createElement(CompatText, null, "Too late")),
+  /destroyed/,
+)
+
+blockCompatDriverOnlyCleanup = false
+compatDriverOnlyRoot.destroy()
+assert.equal(compatDriverOnlyRootCleanup, 1)
+const compatDriverOnlyReplacement = createTuiRoot({
+  input: compatDriverOnlyInput,
+  output: compatDriverOnlyOutput,
+})
+compatDriverOnlyReplacement.render(
+  createElement(CompatText, null, "Compat driver replacement"),
+)
+await new Promise((resolve) => setImmediate(resolve))
+await new Promise((resolve) => setImmediate(resolve))
+const beforeCompatDriverOnlyStaleDestroy = {
+  rawModes: [...compatDriverOnlyInput.rawModes],
+  dataListeners: compatDriverOnlyInput.dataListeners.size,
+  resizeListeners: compatDriverOnlyOutput.resizeListeners.size,
+}
+compatDriverOnlyRoot.destroy()
+assert.deepEqual({
+  rawModes: compatDriverOnlyInput.rawModes,
+  dataListeners: compatDriverOnlyInput.dataListeners.size,
+  resizeListeners: compatDriverOnlyOutput.resizeListeners.size,
+}, beforeCompatDriverOnlyStaleDestroy)
+compatDriverOnlyReplacement.destroy()
+assert.deepEqual(compatDriverOnlyInput.rawModes, [true, false, true, false])
+assert.equal(compatDriverOnlyInput.resumeCount, 2)
+assert.equal(compatDriverOnlyInput.pauseCount, 2)
+assert.equal(compatDriverOnlyInput.dataListeners.size, 0)
+assert.equal(compatDriverOnlyOutput.resizeListeners.size, 0)
 
 const compatReentrantInput = new FakeInput()
 const compatReentrantOutput = new FakeOutput()
@@ -1165,6 +1241,61 @@ assert.equal(doubleCleanupInput.resumeCount, 2)
 assert.equal(doubleCleanupInput.pauseCount, 2)
 assert.equal(doubleCleanupInput.dataListeners.size, 0)
 assert.equal(doubleCleanupOutput.resizeListeners.size, 0)
+
+const driverOnlyInput = new FakeInput()
+const driverOnlyOutput = new FakeOutput()
+const driverOnlyError = new Error("packed Solid driver-only leave failed")
+let blockDriverOnlyCleanup = true
+let driverOnlyRootCleanupAttempts = 0
+const driverOnlyApp = render(() => {
+  onCleanup(() => { driverOnlyRootCleanupAttempts += 1 })
+  return createComponent(Text, { children: "Driver-only cleanup" })
+}, { input: driverOnlyInput, output: driverOnlyOutput })
+driverOnlyOutput.failWrite = (chunk) => {
+  const leave = String.fromCharCode(27) + "[?1049l"
+  if (blockDriverOnlyCleanup && chunk.includes(leave)) {
+    return driverOnlyError
+  }
+}
+assert.throws(
+  () => driverOnlyApp.destroy(),
+  (error) => error === driverOnlyError,
+)
+assert.equal(driverOnlyRootCleanupAttempts, 1)
+assert.equal(driverOnlyOutput.leaveWriteAttempts, 1)
+assert.deepEqual(driverOnlyInput.rawModes, [true, false])
+assert.equal(driverOnlyInput.resumeCount, 1)
+assert.equal(driverOnlyInput.pauseCount, 1)
+assert.equal(driverOnlyInput.dataListeners.size, 0)
+assert.equal(driverOnlyOutput.resizeListeners.size, 0)
+
+blockDriverOnlyCleanup = false
+driverOnlyApp.destroy()
+assert.equal(driverOnlyRootCleanupAttempts, 1)
+assert.equal(driverOnlyOutput.leaveWriteAttempts, 2)
+const driverOnlyReplacement = render(
+  () => createComponent(Text, { children: "Driver-only replacement" }),
+  { input: driverOnlyInput, output: driverOnlyOutput },
+)
+const beforeDriverOnlyStaleDestroy = {
+  rawModes: [...driverOnlyInput.rawModes],
+  dataListeners: driverOnlyInput.dataListeners.size,
+  resizeListeners: driverOnlyOutput.resizeListeners.size,
+  leaveWriteAttempts: driverOnlyOutput.leaveWriteAttempts,
+}
+driverOnlyApp.destroy()
+assert.deepEqual({
+  rawModes: driverOnlyInput.rawModes,
+  dataListeners: driverOnlyInput.dataListeners.size,
+  resizeListeners: driverOnlyOutput.resizeListeners.size,
+  leaveWriteAttempts: driverOnlyOutput.leaveWriteAttempts,
+}, beforeDriverOnlyStaleDestroy)
+driverOnlyReplacement.destroy()
+assert.deepEqual(driverOnlyInput.rawModes, [true, false, true, false])
+assert.equal(driverOnlyInput.resumeCount, 2)
+assert.equal(driverOnlyInput.pauseCount, 2)
+assert.equal(driverOnlyInput.dataListeners.size, 0)
+assert.equal(driverOnlyOutput.resizeListeners.size, 0)
 
 const lostRootInput = new FakeInput()
 const lostRootOutput = new FakeOutput()

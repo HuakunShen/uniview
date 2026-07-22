@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "pnpm"
           cache-dependency-path: pnpm-lock.yaml
 
@@ -57,12 +57,12 @@ jobs:
         run: pnpm test
 
   tui-release-smoke:
-    name: TUI packed release · Node ${{ matrix.node-version }}
+    name: TUI packed release · Node ${{ matrix.runtime-node }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        node-version: [18, 20]
+        runtime-node: ["18.20.8", "20.19.0", "24"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,10 +71,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup build Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24
           cache: "pnpm"
           cache-dependency-path: pnpm-lock.yaml
 
@@ -87,8 +87,18 @@ jobs:
         env:
           CF_PAGES: "1"
 
-      - name: Verify normal and production-only TUI tarballs
-        run: pnpm smoke:tui-packages
+      - name: Verify, build, and pack immutable TUI tarballs
+        run: |
+          pnpm verify:tui-packages
+          node scripts/smoke-tui-tarballs.mjs --prepare "$RUNNER_TEMP/uniview-tui-tarballs"
+
+      - name: Setup runtime Node.js ${{ matrix.runtime-node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.runtime-node }}
+
+      - name: Reuse exact tarballs in normal and production-only fixtures
+        run: node scripts/smoke-tui-tarballs.mjs --reuse "$RUNNER_TEMP/uniview-tui-tarballs/tui-tarballs.json"
 
   e2e:
     name: E2E (Playwright)
@@ -104,7 +114,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: "pnpm"
           cache-dependency-path: pnpm-lock.yaml
 

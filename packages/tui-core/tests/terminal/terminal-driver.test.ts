@@ -62,6 +62,36 @@ function captureError(callback: () => void): unknown {
   throw new Error("Expected callback to throw");
 }
 
+function reentrantPendingTty() {
+  const tty = fakeTty();
+  const cleanupError = new Error("pending leave failed");
+  const originalWrite = tty.output.write;
+  let leaveAttempts = 0;
+  let failFirstLeave = true;
+  let retryCallback: (() => void) | undefined;
+  tty.output.write = (chunk: string): number => {
+    const result = originalWrite(chunk);
+    if (!chunk.includes("\x1b[?1049l")) return result;
+    leaveAttempts += 1;
+    if (failFirstLeave) {
+      failFirstLeave = false;
+      throw cleanupError;
+    }
+    const callback = retryCallback;
+    retryCallback = undefined;
+    callback?.();
+    return result;
+  };
+  return {
+    tty,
+    cleanupError,
+    leaveAttempts: () => leaveAttempts,
+    onRetry: (callback: () => void) => {
+      retryCallback = callback;
+    },
+  };
+}
+
 describe("TerminalDriver — lifecycle", () => {
   it("enters raw mode and emits the enter sequence on start", () => {
     const tty = fakeTty();
@@ -697,6 +727,152 @@ describe("TerminalDriver — lifecycle", () => {
     healthyOwner.stop();
     first.stop();
     second.stop();
+  });
+
+  it("rechecks a shared-input claim after pending cleanup starts a competing output owner", () => {
+    const pending = reentrantPendingTty();
+    const claimedOutput = fakeTty();
+    const competitorInput = fakeTty();
+    const oldOwner = new TerminalDriver({
+      input: pending.tty.input,
+      output: pending.tty.output,
+      onEvent: () => {},
+    });
+    oldOwner.start();
+    expect(captureError(() => oldOwner.stop())).toBe(pending.cleanupError);
+
+    const competitor = new TerminalDriver({
+      input: competitorInput.input,
+      output: claimedOutput.output,
+      onEvent: () => {},
+    });
+    const nextOwner = new TerminalDriver({
+      input: pending.tty.input,
+      output: claimedOutput.output,
+      onEvent: () => {},
+    });
+    pending.onRetry(() => competitor.start());
+
+    expect(() => nextOwner.start()).toThrow(/already owned/i);
+    expect(pending.leaveAttempts()).toBe(2);
+    expect(pending.tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+    expect(pending.tty.dataListenerCount()).toBe(0);
+    expect(competitorInput.input.setRawMode.mock.calls).toEqual([[true]]);
+    expect(competitorInput.dataListenerCount()).toBe(1);
+    expect(claimedOutput.resizeListenerCount()).toBe(1);
+
+    competitor.stop();
+    expect(() => nextOwner.start()).not.toThrow();
+    expect(pending.tty.input.setRawMode.mock.calls).toEqual([
+      [true],
+      [false],
+      [true],
+    ]);
+    nextOwner.stop();
+    oldOwner.stop();
+  });
+
+  it("rechecks a shared-output claim after pending cleanup starts a competing input owner", () => {
+    const pending = reentrantPendingTty();
+    const claimedInput = fakeTty();
+    const competitorOutput = fakeTty();
+    const oldOwner = new TerminalDriver({
+      input: pending.tty.input,
+      output: pending.tty.output,
+      onEvent: () => {},
+    });
+    oldOwner.start();
+    expect(captureError(() => oldOwner.stop())).toBe(pending.cleanupError);
+
+    const competitor = new TerminalDriver({
+      input: claimedInput.input,
+      output: competitorOutput.output,
+      onEvent: () => {},
+    });
+    const nextOwner = new TerminalDriver({
+      input: claimedInput.input,
+      output: pending.tty.output,
+      onEvent: () => {},
+    });
+    pending.onRetry(() => competitor.start());
+
+    expect(() => nextOwner.start()).toThrow(/already owned/i);
+    expect(pending.leaveAttempts()).toBe(2);
+    expect(claimedInput.input.setRawMode.mock.calls).toEqual([[true]]);
+    expect(claimedInput.dataListenerCount()).toBe(1);
+    expect(competitorOutput.resizeListenerCount()).toBe(1);
+    expect(pending.tty.resizeListenerCount()).toBe(0);
+
+    competitor.stop();
+    expect(() => nextOwner.start()).not.toThrow();
+    expect(claimedInput.input.setRawMode.mock.calls).toEqual([
+      [true],
+      [false],
+      [true],
+    ]);
+    nextOwner.stop();
+    oldOwner.stop();
+  });
+
+  it("rechecks mixed pending owners after the second cleanup claims the released input", () => {
+    const pendingInput = reentrantPendingTty();
+    const pendingOutput = reentrantPendingTty();
+    const competitorOutput = fakeTty();
+    const inputOwner = new TerminalDriver({
+      input: pendingInput.tty.input,
+      output: pendingInput.tty.output,
+      onEvent: () => {},
+    });
+    const outputOwner = new TerminalDriver({
+      input: pendingOutput.tty.input,
+      output: pendingOutput.tty.output,
+      onEvent: () => {},
+    });
+    inputOwner.start();
+    outputOwner.start();
+    expect(captureError(() => inputOwner.stop())).toBe(
+      pendingInput.cleanupError,
+    );
+    expect(captureError(() => outputOwner.stop())).toBe(
+      pendingOutput.cleanupError,
+    );
+
+    const competitor = new TerminalDriver({
+      input: pendingInput.tty.input,
+      output: competitorOutput.output,
+      onEvent: () => {},
+    });
+    const nextOwner = new TerminalDriver({
+      input: pendingInput.tty.input,
+      output: pendingOutput.tty.output,
+      onEvent: () => {},
+    });
+    pendingOutput.onRetry(() => competitor.start());
+
+    expect(() => nextOwner.start()).toThrow(/already owned/i);
+    expect(pendingInput.leaveAttempts()).toBe(2);
+    expect(pendingOutput.leaveAttempts()).toBe(2);
+    expect(pendingInput.tty.input.setRawMode.mock.calls).toEqual([
+      [true],
+      [false],
+      [true],
+    ]);
+    expect(pendingInput.tty.dataListenerCount()).toBe(1);
+    expect(pendingOutput.tty.resizeListenerCount()).toBe(0);
+    expect(competitorOutput.resizeListenerCount()).toBe(1);
+
+    competitor.stop();
+    expect(() => nextOwner.start()).not.toThrow();
+    expect(pendingInput.tty.input.setRawMode.mock.calls).toEqual([
+      [true],
+      [false],
+      [true],
+      [false],
+      [true],
+    ]);
+    nextOwner.stop();
+    inputOwner.stop();
+    outputOwner.stop();
   });
 
   it("does not resume an input that has no matching pause operation", () => {

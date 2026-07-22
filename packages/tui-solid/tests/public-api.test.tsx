@@ -415,6 +415,72 @@ describe("public Solid TUI facade", () => {
     expect(terminal.resizeListeners.size).toBe(0);
   });
 
+  it("throws a driver-only cleanup error and retries the pending terminal release", () => {
+    const terminal = new FaultyTerminal();
+    const driverError = new Error("driver-only leave failed");
+    let blockDriverCleanup = true;
+    let rootCleanupAttempts = 0;
+    terminal.fault = (operation) => {
+      if (operation === "leave" && blockDriverCleanup) return driverError;
+      return undefined;
+    };
+
+    const app = render(
+      () => {
+        onCleanup(() => {
+          rootCleanupAttempts += 1;
+        });
+        return <Text>Driver-only cleanup</Text>;
+      },
+      { input: terminal.input, output: terminal.output },
+    );
+
+    let firstError: unknown;
+    try {
+      app.destroy();
+    } catch (error) {
+      firstError = error;
+    }
+    expect(firstError).toBe(driverError);
+    expect(rootCleanupAttempts).toBe(1);
+    expect(terminal.counts.get("leave")).toBe(1);
+    expect(terminal.raw).toBe(false);
+    expect(terminal.resumed).toBe(false);
+    expect(terminal.dataListeners.size).toBe(0);
+    expect(terminal.resizeListeners.size).toBe(0);
+
+    blockDriverCleanup = false;
+    app.destroy();
+    expect(rootCleanupAttempts).toBe(1);
+    expect(terminal.counts.get("leave")).toBe(2);
+
+    const replacement = render(() => <Text>Replacement</Text>, {
+      input: terminal.input,
+      output: terminal.output,
+    });
+    const beforeStaleDestroy = {
+      raw: terminal.raw,
+      resumed: terminal.resumed,
+      dataListeners: terminal.dataListeners.size,
+      resizeListeners: terminal.resizeListeners.size,
+      leaveAttempts: terminal.counts.get("leave") ?? 0,
+    };
+    app.destroy();
+    expect({
+      raw: terminal.raw,
+      resumed: terminal.resumed,
+      dataListeners: terminal.dataListeners.size,
+      resizeListeners: terminal.resizeListeners.size,
+      leaveAttempts: terminal.counts.get("leave") ?? 0,
+    }).toEqual(beforeStaleDestroy);
+
+    replacement.destroy();
+    expect(terminal.raw).toBe(false);
+    expect(terminal.resumed).toBe(false);
+    expect(terminal.dataListeners.size).toBe(0);
+    expect(terminal.resizeListeners.size).toBe(0);
+  });
+
   it("rejects a second terminal app before starting its driver", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });

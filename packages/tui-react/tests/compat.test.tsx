@@ -207,6 +207,62 @@ describe("compat facade", () => {
     expect(output.listeners.size).toBe(0);
   });
 
+  it("throws a driver-only cleanup error and retries the pending terminal release", async () => {
+    const input = new FakeInput();
+    const output = new FakeOutput();
+    const driverError = new Error("compat driver-only leave failed");
+    let blockDriverCleanup = true;
+
+    const root = createTuiRoot({ input, output });
+    root.render(h(Text, null, "Driver-only cleanup"));
+    await tick();
+    output.failWrite = (chunk) => {
+      if (blockDriverCleanup && chunk.includes("\x1b[?1049l")) {
+        return driverError;
+      }
+      return undefined;
+    };
+
+    let firstError: unknown;
+    try {
+      root.destroy();
+    } catch (error) {
+      firstError = error;
+    }
+    expect(firstError).toBe(driverError);
+    expect(input.rawModes).toEqual([true, false]);
+    expect(input.resumeCount).toBe(1);
+    expect(input.pauseCount).toBe(1);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+    expect(() => root.render(h(Text, null, "Too late"))).toThrow(/destroyed/);
+
+    blockDriverCleanup = false;
+    root.destroy();
+
+    const replacement = createTuiRoot({ input, output });
+    replacement.render(h(Text, null, "Replacement"));
+    await tick();
+    const beforeStaleDestroy = {
+      rawModes: [...input.rawModes],
+      inputListeners: input.listeners.size,
+      outputListeners: output.listeners.size,
+    };
+    root.destroy();
+    expect({
+      rawModes: input.rawModes,
+      inputListeners: input.listeners.size,
+      outputListeners: output.listeners.size,
+    }).toEqual(beforeStaleDestroy);
+
+    replacement.destroy();
+    expect(input.rawModes).toEqual([true, false, true, false]);
+    expect(input.resumeCount).toBe(2);
+    expect(input.pauseCount).toBe(2);
+    expect(input.listeners.size).toBe(0);
+    expect(output.listeners.size).toBe(0);
+  });
+
   it("keeps the terminal live after a re-entrant destroy and permits a later retry", async () => {
     const input = new FakeInput();
     const output = new FakeOutput();
