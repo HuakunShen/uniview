@@ -3,8 +3,10 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { test } from "node:test";
+import { gzipSync } from "node:zlib";
 
 import {
+  inspectTarball,
   loadTarballDescriptor,
   parseSmokeArguments,
   writeTarballDescriptor,
@@ -15,6 +17,65 @@ const definitions = {
   react: "@uniview/tui-react",
   solid: "@uniview/tui-solid",
 };
+
+function tarField(header, value, offset, length) {
+  header.write(value, offset, length, "utf8");
+}
+
+function tarHeader({ path, size, type = "0" }) {
+  const header = Buffer.alloc(512);
+  tarField(header, path, 0, 100);
+  tarField(header, "0000644\0", 100, 8);
+  tarField(header, "0000000\0", 108, 8);
+  tarField(header, "0000000\0", 116, 8);
+  tarField(header, `${size.toString(8).padStart(11, "0")}\0`, 124, 12);
+  tarField(header, "00000000000\0", 136, 12);
+  header.fill(0x20, 148, 156);
+  tarField(header, type, 156, 1);
+  tarField(header, "ustar\0", 257, 6);
+  tarField(header, "00", 263, 2);
+  const checksum = [...header].reduce((sum, byte) => sum + byte, 0);
+  tarField(header, `${checksum.toString(8).padStart(6, "0")}\0 `, 148, 8);
+  return header;
+}
+
+function tarEntry({ path, content = "", type = "0", declaredSize }) {
+  const body = Buffer.from(content);
+  const header = tarHeader({
+    path,
+    size: declaredSize ?? body.length,
+    type,
+  });
+  const padding = Buffer.alloc((512 - (body.length % 512)) % 512);
+  return Buffer.concat([header, body, padding]);
+}
+
+function manifestEntry(name = definitions.core) {
+  return {
+    path: "package/package.json",
+    content: JSON.stringify({ name, version: "0.0.1" }),
+  };
+}
+
+async function writeSyntheticTarball(directory, entries, options = {}) {
+  const archive = Buffer.concat([
+    ...entries.map(tarEntry),
+    ...(options.trailer === false ? [] : [Buffer.alloc(1024)]),
+  ]);
+  const filename = join(directory, `fixture-${Math.random()}.tgz`);
+  await writeFile(filename, gzipSync(archive));
+  return filename;
+}
+
+async function rejectsRealTar(entries, pattern, options) {
+  const directory = await mkdtemp(join(tmpdir(), "uniview-real-tar-test-"));
+  try {
+    const filename = await writeSyntheticTarball(directory, entries, options);
+    await assert.rejects(inspectTarball(filename), pattern);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
 
 test("parses exclusive default, prepare, and reuse smoke modes", () => {
   assert.deepEqual(parseSmokeArguments([]), { mode: "default" });
@@ -167,6 +228,96 @@ test("rejects manifest drift and non-exact package keys", async () => {
         inspectTarball: value.inspectTarball,
       }),
       /exactly core, react, and solid/,
+    );
+  } finally {
+    await rm(value.directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects unsafe absolute, empty, dot, and parent tar paths", async () => {
+  for (const path of [
+    "/package/absolute.txt",
+    "",
+    "package/./dot.txt",
+    "package/../escape.txt",
+  ]) {
+    await rejectsRealTar(
+      [manifestEntry(), { path, content: "unsafe" }],
+      /header|path|segment/i,
+    );
+  }
+});
+
+test("rejects a real tar entry with a backslash path", async () => {
+  await rejectsRealTar(
+    [manifestEntry(), { path: "package\\escape.txt", content: "escape" }],
+    /backslash|path/i,
+  );
+});
+
+test("rejects duplicate real tar files and manifests", async () => {
+  await rejectsRealTar(
+    [
+      manifestEntry(),
+      { path: "package/dist/index.mjs", content: "first" },
+      { path: "package/dist/index.mjs", content: "second" },
+    ],
+    /duplicate tar file/i,
+  );
+  await rejectsRealTar(
+    [manifestEntry(), manifestEntry()],
+    /duplicate manifest/i,
+  );
+});
+
+test("rejects real tar link, device, and fifo entries", async () => {
+  for (const type of ["1", "2", "3", "4", "6"]) {
+    await rejectsRealTar(
+      [manifestEntry(), { path: "package/dist/link.mjs", type }],
+      /link|type/i,
+    );
+  }
+});
+
+test("rejects real tar entries outside the package prefix", async () => {
+  await rejectsRealTar(
+    [manifestEntry(), { path: "outside/file.mjs", content: "outside" }],
+    /package prefix|path/i,
+  );
+});
+
+test("rejects real tar content that exceeds archive bounds", async () => {
+  const manifest = tarEntry(manifestEntry());
+  const truncated = Buffer.concat([
+    manifest,
+    tarHeader({ path: "package/dist/truncated.mjs", size: 4096 }),
+    Buffer.from("short"),
+  ]);
+  const directory = await mkdtemp(join(tmpdir(), "uniview-real-tar-test-"));
+  try {
+    const filename = join(directory, "truncated.tgz");
+    await writeFile(filename, gzipSync(truncated));
+    await assert.rejects(inspectTarball(filename), /bounds|size/i);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects extra files beside the descriptor and three tarballs", async () => {
+  const value = await fixture();
+  try {
+    const descriptorPath = await writeTarballDescriptor({
+      directory: value.directory,
+      tarballs: value.tarballs,
+      inspectTarball: value.inspectTarball,
+    });
+    await writeFile(join(value.directory, "extra.tgz"), "unexpected artifact");
+    await assert.rejects(
+      loadTarballDescriptor({
+        descriptorPath,
+        inspectTarball: value.inspectTarball,
+      }),
+      /artifact directory|extra/i,
     );
   } finally {
     await rm(value.directory, { recursive: true, force: true });

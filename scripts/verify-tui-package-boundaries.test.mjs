@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import {
   extractModuleSpecifiers,
@@ -7,6 +10,8 @@ import {
   validatePortableCoreDeclaration,
   validateSource,
 } from "./verify-tui-package-boundaries.mjs";
+
+const repo = dirname(dirname(fileURLToPath(import.meta.url)));
 
 test("extracts multiline static, side-effect, re-export, and dynamic imports", () => {
   const source = `
@@ -172,6 +177,40 @@ test("rejects React peer-range drift below the reconciler requirement", () => {
       ),
     /packages\/tui-react: react peer must be exactly \^19\.2\.0/,
   );
+});
+
+test("matches the Solid public and test minimum to babel-preset-solid", async () => {
+  const solidDirectory = join(repo, "packages/tui-solid");
+  const rendererDirectory = join(repo, "packages/solid-renderer");
+  const [binding, preset, renderer, bindingSolid, rendererSolid] =
+    await Promise.all([
+      readFile(join(solidDirectory, "package.json"), "utf8").then(JSON.parse),
+      readFile(
+        join(solidDirectory, "node_modules/babel-preset-solid/package.json"),
+        "utf8",
+      ).then(JSON.parse),
+      readFile(join(rendererDirectory, "package.json"), "utf8").then(
+        JSON.parse,
+      ),
+      readFile(
+        join(solidDirectory, "node_modules/solid-js/package.json"),
+        "utf8",
+      ).then(JSON.parse),
+      readFile(
+        join(rendererDirectory, "node_modules/solid-js/package.json"),
+        "utf8",
+      ).then(JSON.parse),
+    ]);
+
+  assert.equal(preset.peerDependencies["solid-js"], "^1.9.10");
+  assert.equal(
+    binding.peerDependencies["solid-js"],
+    preset.peerDependencies["solid-js"],
+  );
+  assert.equal(binding.devDependencies["solid-js"], "1.9.10");
+  assert.equal(renderer.devDependencies["solid-js"], "1.9.10");
+  assert.equal(bindingSolid.version, "1.9.10");
+  assert.equal(rendererSolid.version, bindingSolid.version);
 });
 
 test("rejects Node Buffer leakage from core declarations", () => {

@@ -46,6 +46,24 @@ process.on("SIGINT", () => {
 </Tab>
 <Tab value="Solid">
 
+<Callout type="info" title="Compile Solid TSX through the Uniview Vite helper">
+This example is not runnable through plain `tsx`/esbuild. Solid TSX must use
+`univiewSolid()` and load the public `@uniview/tui-solid/jsx-runtime` augmentation. `vite`,
+`vite-node`, and TypeScript are development tooling only; the runtime install remains
+`@uniview/tui-solid` plus `solid-js`. See the [complete Solid setup](/docs/tui/solid).
+</Callout>
+
+```ts title="vite.config.ts"
+import { univiewSolid } from "@uniview/tui-solid/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({ plugins: [univiewSolid()] });
+```
+
+```ts title="src/uniview-jsx.d.ts"
+import type {} from "@uniview/tui-solid/jsx-runtime";
+```
+
 ```tsx title="main.tsx"
 import { Panel, Text, render } from "@uniview/tui-solid";
 

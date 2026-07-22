@@ -56,13 +56,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
-  tui-release-smoke:
-    name: TUI packed release · Node ${{ matrix.runtime-node }}
+  tui-release-prepare:
+    name: Prepare immutable TUI release artifact
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        runtime-node: ["18.20.8", "20.19.0", "24"]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,10 +83,56 @@ jobs:
         env:
           CF_PAGES: "1"
 
-      - name: Verify, build, and pack immutable TUI tarballs
+      - name: Verify, build, and pack one immutable TUI artifact
         run: |
           pnpm verify:tui-packages
           node scripts/smoke-tui-tarballs.mjs --prepare "$RUNNER_TEMP/uniview-tui-tarballs"
+
+      - name: Upload exact TUI tarballs and descriptor
+        uses: actions/upload-artifact@v4
+        with:
+          name: tui-release-tarballs
+          path: ${{ runner.temp }}/uniview-tui-tarballs/
+          if-no-files-found: error
+          retention-days: 1
+
+  tui-release-smoke:
+    name: TUI packed release · Node ${{ matrix.runtime-node }}
+    needs: tui-release-prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime-node: ["18.20.8", "20.19.0", "24"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup build Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+          cache-dependency-path: pnpm-lock.yaml
+
+      # Reuse installs clean fixtures offline from this local third-party graph.
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frozen workspace dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          CF_PAGES: "1"
+
+      - name: Download the shared immutable TUI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tui-release-tarballs
+          path: ${{ runner.temp }}/uniview-tui-tarballs
 
       - name: Setup runtime Node.js ${{ matrix.runtime-node }}
         uses: actions/setup-node@v4

@@ -17,14 +17,17 @@
   and idempotent destruction. Every runtime fixture is installed and run once normally and once
   from a separate production-only project installed with `pnpm install --prod`.
 - The isolated Solid TSX consumer declares only `@uniview/tui-solid` and `solid-js` as direct
-  runtime dependencies. It uses the repository's TypeScript executable only as compiler
-  tooling and does not inject `@types/node`, `typeRoots`, or internal packages.
+  runtime dependencies and installs the real minimum `solid-js@1.9.10` required by
+  `babel-preset-solid`. It exercises the public Vite transform and JSX augmentation, uses the
+  repository's TypeScript executable only as compiler tooling, and does not inject
+  `@types/node`, `typeRoots`, or internal packages.
 - The private workspace build contract is Node 24 or newer because tsdown is build tooling;
   the three packed public packages retain their independent Node 18 runtime contract.
-- CI verifies/builds under Node 24, writes an immutable descriptor for exactly three tarballs,
-  then switches to actual Node 18.20.8, 20.19.0, and 24 matrix runtimes. Runtime jobs reuse
-  those exact sha256-checked tarballs without rebuilding or repacking. The script logs and
-  validates `process.version`; it never downloads a second Node executable itself.
+- One non-matrix CI job verifies/builds under Node 24 and uploads one named immutable artifact
+  containing the descriptor plus exactly three tarballs. The Node 18.20.8, 20.19.0, and 24
+  matrix jobs all download that same artifact and reuse those exact sha256-checked bytes without
+  rebuilding or repacking. The script logs and validates `process.version`; it never downloads
+  a second Node executable itself.
 
 **Goal:** Make `@uniview/tui-core`, `@uniview/tui-react`, and `@uniview/tui-solid` the only packages required for the TUI npm release, with one-package installation for React or Solid users.
 
@@ -59,7 +62,9 @@
 - `packages/{tui-core,tui-react,tui-solid}/package.json`: public metadata and runtime/build dependency boundaries.
 - `scripts/verify-tui-package-boundaries.mjs`: deterministic emitted-file and manifest boundary audit.
 - `scripts/smoke-tui-tarballs.mjs`: prepare immutable tarballs or reuse their descriptor in clean runtime projects.
-- `scripts/tui-tarball-descriptor.mjs`: exact-package, manifest, file-list, path, and sha256 descriptor validation.
+- `scripts/tui-tarball-descriptor.mjs`: exact-package, manifest, file-list, safe tar-header,
+  directory-topology, and sha256 descriptor validation.
+- `scripts/tui-release-workflow.test.mjs`: single shared CI artifact and runtime-order assertion.
 - `package.json`: release-verification scripts.
 - `packages/{tui-core,tui-react,tui-solid}/README.md`: npm-facing installation and API documentation.
 - `docs/content/docs/tui/*.mdx`: current React/Solid/core user guide.
@@ -666,10 +671,13 @@ Create `scripts/smoke-tui-tarballs.mjs` so it:
   deterministic descriptor containing their package identities, manifests, files, and sha256;
 - supports a Node 18+ `--reuse <descriptor>` phase that validates and runs those exact existing
   tarballs without invoking tsdown, rebuilding, or repacking;
+- rejects unsafe/duplicate/out-of-bounds tar entries, unsupported links/devices, and any extra
+  file beside the descriptor and three referenced tarballs;
 - keeps a low-level core-only memory-surface fixture;
 - installs React with only the packed binding plus React as direct runtime dependencies, then
   exercises the public high-level `render()` through an injected fake TTY;
 - installs Solid with only the packed binding plus `solid-js` as direct runtime dependencies,
+  pins and verifies the real `solid-js@1.9.10` minimum with a single compatible installed graph,
   then exercises public `render()`, replacement, cleanup, and the public compiler subpaths;
 - asserts ANSI output, raw mode, data/resize listener registration and removal, synchronous
   framework cleanup, and idempotent destruction;
@@ -698,8 +706,8 @@ Run: `pnpm smoke:tui-packages`
 
 Expected: builds succeed, boundary verification succeeds, all normal and production-only
 offline installs succeed, and the script reports its actual build/runtime Node version plus both
-runtime modes. CI separately prepares under Node 24 and reuses one descriptor on Node 18.20.8,
-20.19.0, and 24.
+runtime modes. One non-matrix CI job prepares and uploads the artifact under Node 24; all Node
+18.20.8, 20.19.0, and 24 runtime matrix legs download and reuse that one named artifact.
 
 - [x] **Step 4: Commit release smoke automation**
 

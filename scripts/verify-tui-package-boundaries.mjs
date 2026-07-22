@@ -7,7 +7,7 @@ import ts from "typescript";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const bindings = [
   { dir: "packages/tui-react", peer: "react", peerRange: "^19.2.0" },
-  { dir: "packages/tui-solid", peer: "solid-js", peerRange: "^1.9.0" },
+  { dir: "packages/tui-solid", peer: "solid-js", peerRange: "^1.9.10" },
 ];
 const allowedUniview = new Set(["@uniview/tui-core"]);
 const sourceExtensions = new Set([".mjs", ".js", ".mts", ".ts"]);

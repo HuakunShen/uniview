@@ -270,6 +270,53 @@ async function installedManifest(projectDirectory, packageName) {
   );
 }
 
+function dependencyRecords(value, packageName, records = []) {
+  if (!value || typeof value !== "object") return records;
+  if (Array.isArray(value)) {
+    for (const item of value) dependencyRecords(item, packageName, records);
+    return records;
+  }
+  for (const field of [
+    "dependencies",
+    "devDependencies",
+    "optionalDependencies",
+  ]) {
+    for (const [name, dependency] of Object.entries(value[field] ?? {})) {
+      if (name === packageName) records.push(dependency);
+      dependencyRecords(dependency, packageName, records);
+    }
+  }
+  return records;
+}
+
+async function assertSingleInstalledVersion(
+  projectDirectory,
+  packageName,
+  expectedVersion,
+) {
+  const graph = JSON.parse(
+    run(
+      pnpm,
+      ["list", packageName, "--depth", "Infinity", "--json"],
+      projectDirectory,
+    ),
+  );
+  const versions = new Set();
+  for (const record of dependencyRecords(graph, packageName)) {
+    if (record.path) {
+      const manifest = await readJson(join(record.path, "package.json"));
+      versions.add(manifest.version);
+    } else if (record.version) {
+      versions.add(record.version);
+    }
+  }
+  assert.deepEqual(
+    [...versions].sort(),
+    [expectedVersion],
+    `${projectDirectory}: ${packageName} graph must contain exactly ${expectedVersion}`,
+  );
+}
+
 async function createProject({
   directory,
   dependencies,
@@ -480,7 +527,7 @@ try {
       "solid-devtools": "^0.34.5",
     },
     peerDependencies: {
-      "solid-js": "^1.9.0",
+      "solid-js": "^1.9.10",
     },
     peerDependenciesMeta: {},
   });
@@ -514,6 +561,9 @@ try {
     publicPackages.solid.directory,
     localSolid,
   ]);
+  const localSolidManifest = await readJson(join(localSolid, "package.json"));
+  assert.equal(localSolidManifest.version, "1.9.10");
+  solidOfflineOverrides["solid-js"] = `file:${localSolid}`;
 
   const coreProject = join(temporaryRoot, "core");
   await createProject({
@@ -897,7 +947,7 @@ assert.equal(lostOutput.resizeListeners.size, 0)
     directory: solidProject,
     dependencies: {
       "@uniview/tui-solid": `file:${packs.solid.filename}`,
-      "solid-js": `file:${localSolid}`,
+      "solid-js": "1.9.10",
     },
     expectedDirectDependencies: ["@uniview/tui-solid", "solid-js"],
     coreTarball: packs.core.filename,
@@ -1406,6 +1456,14 @@ void plugin
     solidProject,
     publicPackages.solid.name,
   );
+  for (const projectDirectory of [solidProject, `${solidProject}-production`]) {
+    const installedSolid = await installedManifest(
+      projectDirectory,
+      "solid-js",
+    );
+    assert.equal(installedSolid.version, "1.9.10");
+    await assertSingleInstalledVersion(projectDirectory, "solid-js", "1.9.10");
+  }
 
   for (const [key, manifest] of Object.entries({
     core: coreManifest,
