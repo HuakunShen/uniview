@@ -6,7 +6,12 @@ import { TuiHost } from "../src/tui-host";
 function host(onInvokeHandler = vi.fn()) {
   const styles = new StyleTable();
   const surface = new MemoryCellSurface({ styles });
-  const h = new TuiHost({ surface, styles, size: { width: 20, height: 3 }, onInvokeHandler });
+  const h = new TuiHost({
+    surface,
+    styles,
+    size: { width: 20, height: 3 },
+    onInvokeHandler,
+  });
   return { h, surface, onInvokeHandler };
 }
 
@@ -26,7 +31,12 @@ describe("TuiHost — rendering", () => {
       type: "box",
       props: { flexDirection: "column" },
       children: [
-        { id: "label", type: "text", props: {}, children: [textNode("t", "Hello")] },
+        {
+          id: "label",
+          type: "text",
+          props: {},
+          children: [textNode("t", "Hello")],
+        },
       ],
     });
     expect(surface.lines({ trimRight: true })[0]).toBe("Hello");
@@ -42,6 +52,41 @@ describe("TuiHost — rendering", () => {
     });
     h.applyBatch([{ type: "setText", nodeId: "t", text: "Count: 1" }]);
     expect(surface.lines({ trimRight: true })[0]).toBe("Count: 1");
+  });
+
+  it("rejects host mutation and dispatch while renderer teardown is pending", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const destroyError = new Error("host surface cleanup failed");
+    const originalDestroy = surface.destroy.bind(surface);
+    let blockDestroy = true;
+    vi.spyOn(surface, "destroy").mockImplementation(() => {
+      if (blockDestroy) throw destroyError;
+      originalDestroy();
+    });
+    const h = new TuiHost({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
+    h.setRoot({ id: "root", type: "box", props: {}, children: [] });
+
+    expect(() => h.destroy()).toThrow(destroyError);
+    expect(() =>
+      h.setRoot({ id: "next", type: "box", props: {}, children: [] }),
+    ).toThrow(/teardown|destroy/i);
+    expect(() => h.applyBatch([])).toThrow(/teardown|destroy/i);
+    expect(() => h.render()).toThrow(/teardown|destroy/i);
+    expect(() => h.setFocusedId("root")).toThrow(/teardown|destroy/i);
+    expect(() => h.commitStatic([])).toThrow(/teardown|destroy/i);
+    expect(() => h.fireEvent("root", "onClick")).toThrow(/teardown|destroy/i);
+    expect(() => h.resetCommands()).toThrow(/teardown|destroy/i);
+    expect(() => h.activate({ id: "root" })).toThrow(/teardown|destroy/i);
+
+    blockDestroy = false;
+    h.destroy();
+    h.destroy();
+    expect(surface.destroy).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -116,7 +161,12 @@ describe("TuiHost — hit-testing and events", () => {
       type: "box",
       props: {},
       children: [
-        { id: "a", type: "box", props: { [handlerIdProp("onClick")]: "a" }, children: [] },
+        {
+          id: "a",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "a" },
+          children: [],
+        },
         {
           id: "b",
           type: "box",
@@ -137,9 +187,24 @@ describe("TuiHost — eventTargets", () => {
       type: "box",
       props: {},
       children: [
-        { id: "b1", type: "box", props: { [handlerIdProp("onClick")]: "h1" }, children: [] },
-        { id: "f1", type: "box", props: { [handlerIdProp("onChange")]: "h2" }, children: [] },
-        { id: "b2", type: "box", props: { [handlerIdProp("onClick")]: "h3" }, children: [] },
+        {
+          id: "b1",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "h1" },
+          children: [],
+        },
+        {
+          id: "f1",
+          type: "box",
+          props: { [handlerIdProp("onChange")]: "h2" },
+          children: [],
+        },
+        {
+          id: "b2",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "h3" },
+          children: [],
+        },
       ],
     });
     expect(h.eventTargets("onClick")).toEqual(["b1", "b2"]);
@@ -153,8 +218,20 @@ describe("TuiHost — fireEventBubbling", () => {
     h.setRoot({
       id: "btn",
       type: "box",
-      props: { [handlerIdProp("onClick")]: "h1", backgroundColor: "blue", width: 5, height: 1 },
-      children: [{ id: "label", type: "text", props: {}, children: [textNode("t", "Go")] }],
+      props: {
+        [handlerIdProp("onClick")]: "h1",
+        backgroundColor: "blue",
+        width: 5,
+        height: 1,
+      },
+      children: [
+        {
+          id: "label",
+          type: "text",
+          props: {},
+          children: [textNode("t", "Go")],
+        },
+      ],
     });
     // The inner label owns the cell, but only the parent button has onClick.
     const inner = h.nodeAt(0, 0);

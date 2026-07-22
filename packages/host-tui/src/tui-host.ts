@@ -40,6 +40,8 @@ export interface TuiHostOptions {
   layoutEngine?: LayoutEngine;
 }
 
+type TuiHostLifecycle = "active" | "destroying" | "destroyed";
+
 /**
  * A terminal host for the Uniview protocol. It consumes `setRoot` and mutation
  * batches into a {@link MutableTree}, converts the tree to a tui-core render
@@ -51,11 +53,15 @@ export class TuiHost {
 
   private readonly tree = new MutableTree();
   private readonly onInvokeHandler: TuiHostOptions["onInvokeHandler"];
-  private handlers = new Map<string, Partial<Record<EventPropName, HandlerId>>>();
+  private handlers = new Map<
+    string,
+    Partial<Record<EventPropName, HandlerId>>
+  >();
   private readonly invocations: { id: HandlerId; payload?: JSONValue }[] = [];
   private readonly committed: CommittedOutput | undefined;
   private readonly staticCounts = new Map<string, number>();
   private focusedId: string | null = null;
+  private lifecycle: TuiHostLifecycle = "active";
 
   constructor(options: TuiHostOptions) {
     this.onInvokeHandler = options.onInvokeHandler;
@@ -71,22 +77,27 @@ export class TuiHost {
 
   /** Replace the whole tree and render. */
   setRoot(node: UINode | null): void {
+    this.assertActive("set a root");
     this.tree.apply({ type: "setRoot", node });
     this.render();
   }
 
   /** Apply a mutation batch and render. */
   applyBatch(mutations: readonly Mutation[]): void {
+    this.assertActive("apply mutations");
     this.tree.applyBatch(mutations);
     this.render();
   }
 
   /** Convert the current tree and paint a frame. */
   render(): void {
+    this.assertActive("render");
     const root = this.tree.getRoot();
     this.handlers = extractHandlers(root);
     this.flushStatic(root);
-    this.renderer.setRoot(root ? uinodeToRenderNode(root, this.focusedId) : null);
+    this.renderer.setRoot(
+      root ? uinodeToRenderNode(root, this.focusedId) : null,
+    );
     this.renderer.flush();
   }
 
@@ -97,6 +108,7 @@ export class TuiHost {
    * plugin re-render — focus stays host-local (the plan's principle 3).
    */
   setFocusedId(id: string | null): void {
+    this.assertActive("set focus");
     if (id === this.focusedId) return;
     this.focusedId = id;
     this.render();
@@ -104,6 +116,7 @@ export class TuiHost {
 
   /** Imperatively append finalized lines to the committed-output channel (direct mode). */
   commitStatic(lines: readonly StyledLine[]): void {
+    this.assertActive("commit static output");
     this.committed?.commit(lines);
   }
 
@@ -183,7 +196,12 @@ export class TuiHost {
    * makes `disabled` mean something rather than a prop `semantics.ts` reports
    * but nothing enforces.
    */
-  fireEvent(nodeId: string, event: EventPropName, payload?: JSONValue): boolean {
+  fireEvent(
+    nodeId: string,
+    event: EventPropName,
+    payload?: JSONValue,
+  ): boolean {
+    this.assertActive("dispatch an event");
     if (this.isDisabled(nodeId)) return false;
     const handlerId = this.handlers.get(nodeId)?.[event];
     if (handlerId === undefined) return false;
@@ -199,6 +217,7 @@ export class TuiHost {
 
   /** Clear the recorded command trace. */
   resetCommands(): void {
+    this.assertActive("reset commands");
     this.invocations.length = 0;
   }
 
@@ -207,7 +226,10 @@ export class TuiHost {
    * `events` — used to resolve hover/wheel targets by bubbling from the node
    * under the pointer. Returns null when none is found.
    */
-  nearestTarget(startId: string | null, events: readonly EventPropName[]): string | null {
+  nearestTarget(
+    startId: string | null,
+    events: readonly EventPropName[],
+  ): string | null {
     let id: string | undefined | null = startId;
     while (id) {
       const map = this.handlers.get(id);
@@ -242,6 +264,7 @@ export class TuiHost {
     event: EventPropName,
     payload?: JSONValue,
   ): boolean {
+    this.assertActive("dispatch a bubbling event");
     let id: string | undefined | null = startId;
     while (id) {
       if (this.fireEvent(id, event, payload)) return true;
@@ -277,6 +300,7 @@ export class TuiHost {
   activate(
     target: { role: string; name?: string | RegExp } | { id: string },
   ): boolean {
+    this.assertActive("activate a target");
     const node =
       "id" in target
         ? this.queryById(target.id)
@@ -286,6 +310,15 @@ export class TuiHost {
   }
 
   destroy(): void {
+    if (this.lifecycle === "destroyed") return;
+    this.lifecycle = "destroying";
     this.renderer.destroy();
+    this.lifecycle = "destroyed";
+  }
+
+  private assertActive(action: string): void {
+    if (this.lifecycle !== "active") {
+      throw new Error(`Cannot ${action} after TUI host teardown has started`);
+    }
   }
 }

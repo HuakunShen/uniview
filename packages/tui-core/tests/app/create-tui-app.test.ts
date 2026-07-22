@@ -255,6 +255,16 @@ describe("createTuiApp", () => {
       app.destroy();
       expect(() => app.render(label("Stale render"))).toThrow(/teardown/i);
       expect(() => app.onInput(() => {})).toThrow(/teardown/i);
+      expect(() => app.renderer.setRoot(label("Stale renderer root"))).toThrow(
+        /teardown|destroy/i,
+      );
+      expect(() => app.renderer.resize({ width: 40, height: 8 })).toThrow(
+        /teardown|destroy/i,
+      );
+      expect(() =>
+        app.renderer.setCursor({ visible: true, x: 1, y: 1 }),
+      ).toThrow(/teardown|destroy/i);
+      expect(() => app.renderer.flush()).toThrow(/teardown|destroy/i);
       expect({
         rawCalls: tty.input.setRawMode.mock.calls.length,
         writes: tty.out(),
@@ -350,6 +360,10 @@ describe("createTuiApp", () => {
       app.destroy();
       expect(() => app.render(label("Stale render"))).toThrow(/teardown/i);
       expect(() => app.onInput(() => {})).toThrow(/teardown/i);
+      expect(() => app.renderer.setRoot(label("Stale renderer root"))).toThrow(
+        /teardown|destroy/i,
+      );
+      expect(() => app.renderer.flush()).toThrow(/teardown|destroy/i);
       expect({
         rawCalls: tty.input.setRawMode.mock.calls.length,
         writes: tty.out(),

@@ -20,7 +20,10 @@ import {
   parseSmokeArguments,
   writeTarballDescriptor,
 } from "./tui-tarball-descriptor.mjs";
-import { validateCorePackageFiles } from "./verify-tui-package-boundaries.mjs";
+import {
+  validateBindingPackageFiles,
+  validateCorePackageFiles,
+} from "./verify-tui-package-boundaries.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
@@ -543,10 +546,22 @@ try {
   assertPackedPackage(packs.core, packedManifests.core, publicPackages.core);
   assertPackedPackage(packs.react, packedManifests.react, publicPackages.react);
   assertPackedPackage(packs.solid, packedManifests.solid, publicPackages.solid);
-  const packedCore = await inspectTarball(packs.core.filename);
+  const [packedCore, packedReact, packedSolid] = await Promise.all([
+    inspectTarball(packs.core.filename),
+    inspectTarball(packs.react.filename),
+    inspectTarball(packs.solid.filename),
+  ]);
   validateCorePackageFiles({
     manifest: packedCore.manifest,
     files: packedCore.contents,
+  });
+  validateBindingPackageFiles({
+    manifest: packedReact.manifest,
+    files: packedReact.contents,
+  });
+  validateBindingPackageFiles({
+    manifest: packedSolid.manifest,
+    files: packedSolid.contents,
   });
 
   const localReact = await realpath(
@@ -586,6 +601,7 @@ import assert from "node:assert/strict"
 import {
   MemoryCellSurface,
   StyleTable,
+  TerminalDriver,
   createTuiApp,
   stringCellWidth,
 } from "@uniview/tui-core"
@@ -671,6 +687,11 @@ const beforeStaleUse = {
 app.destroy()
 assert.throws(() => app.render({ type: "text", text: "Stale" }), /teardown/i)
 assert.throws(() => app.onInput(() => {}), /teardown/i)
+assert.throws(
+  () => app.renderer.setRoot({ type: "text", text: "Stale renderer" }),
+  /teardown|destroy/i,
+)
+assert.throws(() => app.renderer.flush(), /teardown|destroy/i)
 assert.deepEqual({
   rawModes: input.rawModes,
   chunks: output.chunks,
@@ -681,6 +702,80 @@ replacement.destroy()
 assert.deepEqual(input.rawModes, [true, false, true, false])
 assert.equal(input.dataListeners.size, 0)
 assert.equal(output.resizeListeners.size, 0)
+
+const snapshotInput = new FakeInput()
+const snapshotOutput = new FakeOutput()
+const snapshotError = new Error("packed original cleanup failed")
+let snapshotBlocked = true
+let snapshotAttempts = 0
+const mutableSession = {
+  cleanup() {
+    snapshotAttempts += 1
+    mutableSession.cleanup = () => {}
+    if (snapshotBlocked) throw snapshotError
+  },
+}
+const snapshotOwner = new TerminalDriver({
+  input: snapshotInput,
+  output: snapshotOutput,
+  onEvent: () => {},
+})
+snapshotOwner.start(mutableSession)
+assert.throws(() => snapshotOwner.stop(), (error) => error === snapshotError)
+const snapshotReplacement = new TerminalDriver({
+  input: snapshotInput,
+  output: snapshotOutput,
+  onEvent: () => {},
+})
+assert.throws(
+  () => snapshotReplacement.start(),
+  (error) => error === snapshotError,
+)
+assert.equal(snapshotAttempts, 2)
+snapshotBlocked = false
+snapshotReplacement.start()
+assert.equal(snapshotAttempts, 3)
+snapshotReplacement.stop()
+
+const predicateInput = new FakeInput()
+const predicateOutput = new FakeOutput()
+const predicateCleanupError = new Error("packed predicate cleanup failed")
+const predicateError = new Error("packed retain predicate failed")
+let predicateBlocked = true
+let predicateCleanupAttempts = 0
+const predicateOwner = new TerminalDriver({
+  input: predicateInput,
+  output: predicateOutput,
+  onEvent: () => {},
+})
+predicateOwner.start({
+  cleanup() {
+    predicateCleanupAttempts += 1
+    if (predicateBlocked) throw predicateCleanupError
+  },
+  retainSessionOnError() {
+    throw predicateError
+  },
+})
+assert.throws(
+  () => predicateOwner.stop(),
+  (error) => error === predicateCleanupError,
+)
+assert.deepEqual(predicateInput.rawModes, [true, false])
+const predicateReplacement = new TerminalDriver({
+  input: predicateInput,
+  output: predicateOutput,
+  onEvent: () => {},
+})
+assert.throws(
+  () => predicateReplacement.start(),
+  (error) => error === predicateCleanupError,
+)
+assert.equal(predicateCleanupAttempts, 2)
+predicateBlocked = false
+predicateReplacement.start()
+assert.equal(predicateCleanupAttempts, 3)
+predicateReplacement.stop()
 `,
   });
 
@@ -882,6 +977,11 @@ assert.throws(
   () => barrierApp.dispatchInput({ type: "text", text: "x" }),
   /teardown|destroyed/i,
 )
+assert.throws(
+  () => barrierApp.host.renderer.setRoot({ type: "text", text: "Stale renderer" }),
+  /teardown|destroy/i,
+)
+assert.throws(() => barrierApp.host.renderer.flush(), /teardown|destroy/i)
 assert.deepEqual({
   rawModes: barrierInput.rawModes,
   chunks: barrierOutput.chunks,
@@ -1540,6 +1640,90 @@ assert.equal(doubleCleanupInput.pauseCount, 2)
 assert.equal(doubleCleanupInput.dataListeners.size, 0)
 assert.equal(doubleCleanupOutput.resizeListeners.size, 0)
 
+const dedupeOldInput = new FakeInput()
+const dedupeOldOutput = new FakeOutput()
+const dedupeNextInput = new FakeInput()
+const dedupeNextOutput = new FakeOutput()
+const dedupeError = new Error("packed Solid disposer remains blocked")
+let dedupeBlocked = true
+let dedupeAttempts = 0
+let dedupeConcurrent = 0
+let dedupeMaxConcurrent = 0
+let dedupeReentrantError
+const dedupeCore = new TerminalDriver({
+  input: dedupeOldInput,
+  output: dedupeOldOutput,
+  onEvent: () => {},
+})
+const dedupeApp = render(
+  () => {
+    onCleanup(() => {
+      dedupeAttempts += 1
+      dedupeConcurrent += 1
+      dedupeMaxConcurrent = Math.max(dedupeMaxConcurrent, dedupeConcurrent)
+      try {
+        if (dedupeAttempts === 2) {
+          try {
+            dedupeCore.start()
+          } catch (error) {
+            dedupeReentrantError = error
+          }
+        }
+        if (dedupeBlocked) throw dedupeError
+      } finally {
+        dedupeConcurrent -= 1
+      }
+    })
+    return createComponent(Text, { children: "Old dedupe owner" })
+  },
+  { input: dedupeOldInput, output: dedupeOldOutput },
+)
+assert.throws(() => dedupeApp.destroy(), (error) => error === dedupeError)
+assert.equal(dedupeAttempts, 1)
+assert.throws(
+  () => render(
+    () => createComponent(Text, { children: "Blocked dedupe owner" }),
+    { input: dedupeNextInput, output: dedupeNextOutput },
+  ),
+  (error) => error === dedupeError,
+)
+assert.equal(dedupeAttempts, 2)
+assert.equal(dedupeMaxConcurrent, 1)
+assert.match(dedupeReentrantError.message, /already owned/i)
+assert.deepEqual(dedupeNextInput.rawModes, [])
+dedupeBlocked = false
+const dedupeReplacement = render(
+  () => createComponent(Text, { children: "Recovered dedupe owner" }),
+  { input: dedupeNextInput, output: dedupeNextOutput },
+)
+assert.equal(dedupeAttempts, 3)
+dedupeCore.start()
+const beforeDedupeStaleUse = {
+  oldRawModes: [...dedupeOldInput.rawModes],
+  oldChunks: [...dedupeOldOutput.chunks],
+  nextRawModes: [...dedupeNextInput.rawModes],
+  nextChunks: [...dedupeNextOutput.chunks],
+}
+dedupeApp.destroy()
+assert.throws(
+  () => dedupeApp.render(
+    () => createComponent(Text, { children: "Stale dedupe owner" }),
+  ),
+  /teardown|destroyed/i,
+)
+assert.throws(
+  () => dedupeApp.host.renderer.setRoot({ type: "text", text: "Stale dedupe renderer" }),
+  /teardown|destroy/i,
+)
+assert.deepEqual({
+  oldRawModes: dedupeOldInput.rawModes,
+  oldChunks: dedupeOldOutput.chunks,
+  nextRawModes: dedupeNextInput.rawModes,
+  nextChunks: dedupeNextOutput.chunks,
+}, beforeDedupeStaleUse)
+dedupeCore.stop()
+dedupeReplacement.destroy()
+
 const solidBarrierInput = new FakeInput()
 const solidBarrierOutput = new FakeOutput()
 const solidBarrierError = new Error("packed Solid surface cleanup failed")
@@ -1607,6 +1791,11 @@ assert.throws(
   () => solidBarrierApp.dispatchInput({ type: "text", text: "x" }),
   /teardown|destroyed/i,
 )
+assert.throws(
+  () => solidBarrierApp.host.renderer.setRoot({ type: "text", text: "Stale renderer" }),
+  /teardown|destroy/i,
+)
+assert.throws(() => solidBarrierApp.host.renderer.flush(), /teardown|destroy/i)
 assert.deepEqual({
   rawModes: solidBarrierInput.rawModes,
   chunks: solidBarrierOutput.chunks,

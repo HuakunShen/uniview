@@ -65,6 +65,17 @@ input and output identities remain reserved and either stream's next owner retri
 callback before acquisition. A typed retain predicate may leave a demonstrably unmodified live
 session in place; stale handles are inert once ownership transfers.
 
+The driver snapshots the callback and retain predicate rather than retaining the caller's
+mutable options object. If a retain predicate itself throws, that failure is contained: the
+original cleanup error remains authoritative, driver resources are still released best-effort,
+and the original callback remains pending. Solid's high-level global coordination stores and
+retries this pending driver; it never calls the same root disposer through a second path.
+
+`TuiRenderer` and `TuiHost` enter a durable teardown state before surface cleanup. That state
+cancels queued scheduler generations and rejects later render, resize, cursor, mutation, event,
+or flush operations even when `destroy()` must be retried. Old public handles therefore cannot
+present into a replacement session.
+
 ### `@uniview/tui-react`
 
 The React package is a complete user-facing binding. It keeps:
@@ -183,10 +194,13 @@ Before publishing:
 2. Run their targeted unit tests plus the React/Solid parity tests.
 3. Inspect emitted JavaScript: React/Solid may import `@uniview/tui-core`, but no other
    `@uniview/*` package. Independently scan every core JavaScript file with AST-derived imports
-   for undeclared runtime packages, any Zod import, and bundled Zod markers.
+   for undeclared runtime packages, any Zod import, and bundled Zod markers. Cover ESM,
+   CommonJS, JSX, and emitted TypeScript extensions (`.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`,
+   `.tsx`, `.mts`, `.cts`).
 4. Inspect emitted declarations under the same package-boundary rule and reject Node `Buffer`
-   leakage. Apply the same JavaScript/declaration scan to descriptor- and sha256-verified core
-   files read directly from the immutable packed tarball.
+   leakage for `.d.ts`, `.d.mts`, and `.d.cts`. Apply the same JavaScript/declaration scan to
+   descriptor- and sha256-verified core and binding files read directly from the immutable
+   packed tarballs.
 5. Inspect packed manifests: `workspace:*` must be rewritten to the concrete core version,
    framework peers must remain peers, and every emitted third-party import must be declared.
 6. In one non-matrix Node 24 job, pack the exact three tarballs, verify their immutable

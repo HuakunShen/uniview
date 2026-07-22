@@ -10,7 +10,17 @@ const bindings = [
   { dir: "packages/tui-solid", peer: "solid-js", peerRange: "^1.9.10" },
 ];
 const allowedUniview = new Set(["@uniview/tui-core"]);
-const sourceExtensions = new Set([".mjs", ".js", ".mts", ".ts"]);
+const sourceExtensions = new Set([
+  ".js",
+  ".jsx",
+  ".mjs",
+  ".cjs",
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+]);
+const declarationSuffixes = [".d.ts", ".d.mts", ".d.cts"];
 const bundledZodPattern = /node_modules\/\.pnpm\/zod@|vendor:\s*["']zod["']/;
 
 async function filesBelow(directory) {
@@ -121,12 +131,33 @@ export function validatePortableCoreDeclaration({ file, source }) {
   );
 }
 
+export function packageArtifactKind(file) {
+  if (declarationSuffixes.some((suffix) => file.endsWith(suffix))) {
+    return "declaration";
+  }
+  return sourceExtensions.has(extname(file)) ? "source" : null;
+}
+
 function declaredRuntimeDependencies(manifest) {
   return new Set([
     ...Object.keys(manifest.dependencies ?? {}),
     ...Object.keys(manifest.peerDependencies ?? {}),
     ...Object.keys(manifest.optionalDependencies ?? {}),
   ]);
+}
+
+function validatePackageFiles({ manifest, files, allowedInternal }) {
+  const declaredRuntime = declaredRuntimeDependencies(manifest);
+  for (const [file, content] of files) {
+    const kind = packageArtifactKind(file);
+    if (!kind) continue;
+    const source =
+      typeof content === "string" ? content : content.toString("utf8");
+    validateSource({ file, source, declaredRuntime, allowedInternal });
+    if (kind === "declaration") {
+      validatePortableCoreDeclaration({ file, source });
+    }
+  }
 }
 
 export function validateCorePackageFiles({ manifest, files }) {
@@ -136,20 +167,11 @@ export function validateCorePackageFiles({ manifest, files }) {
     [],
     "@uniview/tui-core must not depend on another @uniview package",
   );
+  validatePackageFiles({ manifest, files, allowedInternal: new Set() });
+}
 
-  for (const [file, content] of files) {
-    const declaration = file.endsWith(".d.mts") || file.endsWith(".d.ts");
-    if (!declaration && ![".mjs", ".js"].includes(extname(file))) continue;
-    const source =
-      typeof content === "string" ? content : content.toString("utf8");
-    validateSource({
-      file,
-      source,
-      declaredRuntime,
-      allowedInternal: new Set(),
-    });
-    if (declaration) validatePortableCoreDeclaration({ file, source });
-  }
+export function validateBindingPackageFiles({ manifest, files }) {
+  validatePackageFiles({ manifest, files, allowedInternal: allowedUniview });
 }
 
 export function validateManifest(binding, manifest) {
@@ -170,16 +192,13 @@ async function verifyBinding(binding) {
   const manifest = JSON.parse(
     await readFile(join(packageDir, "package.json"), "utf8"),
   );
-  const declaredRuntime = declaredRuntimeDependencies(manifest);
-
+  const files = new Map();
   for (const file of await filesBelow(join(packageDir, "dist"))) {
-    if (!sourceExtensions.has(extname(file)) && !file.endsWith(".d.mts")) {
-      continue;
-    }
-    const source = await readFile(file, "utf8");
-    validateSource({ file, source, declaredRuntime });
+    if (!packageArtifactKind(file)) continue;
+    files.set(file, await readFile(file, "utf8"));
   }
 
+  validateBindingPackageFiles({ manifest, files });
   validateManifest(binding, manifest);
 }
 
@@ -190,8 +209,7 @@ export async function verifyCore() {
   );
   const files = new Map();
   for (const file of await filesBelow(join(packageDir, "dist"))) {
-    const declaration = file.endsWith(".d.mts") || file.endsWith(".d.ts");
-    if (!declaration && ![".mjs", ".js"].includes(extname(file))) continue;
+    if (!packageArtifactKind(file)) continue;
     files.set(file, await readFile(file, "utf8"));
   }
   validateCorePackageFiles({ manifest, files });

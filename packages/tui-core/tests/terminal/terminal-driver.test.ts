@@ -739,6 +739,86 @@ describe("TerminalDriver — lifecycle", () => {
     expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
   });
 
+  it("snapshots the cleanup callback instead of retaining a mutable options object", () => {
+    const tty = fakeTty();
+    const cleanupError = new Error("original cleanup failed");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    const session = {
+      cleanup: (): void => {
+        cleanupAttempts += 1;
+        session.cleanup = () => {};
+        if (blockCleanup) throw cleanupError;
+      },
+    };
+    const owner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    owner.start(session);
+    expect(captureError(() => owner.stop())).toBe(cleanupError);
+
+    const nextOwner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    expect(captureError(() => nextOwner.start())).toBe(cleanupError);
+    expect(cleanupAttempts).toBe(2);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+
+    blockCleanup = false;
+    nextOwner.start();
+    expect(cleanupAttempts).toBe(3);
+    nextOwner.stop();
+  });
+
+  it("contains a throwing retain predicate and preserves the cleanup error", () => {
+    const tty = fakeTty();
+    const cleanupError = new Error("external cleanup failed");
+    const predicateError = new Error("retain predicate failed");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    let predicateAttempts = 0;
+    const owner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    owner.start({
+      cleanup: () => {
+        cleanupAttempts += 1;
+        if (blockCleanup) throw cleanupError;
+      },
+      retainSessionOnError: () => {
+        predicateAttempts += 1;
+        throw predicateError;
+      },
+    });
+
+    expect(captureError(() => owner.stop())).toBe(cleanupError);
+    expect(predicateAttempts).toBe(1);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+    expect(tty.dataListenerCount()).toBe(0);
+    expect(tty.resizeListenerCount()).toBe(0);
+
+    const nextOwner = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    expect(captureError(() => nextOwner.start())).toBe(cleanupError);
+    expect(cleanupAttempts).toBe(2);
+    expect(predicateAttempts).toBe(2);
+    expect(tty.input.setRawMode.mock.calls).toEqual([[true], [false]]);
+
+    blockCleanup = false;
+    nextOwner.start();
+    expect(cleanupAttempts).toBe(3);
+    nextOwner.stop();
+  });
+
   it("preflights healthy owners and deduplicates distinct pending owners", () => {
     const makeSession = () => {
       let failLeave = false;

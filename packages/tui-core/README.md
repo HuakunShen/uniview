@@ -52,6 +52,11 @@ When composing `TerminalDriver` with a custom renderer, register that renderer's
 `retainSessionOnError` predicate is only for a typed error that guarantees cleanup made no
 mutation; returning `true` leaves the live session untouched.
 
+Renderer teardown is durable. As soon as `TuiRenderer.destroy()` begins, queued frames are
+invalidated and `setRoot()`, `resize()`, `setCursor()`, and `flush()` reject permanently—even
+if the surface cleanup must be retried. Public renderer/host handles from an old app therefore
+cannot write into a replacement terminal session.
+
 ## The pipeline
 
 ```

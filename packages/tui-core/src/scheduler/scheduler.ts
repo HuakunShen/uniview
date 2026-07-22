@@ -21,6 +21,7 @@ export class RenderScheduler {
   private readonly schedule: (flush: () => void) => void;
   private invalidation: Invalidation = "none";
   private scheduled = false;
+  private generation = 0;
 
   constructor(options: RenderSchedulerOptions) {
     this.render = options.render;
@@ -39,7 +40,18 @@ export class RenderScheduler {
     }
     if (this.scheduled) return;
     this.scheduled = true;
-    this.schedule(() => this.flush());
+    const generation = this.generation;
+    this.schedule(() => {
+      if (generation !== this.generation) return;
+      this.flush();
+    });
+  }
+
+  /** Cancel pending work; callbacks already queued by the host become inert. */
+  cancel(): void {
+    this.generation += 1;
+    this.invalidation = "none";
+    this.scheduled = false;
   }
 
   /** Flush any pending frame immediately (used for synchronous test steps). */

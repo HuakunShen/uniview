@@ -41,7 +41,11 @@ describe("TuiRenderer", () => {
     expect(surface.presentCount).toBe(0); // nothing painted until flush
     clock.drain();
 
-    expect(surface.lines({ trimRight: true })).toEqual(["Count: 0", "Increment", ""]);
+    expect(surface.lines({ trimRight: true })).toEqual([
+      "Count: 0",
+      "Increment",
+      "",
+    ]);
     expect(surface.presentCount).toBe(1);
   });
 
@@ -88,7 +92,10 @@ describe("TuiRenderer", () => {
   it("does not clear the screen for a label update on the ANSI surface", () => {
     const styles = new StyleTable();
     const chunks: string[] = [];
-    const surface = new AnsiCellSurface({ write: (s) => chunks.push(s), styles });
+    const surface = new AnsiCellSurface({
+      write: (s) => chunks.push(s),
+      styles,
+    });
     const clock = manualScheduler();
     const renderer = new TuiRenderer({
       surface,
@@ -164,6 +171,54 @@ describe("TuiRenderer", () => {
     clock.drain();
     renderer.destroy();
     expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it("invalidates queued work and keeps every render path closed while teardown retries", () => {
+    const styles = new StyleTable();
+    const chunks: string[] = [];
+    const destroyError = new Error("surface destroy failed");
+    let blockDestroy = true;
+    let destroyAttempts = 0;
+    const surface = new AnsiCellSurface({
+      styles,
+      write: (chunk) => {
+        if (chunk === "\x1b[0m\x1b[?25h") {
+          destroyAttempts += 1;
+          if (blockDestroy) throw destroyError;
+        }
+        chunks.push(chunk);
+      },
+    });
+    const clock = manualScheduler();
+    const renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: { width: 10, height: 2 },
+      schedule: clock.schedule,
+    });
+    renderer.setRoot(counter(0));
+
+    expect(() => renderer.destroy()).toThrow(destroyError);
+    const outputAfterFailedDestroy = [...chunks];
+    expect(() => renderer.setRoot(counter(1))).toThrow(/teardown|destroy/i);
+    expect(() => renderer.resize({ width: 20, height: 4 })).toThrow(
+      /teardown|destroy/i,
+    );
+    expect(() => renderer.setCursor({ visible: false, x: 0, y: 0 })).toThrow(
+      /teardown|destroy/i,
+    );
+    expect(() => renderer.flush()).toThrow(/teardown|destroy/i);
+    clock.drain();
+    expect(chunks).toEqual(outputAfterFailedDestroy);
+
+    blockDestroy = false;
+    renderer.destroy();
+    expect(destroyAttempts).toBe(2);
+    const outputAfterDestroy = [...chunks];
+    renderer.destroy();
+    clock.drain();
+    expect(destroyAttempts).toBe(2);
+    expect(chunks).toEqual(outputAfterDestroy);
   });
 });
 

@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 import {
   extractModuleSpecifiers,
+  packageArtifactKind,
+  validateBindingPackageFiles,
   validateCorePackageFiles,
   validateManifest,
   validatePortableCoreDeclaration,
@@ -283,5 +285,80 @@ test("applies import boundaries and Buffer portability to core declarations", ()
         ]),
       }),
     /public declaration leaks Node Buffer/,
+  );
+});
+
+test("rejects a Zod require from a core CommonJS artifact", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: { zod: "^4.0.0" } },
+        files: new Map([["dist/evil.cjs", `require("zod")`]]),
+      }),
+    /dist\/evil\.cjs: zod must not be imported/,
+  );
+});
+
+test("scans CommonJS declaration imports and Buffer portability", () => {
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([
+          [
+            "dist/evil.d.cts",
+            `export type Hidden = import("@uniview/hidden").Type`,
+          ],
+        ]),
+      }),
+    /dist\/evil\.d\.cts: @uniview\/hidden/,
+  );
+  assert.throws(
+    () =>
+      validateCorePackageFiles({
+        manifest: { dependencies: {} },
+        files: new Map([
+          ["dist/evil.d.cts", `export type Hidden = Buffer | string`],
+        ]),
+      }),
+    /dist\/evil\.d\.cts: public declaration leaks Node Buffer/,
+  );
+});
+
+test("recognizes every emitted JavaScript and TypeScript artifact family", () => {
+  for (const file of [
+    "index.js",
+    "index.jsx",
+    "index.mjs",
+    "index.cjs",
+    "index.ts",
+    "index.tsx",
+    "index.mts",
+    "index.cts",
+  ]) {
+    assert.equal(packageArtifactKind(`dist/${file}`), "source", file);
+  }
+  for (const file of ["index.d.ts", "index.d.mts", "index.d.cts"]) {
+    assert.equal(packageArtifactKind(`dist/${file}`), "declaration", file);
+  }
+  assert.equal(packageArtifactKind("dist/index.map"), null);
+});
+
+test("applies package boundaries to binding JSX and TSX artifacts", () => {
+  assert.throws(
+    () =>
+      validateBindingPackageFiles({
+        manifest: { dependencies: { zod: "^4.0.0" } },
+        files: new Map([["dist/evil.jsx", `require("zod")`]]),
+      }),
+    /dist\/evil\.jsx: zod must not be imported/,
+  );
+  assert.throws(
+    () =>
+      validateBindingPackageFiles({
+        manifest: { dependencies: { "@uniview/hidden": "0.0.1" } },
+        files: new Map([["dist/evil.tsx", `import "@uniview/hidden"`]]),
+      }),
+    /dist\/evil\.tsx: @uniview\/hidden/,
   );
 });

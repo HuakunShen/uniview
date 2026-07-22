@@ -45,10 +45,15 @@ export interface TerminalDriverOptions {
 /** A generic teardown barrier owned by the terminal session. */
 export interface TerminalDriverStartOptions {
   /** Runs before terminal resources are released and is retried by the next owner. */
-  cleanup: () => void;
+  readonly cleanup: () => void;
   /** Return true only when the error means the live session must remain untouched. */
-  retainSessionOnError?: (error: unknown) => boolean;
+  readonly retainSessionOnError?: (error: unknown) => boolean;
 }
+
+type TerminalCleanupBarrier = Readonly<{
+  cleanup: () => void;
+  retainSessionOnError?: (error: unknown) => boolean;
+}>;
 
 type TerminalDriverState =
   | "idle"
@@ -82,7 +87,7 @@ export class TerminalDriver {
   private enterSequenceWritten = false;
   private currentSize: Size;
   private escapeTimer: ReturnType<typeof setTimeout> | null = null;
-  private cleanupBarrier: TerminalDriverStartOptions | null = null;
+  private cleanupBarrier: TerminalCleanupBarrier | null = null;
 
   constructor(private readonly options: TerminalDriverOptions) {
     this.mode = {
@@ -224,7 +229,12 @@ export class TerminalDriver {
     if (this.state !== "idle" || this.hasOwnedResources()) {
       throw new Error("TerminalDriver already started or cleanup is pending");
     }
-    this.cleanupBarrier = session ?? null;
+    this.cleanupBarrier = session
+      ? Object.freeze({
+          cleanup: session.cleanup.bind(session),
+          retainSessionOnError: session.retainSessionOnError?.bind(session),
+        })
+      : null;
     this.state = "starting";
 
     try {
@@ -291,10 +301,16 @@ export class TerminalDriver {
         barrier.cleanup();
         if (this.cleanupBarrier === barrier) this.cleanupBarrier = null;
       } catch (error) {
-        if (
-          allowRetainSession &&
-          barrier.retainSessionOnError?.(error) === true
-        ) {
+        let retainSession = false;
+        if (allowRetainSession && barrier.retainSessionOnError) {
+          try {
+            retainSession = barrier.retainSessionOnError(error) === true;
+          } catch {
+            // A policy failure cannot replace the cleanup error or strand the
+            // driver mid-transition. Treat it as a non-retain decision.
+          }
+        }
+        if (retainSession) {
           this.state =
             previousState === "cleanup-pending" ? "cleanup-pending" : "running";
           throw error;

@@ -11,7 +11,10 @@ import {
   parseSmokeArguments,
   writeTarballDescriptor,
 } from "./tui-tarball-descriptor.mjs";
-import { validateCorePackageFiles } from "./verify-tui-package-boundaries.mjs";
+import {
+  validateBindingPackageFiles,
+  validateCorePackageFiles,
+} from "./verify-tui-package-boundaries.mjs";
 
 const definitions = {
   core: "@uniview/tui-core",
@@ -378,6 +381,97 @@ test("rejects a descriptor-inspected packed core containing a Zod import", async
           files: inspection.contents,
         }),
       /dist\/index\.mjs: zod must not be imported/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects a descriptor-inspected packed core containing a CommonJS Zod require", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "uniview-packed-cjs-test-"));
+  try {
+    const filename = await writeSyntheticTarball(directory, [
+      {
+        path: "package/package.json",
+        content: JSON.stringify({
+          name: definitions.core,
+          version: "0.0.1",
+          dependencies: { zod: "^4.0.0" },
+        }),
+      },
+      { path: "package/dist/evil.cjs", content: `require("zod")` },
+    ]);
+    const inspection = await inspectTarball(filename);
+    assert.throws(
+      () =>
+        validateCorePackageFiles({
+          manifest: inspection.manifest,
+          files: inspection.contents,
+        }),
+      /dist\/evil\.cjs: zod must not be imported/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects a descriptor-inspected packed core containing an unsafe CommonJS declaration", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "uniview-packed-dcts-test-"));
+  try {
+    const filename = await writeSyntheticTarball(directory, [
+      {
+        path: "package/package.json",
+        content: JSON.stringify({
+          name: definitions.core,
+          version: "0.0.1",
+        }),
+      },
+      {
+        path: "package/dist/evil.d.cts",
+        content: `export type Hidden = import("@uniview/hidden").Type | Buffer`,
+      },
+    ]);
+    const inspection = await inspectTarball(filename);
+    assert.throws(
+      () =>
+        validateCorePackageFiles({
+          manifest: inspection.manifest,
+          files: inspection.contents,
+        }),
+      /dist\/evil\.d\.cts: @uniview\/hidden/,
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects a descriptor-inspected packed binding containing a hidden TSX import", async () => {
+  const directory = await mkdtemp(
+    join(tmpdir(), "uniview-packed-binding-test-"),
+  );
+  try {
+    const filename = await writeSyntheticTarball(directory, [
+      {
+        path: "package/package.json",
+        content: JSON.stringify({
+          name: definitions.react,
+          version: "0.0.1",
+          dependencies: { "@uniview/hidden": "0.0.1" },
+        }),
+      },
+      {
+        path: "package/dist/evil.tsx",
+        content: `import "@uniview/hidden"`,
+      },
+    ]);
+    const inspection = await inspectTarball(filename);
+    assert.throws(
+      () =>
+        validateBindingPackageFiles({
+          manifest: inspection.manifest,
+          files: inspection.contents,
+        }),
+      /dist\/evil\.tsx: @uniview\/hidden/,
     );
   } finally {
     await rm(directory, { recursive: true, force: true });

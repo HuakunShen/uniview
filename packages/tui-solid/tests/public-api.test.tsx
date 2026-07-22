@@ -415,6 +415,107 @@ describe("public Solid TUI facade", () => {
     expect(terminal.resizeListeners.size).toBe(0);
   });
 
+  it("retries high-level Solid cleanup only through the pending driver", () => {
+    const oldInput = new FakeInput();
+    const oldOutput = new FakeOutput();
+    const nextInput = new FakeInput();
+    const nextOutput = new FakeOutput();
+    const cleanupError = new Error("Solid disposer remains blocked");
+    let blockCleanup = true;
+    let cleanupAttempts = 0;
+    let concurrentCleanups = 0;
+    let maxConcurrentCleanups = 0;
+    let reentrantStartError: unknown;
+    const reentrantCore = new TerminalDriver({
+      input: oldInput,
+      output: oldOutput,
+      onEvent: () => {},
+    });
+    const app = render(
+      () => {
+        onCleanup(() => {
+          cleanupAttempts += 1;
+          concurrentCleanups += 1;
+          maxConcurrentCleanups = Math.max(
+            maxConcurrentCleanups,
+            concurrentCleanups,
+          );
+          try {
+            if (cleanupAttempts === 2) {
+              try {
+                reentrantCore.start();
+              } catch (error) {
+                reentrantStartError = error;
+              }
+            }
+            if (blockCleanup) throw cleanupError;
+          } finally {
+            concurrentCleanups -= 1;
+          }
+        });
+        return <Text>Old Solid owner</Text>;
+      },
+      { input: oldInput, output: oldOutput },
+    );
+
+    expect(() => app.destroy()).toThrow(cleanupError);
+    expect(cleanupAttempts).toBe(1);
+    expect(oldInput.rawModes).toEqual([true, false]);
+
+    let replacement: ReturnType<typeof render> | undefined;
+    try {
+      let retryError: unknown;
+      try {
+        replacement = render(() => <Text>Blocked replacement</Text>, {
+          input: nextInput,
+          output: nextOutput,
+        });
+      } catch (error) {
+        retryError = error;
+      }
+      expect(retryError).toBe(cleanupError);
+      expect(cleanupAttempts).toBe(2);
+      expect(maxConcurrentCleanups).toBe(1);
+      expect(reentrantStartError).toBeInstanceOf(Error);
+      expect((reentrantStartError as Error).message).toMatch(/already owned/i);
+      expect(nextInput.rawModes).toEqual([]);
+      expect(nextInput.listeners.size).toBe(0);
+      expect(nextOutput.listeners.size).toBe(0);
+
+      blockCleanup = false;
+      replacement = render(() => <Text>Recovered Solid owner</Text>, {
+        input: nextInput,
+        output: nextOutput,
+      });
+      expect(cleanupAttempts).toBe(3);
+      reentrantCore.start();
+      expect(oldInput.rawModes).toEqual([true, false, true]);
+      expect(nextInput.rawModes).toEqual([true]);
+
+      const beforeStaleUse = {
+        oldRawModes: [...oldInput.rawModes],
+        oldChunks: [...oldOutput.chunks],
+        nextRawModes: [...nextInput.rawModes],
+        nextChunks: [...nextOutput.chunks],
+      };
+      app.destroy();
+      expect(() => app.render(() => <Text>Stale Solid app</Text>)).toThrow(
+        /teardown|destroyed/i,
+      );
+      expect({
+        oldRawModes: oldInput.rawModes,
+        oldChunks: oldOutput.chunks,
+        nextRawModes: nextInput.rawModes,
+        nextChunks: nextOutput.chunks,
+      }).toEqual(beforeStaleUse);
+    } finally {
+      blockCleanup = false;
+      app.destroy();
+      reentrantCore.stop();
+      replacement?.destroy();
+    }
+  });
+
   it("keeps both streams pending until failed host cleanup is retried by a core driver", () => {
     const input = new FakeInput();
     const output = new FakeOutput();
@@ -488,6 +589,10 @@ describe("public Solid TUI facade", () => {
       expect(() => app.dispatchInput({ type: "text", text: "x" })).toThrow(
         /teardown|destroyed/i,
       );
+      expect(() =>
+        app.host.renderer.setRoot({ type: "text", text: "Stale renderer" }),
+      ).toThrow(/teardown|destroy/i);
+      expect(() => app.host.renderer.flush()).toThrow(/teardown|destroy/i);
       expect({
         rawModes: input.rawModes,
         chunks: output.chunks,

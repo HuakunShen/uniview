@@ -26,6 +26,8 @@ export interface TuiRendererOptions {
   layoutEngine?: LayoutEngine;
 }
 
+type TuiRendererLifecycle = "active" | "destroying" | "destroyed";
+
 /**
  * The render loop that ties the core together: it owns a scene root, a double
  * buffer, a scheduler and diagnostics, and drives a {@link CellSurface}. A
@@ -46,6 +48,7 @@ export class TuiRenderer {
   private previous: CellBuffer | null = null;
   private forceFullRepaint = false;
   private revision = 0;
+  private lifecycle: TuiRendererLifecycle = "active";
 
   /** Owner table for the most recently rendered frame (hit-testing source). */
   owners = new OwnerTable();
@@ -70,12 +73,14 @@ export class TuiRenderer {
 
   /** Replace the scene root and schedule a render. */
   setRoot(root: RenderNode | null): void {
+    this.assertActive("set a root");
     this.root = root;
     this.invalidate("layout");
   }
 
   /** Change the terminal size; the next frame is a full repaint. */
   resize(size: Size): void {
+    this.assertActive("resize");
     this.size = size;
     this.forceFullRepaint = true;
     void this.surface.resize(size);
@@ -84,19 +89,37 @@ export class TuiRenderer {
 
   /** Set the presented cursor state and schedule a render. */
   setCursor(cursor: CursorState): void {
+    this.assertActive("set the cursor");
     this.cursor = cursor;
     this.invalidate("paint");
   }
 
   /** Flush any pending frame immediately (test/synchronous convenience). */
   flush(): void {
+    this.assertActive("flush");
     this.scheduler.flushSync();
   }
 
   destroy(): void {
-    void this.surface.destroy();
-    this.root = null;
-    this.previous = null;
+    if (this.lifecycle === "destroyed") return;
+    if (this.lifecycle === "active") {
+      this.lifecycle = "destroying";
+      this.scheduler.cancel();
+      this.diagnostics.setSchedulerPending(false);
+      this.root = null;
+      this.previous = null;
+      this.owners = new OwnerTable();
+    }
+    this.surface.destroy();
+    this.lifecycle = "destroyed";
+  }
+
+  private assertActive(action: string): void {
+    if (this.lifecycle !== "active") {
+      throw new Error(
+        `Cannot ${action} after TUI renderer teardown has started`,
+      );
+    }
   }
 
   private invalidate(kind: RenderKind): void {
@@ -106,13 +129,24 @@ export class TuiRenderer {
   }
 
   private renderFrame(_kind: RenderKind): void {
+    if (this.lifecycle !== "active") return;
     const root: RenderNode = this.root ?? { type: "box" };
-    const { buffer, owners } = renderToBuffer(root, this.size, this.styles, this.layoutEngine);
+    const { buffer, owners } = renderToBuffer(
+      root,
+      this.size,
+      this.styles,
+      this.layoutEngine,
+    );
     this.owners = owners;
 
     this.revision += 1;
     const previous = this.forceFullRepaint ? null : this.previous;
-    const update = buildFrameUpdate(previous, buffer, this.revision, this.cursor);
+    const update = buildFrameUpdate(
+      previous,
+      buffer,
+      this.revision,
+      this.cursor,
+    );
     this.forceFullRepaint = false;
 
     void this.surface.present(buffer, update);

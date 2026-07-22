@@ -10,6 +10,7 @@ function manualScheduler() {
       const pending = queue.splice(0);
       for (const flush of pending) flush();
     },
+    take: () => queue.splice(0),
     get length() {
       return queue.length;
     },
@@ -83,7 +84,10 @@ describe("RenderScheduler", () => {
 
   it("reports pending state", () => {
     const clock = manualScheduler();
-    const scheduler = new RenderScheduler({ render: () => {}, schedule: clock.schedule });
+    const scheduler = new RenderScheduler({
+      render: () => {},
+      schedule: clock.schedule,
+    });
     expect(scheduler.pending).toBe(false);
     scheduler.invalidate("paint");
     expect(scheduler.pending).toBe(true);
@@ -112,5 +116,25 @@ describe("RenderScheduler", () => {
     const scheduler = new RenderScheduler({ render, schedule: clock.schedule });
     scheduler.flushSync();
     expect(render).not.toHaveBeenCalled();
+  });
+
+  it("cancels an already queued callback without flushing a later generation", () => {
+    const render = vi.fn();
+    const clock = manualScheduler();
+    const scheduler = new RenderScheduler({ render, schedule: clock.schedule });
+
+    scheduler.invalidate("paint");
+    scheduler.cancel();
+    scheduler.invalidate("layout");
+    expect(clock.length).toBe(2);
+
+    const [stale, current] = clock.take();
+    stale?.();
+    expect(render).not.toHaveBeenCalled();
+    expect(scheduler.pending).toBe(true);
+
+    current?.();
+    expect(render).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledWith("layout");
   });
 });

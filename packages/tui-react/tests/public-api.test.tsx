@@ -351,6 +351,10 @@ describe("public React TUI facade", () => {
       expect(() => app.dispatchInput({ type: "text", text: "x" })).toThrow(
         /teardown|destroyed/i,
       );
+      expect(() =>
+        app.host.renderer.setRoot({ type: "text", text: "Stale renderer" }),
+      ).toThrow(/teardown|destroy/i);
+      expect(() => app.host.renderer.flush()).toThrow(/teardown|destroy/i);
       expect({
         rawModes: input.rawModes,
         chunks: output.chunks,

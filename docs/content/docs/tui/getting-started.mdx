@@ -153,6 +153,10 @@ The cleanup callback and terminal resources form one ownership session. A failed
 both stream identities reserved, so this driver or the next owner retries it before terminal
 acquisition; a stale root cannot interfere with the replacement session.
 
+Once root/renderer teardown starts, the old `host` and `renderer` handles are invalidated too.
+Queued frames are cancelled, and later render, resize, cursor, flush, mutation, or event-dispatch
+calls reject instead of writing into a replacement session.
+
 <Callout type="warn" title="Keys reach the focused node">
 A key event only reaches a component that is **focused** and has an `onKeyDown` — bubbling
 up to the nearest ancestor that handles it. In tests, dispatch a `Tab` first, or nothing is

@@ -37,32 +37,34 @@ import type {
 
 let activeSolidRootOwner: object | null = null;
 
-interface PendingSolidRootCleanup {
+interface PendingSolidSessionCleanup {
   owner: object;
-  root: { destroy(): void };
+  driver: TerminalDriver;
 }
 
-let pendingSolidRootCleanup: PendingSolidRootCleanup | null = null;
-let retryingPendingSolidRootCleanup = false;
+let pendingSolidSessionCleanup: PendingSolidSessionCleanup | null = null;
+let retryingPendingSolidSessionCleanup = false;
 
-function retryPendingSolidRootCleanup(nextOwner: object): void {
-  const pending = pendingSolidRootCleanup;
+function retryPendingSolidSessionCleanup(nextOwner: object): void {
+  const pending = pendingSolidSessionCleanup;
   if (!pending || pending.owner === nextOwner) return;
-  if (retryingPendingSolidRootCleanup) {
+  if (retryingPendingSolidSessionCleanup) {
     throw new Error("TUI Solid root cleanup is already in progress");
   }
 
-  retryingPendingSolidRootCleanup = true;
+  retryingPendingSolidSessionCleanup = true;
   try {
-    pending.root.destroy();
-    if (pendingSolidRootCleanup === pending) pendingSolidRootCleanup = null;
+    pending.driver.stop();
+    if (pendingSolidSessionCleanup === pending) {
+      pendingSolidSessionCleanup = null;
+    }
   } finally {
-    retryingPendingSolidRootCleanup = false;
+    retryingPendingSolidSessionCleanup = false;
   }
 }
 
 function reserveSolidRootOwnership(owner: object): void {
-  retryPendingSolidRootCleanup(owner);
+  retryPendingSolidSessionCleanup(owner);
   if (activeSolidRootOwner && activeSolidRootOwner !== owner) {
     throw new Error(
       "Cannot render because another TUI Solid root is active; destroy it before rendering this root",
@@ -73,21 +75,6 @@ function reserveSolidRootOwnership(owner: object): void {
 
 function releaseSolidRootOwnership(owner: object): void {
   if (activeSolidRootOwner === owner) activeSolidRootOwner = null;
-}
-
-function destroySolidRoot(owner: object, root: { destroy(): void }): void {
-  try {
-    root.destroy();
-    if (
-      pendingSolidRootCleanup?.owner === owner &&
-      pendingSolidRootCleanup.root === root
-    ) {
-      pendingSolidRootCleanup = null;
-    }
-  } catch (error) {
-    pendingSolidRootCleanup = { owner, root };
-    throw error;
-  }
 }
 
 export {
@@ -484,34 +471,46 @@ export function render(
   let root: TuiSolidRoot | null = null;
   let surface: AnsiCellSurface | null = null;
   let surfaceDestroyed = false;
+  let driver: TerminalDriver;
   const cleanupRoot = (): void => {
-    if (root) {
-      destroySolidRoot(owner, root);
-      return;
+    try {
+      if (root) {
+        root.destroy();
+      } else {
+        let firstError: unknown;
+        let hasError = false;
+        if (surface && !surfaceDestroyed) {
+          try {
+            surface.destroy();
+            surfaceDestroyed = true;
+          } catch (error) {
+            firstError = error;
+            hasError = true;
+          }
+        }
+        try {
+          releaseSolidRootOwnership(owner);
+        } catch (error) {
+          if (!hasError) {
+            firstError = error;
+            hasError = true;
+          }
+        }
+        if (hasError) throw firstError;
+      }
+    } catch (error) {
+      pendingSolidSessionCleanup = { owner, driver };
+      throw error;
     }
 
-    let firstError: unknown;
-    let hasError = false;
-    if (surface && !surfaceDestroyed) {
-      try {
-        surface.destroy();
-        surfaceDestroyed = true;
-      } catch (error) {
-        firstError = error;
-        hasError = true;
-      }
+    if (
+      pendingSolidSessionCleanup?.owner === owner &&
+      pendingSolidSessionCleanup.driver === driver
+    ) {
+      pendingSolidSessionCleanup = null;
     }
-    try {
-      releaseSolidRootOwnership(owner);
-    } catch (error) {
-      if (!hasError) {
-        firstError = error;
-        hasError = true;
-      }
-    }
-    if (hasError) throw firstError;
   };
-  const driver = new TerminalDriver({
+  driver = new TerminalDriver({
     input,
     output,
     onEvent: (event) => {
