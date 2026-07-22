@@ -73,6 +73,7 @@ export async function inspectTarball(filename) {
   const seenFiles = new Set();
   let manifest;
   let offset = 0;
+  let foundEndOfArchive = false;
   while (offset < archive.length) {
     assert.ok(
       offset + 512 <= archive.length,
@@ -82,10 +83,18 @@ export async function inspectTarball(filename) {
     const name = tarField(archive, offset, 100);
     if (!name) {
       assert.ok(
-        header.every((byte) => byte === 0) &&
-          archive.subarray(offset).every((byte) => byte === 0),
+        header.every((byte) => byte === 0),
         `${filename}: invalid empty tar header`,
       );
+      assert.ok(
+        offset + 1024 <= archive.length,
+        `${filename}: missing two-block tar EOF trailer`,
+      );
+      assert.ok(
+        archive.subarray(offset).every((byte) => byte === 0),
+        `${filename}: invalid tar EOF trailer`,
+      );
+      foundEndOfArchive = true;
       break;
     }
     const prefix = tarField(archive, offset + 345, 155);
@@ -129,6 +138,7 @@ export async function inspectTarball(filename) {
     }
     offset = paddedEnd;
   }
+  assert.ok(foundEndOfArchive, `${filename}: missing two-block tar EOF trailer`);
   assert.ok(manifest, `${filename}: missing packed package/package.json`);
   return { manifest, files: files.sort() };
 }

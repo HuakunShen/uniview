@@ -58,9 +58,11 @@ function manifestEntry(name = definitions.core) {
 }
 
 async function writeSyntheticTarball(directory, entries, options = {}) {
+  const trailerBlocks =
+    options.trailer === false ? 0 : (options.trailerBlocks ?? 2);
   const archive = Buffer.concat([
     ...entries.map(tarEntry),
-    ...(options.trailer === false ? [] : [Buffer.alloc(1024)]),
+    ...(trailerBlocks === 0 ? [] : [Buffer.alloc(trailerBlocks * 512)]),
   ]);
   const filename = join(directory, `fixture-${Math.random()}.tgz`);
   await writeFile(filename, gzipSync(archive));
@@ -298,6 +300,31 @@ test("rejects real tar content that exceeds archive bounds", async () => {
     const filename = join(directory, "truncated.tgz");
     await writeFile(filename, gzipSync(truncated));
     await assert.rejects(inspectTarball(filename), /bounds|size/i);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("rejects a real tar archive without the two-block EOF trailer", async () => {
+  await rejectsRealTar([manifestEntry()], /EOF|trailer/i, { trailer: false });
+});
+
+test("rejects a real tar archive with only one EOF zero block", async () => {
+  await rejectsRealTar([manifestEntry()], /EOF|trailer/i, { trailerBlocks: 1 });
+});
+
+test("accepts real tar archives with two or more EOF zero blocks", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "uniview-real-tar-test-"));
+  try {
+    for (const trailerBlocks of [2, 3]) {
+      const filename = await writeSyntheticTarball(
+        directory,
+        [manifestEntry()],
+        { trailerBlocks },
+      );
+      const inspection = await inspectTarball(filename);
+      assert.equal(inspection.manifest.name, definitions.core);
+    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
