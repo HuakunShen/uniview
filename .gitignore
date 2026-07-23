@@ -49,7 +49,7 @@ yarn-error.log*
 .DS_Store
 *.pem
 .opencode/
-references/
+/references/
 
 examples/bun*
 docs/superpowers
