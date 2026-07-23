@@ -1,0 +1,4 @@
+interface:
+  display_name: "Uniview TUI"
+  short_description: "Build portable Uniview terminal apps"
+  default_prompt: "Use $uniview-tui to build and verify a portable interactive terminal app."
