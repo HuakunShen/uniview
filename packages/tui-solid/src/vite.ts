@@ -4,7 +4,8 @@ import solid from "babel-preset-solid";
 
 export interface UniviewSolidTransformResult {
   code: string;
-  map: unknown;
+  /** Rollup-compatible JSON source map. */
+  map: string | null;
 }
 
 export interface UniviewSolidVitePlugin {
@@ -15,7 +16,7 @@ export interface UniviewSolidVitePlugin {
     id: string,
   ): Promise<UniviewSolidTransformResult | null>;
   config(
-    config: Record<string, unknown>,
+    config: object,
     environment: { command: "build" | "serve"; mode: string },
   ): {
     resolve: { conditions: string[]; dedupe: string[] };
@@ -53,7 +54,10 @@ export function univiewSolid(): UniviewSolidVitePlugin {
         sourceMaps: true,
       });
       if (!result?.code) return null;
-      return { code: result.code, map: result.map };
+      return {
+        code: result.code,
+        map: result.map ? JSON.stringify(result.map) : null,
+      };
     },
     config(_config, _environment) {
       const conditions = ["module", "browser", "development|production"];

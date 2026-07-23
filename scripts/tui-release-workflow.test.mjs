@@ -45,13 +45,18 @@ test("runs all release package suites inside the publication verification gate",
 
 test("runs the real Vite 5 Solid reactivity examples before release builds", () => {
   const vite5Examples = manifest.scripts["test:tui-vite5-solid"];
+  const vite5TypeChecks = manifest.scripts["check-types:tui-vite5-solid"];
   assert.match(vite5Examples, /@uniview\/tui-2048-solid/);
   assert.match(vite5Examples, /@uniview\/tui-lazygit-solid/);
+  assert.match(vite5TypeChecks, /@uniview\/tui-2048-solid/);
+  assert.match(vite5TypeChecks, /@uniview\/tui-lazygit-solid/);
 
   const verification = manifest.scripts["verify:tui-packages"];
   const vite5Gate = verification.indexOf("pnpm test:tui-vite5-solid");
+  const vite5TypeGate = verification.indexOf("pnpm check-types:tui-vite5-solid");
   const releaseBuild = verification.indexOf("pnpm build:tui-release");
   assert.ok(vite5Gate !== -1 && vite5Gate < releaseBuild);
+  assert.ok(vite5TypeGate > releaseBuild);
 });
 
 test("all runtime legs download and reuse the same prepared artifact", () => {

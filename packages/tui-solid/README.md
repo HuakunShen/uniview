@@ -48,7 +48,7 @@ your app. No internal Uniview package or `node_modules` path is required.
     "moduleResolution": "bundler",
     "strict": true
   },
-  "include": ["src"]
+  "include": ["src", "vite.config.ts"]
 }
 ```
 
