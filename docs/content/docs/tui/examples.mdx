@@ -44,7 +44,8 @@ A simulated load test: gauge, bar chart, histogram, and live stats.
 <Image src={game2048} alt="2048 in the terminal showing the 2048 tile reached, score 20904, a score-curve sparkline, and an AI panel reading depth 2" />
 
 ```bash
-pnpm --filter @uniview/tui-2048-solid dev
+pnpm --filter @uniview/tui-2048 build
+pnpm --filter @uniview/tui-2048 start
 ```
 
 `↑↓←→` to play, `a` to hand it to the AI, `s` to step it once, `+`/`-` for search depth.
@@ -148,7 +149,7 @@ line — `AnsiCellSurface` becomes `SvgCellSurface` — then writes `toSVG()` in
 `docs/public/tui/`.
 
 ```bash
-pnpm --filter @uniview/tui-2048-solid snapshot
+pnpm --filter @uniview/tui-2048 snapshot
 # wrote docs/public/tui/2048-solid.svg (17481 bytes, won=true, score=20904)
 ```
 

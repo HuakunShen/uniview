@@ -1,4 +1,4 @@
-# @uniview/tui-2048-solid
+# @uniview/tui-2048
 
 **2048 in the terminal, authored in Solid — with the real trained AI.**
 
@@ -8,8 +8,16 @@ afterstates — the same agent as the web app it was ported from. At depth 2 it
 reaches the 4096 tile.
 
 ```bash
-pnpm --filter @uniview/tui-2048-solid dev
+pnpm --filter @uniview/tui-2048 build
+pnpm --filter @uniview/tui-2048 start
+
+# after publishing
+npx @uniview/tui-2048
 ```
+
+`build` uses Vite to compile the Solid TSX entry into `dist/main.js`. `start`
+only runs that built Node.js ESM file, so the published package does not need
+`vite-node` at runtime.
 
 | key | |
 |---|---|
@@ -22,9 +30,10 @@ pnpm --filter @uniview/tui-2048-solid dev
 
 ## The weights are not in this repo
 
-They are ~84 MB, so `model/` is gitignored. **The game runs without them** — it
-is fully playable by hand, the AI panel just reads `no model — human play`, and
-the AI test suites skip.
+They are large, so `model/` is gitignored. The release tarball includes the
+local `model/` directory when it is present. **The game still runs without
+them** — it is fully playable by hand, the AI panel just reads `no model —
+human play`, and the AI test suites skip.
 
 To enable AI mode, drop the exported model into `model/`:
 
@@ -40,7 +49,7 @@ model/
 Or point at them elsewhere:
 
 ```bash
-UNIVIEW_2048_MODEL_DIR=/path/to/model pnpm --filter @uniview/tui-2048-solid dev
+UNIVIEW_2048_MODEL_DIR=/path/to/model pnpm --filter @uniview/tui-2048 dev
 ```
 
 ## Layout
@@ -80,7 +89,7 @@ The value-parity golden lives in `model/`, not in this repo, because it
 describes the exact weights sitting beside it.
 
 ```bash
-pnpm --filter @uniview/tui-2048-solid test
+pnpm --filter @uniview/tui-2048 test
 ```
 
 ## What it demonstrates for uniview

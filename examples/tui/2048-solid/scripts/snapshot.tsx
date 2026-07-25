@@ -16,7 +16,7 @@ import type { Rng } from "../src/vendor/board";
  * the surface changes — so what lands in the docs is the real component tree, not
  * a mock-up that can drift from it.
  *
- *   pnpm --filter @uniview/tui-2048-solid snapshot
+ *   pnpm --filter @uniview/tui-2048 snapshot
  */
 const OUT = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -37,7 +37,11 @@ function seeded(seed: number): Rng {
 
 const styles = new StyleTable();
 const surface = new SvgCellSurface({ styles });
-const root = createTuiSolidRoot({ surface, styles, size: { width: 80, height: 22 } });
+const root = createTuiSolidRoot({
+  surface,
+  styles,
+  size: { width: 80, height: 22 },
+});
 
 createRoot(() => {
   const game = createGame({ rng: seeded(2048) });
@@ -56,7 +60,9 @@ createRoot(() => {
     if (!svg) throw new Error("no frame was presented");
     mkdirSync(dirname(OUT), { recursive: true });
     writeFileSync(OUT, svg);
-    console.log(`wrote ${OUT} (${svg.length} bytes, won=${game.won()}, score=${game.score()})`);
+    console.log(
+      `wrote ${OUT} (${svg.length} bytes, won=${game.won()}, score=${game.score()})`,
+    );
     process.exit(0);
   }, 200);
 });

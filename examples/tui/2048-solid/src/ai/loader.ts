@@ -17,7 +17,15 @@ import { UniversalValue } from "../vendor/universal";
  * exceeds the 25 MiB asset limit upstream. `buildValue` scatters the parts back
  * into dense Float32Arrays.
  */
-export const DEFAULT_MODEL_DIR = fileURLToPath(new URL("../../model/", import.meta.url));
+const sourceModelDir = fileURLToPath(new URL("../../model/", import.meta.url));
+const bundledModelDir = fileURLToPath(new URL("../model/", import.meta.url));
+
+/** Resolve the model beside either the source tree or the built `dist` entry. */
+export const DEFAULT_MODEL_DIR = existsSync(
+  join(bundledModelDir, "manifest.json"),
+)
+  ? bundledModelDir
+  : sourceModelDir;
 
 /** Where the weights live: `$UNIVIEW_2048_MODEL_DIR`, else `<package>/model/`. */
 export function modelDir(): string {
@@ -37,7 +45,9 @@ export function hasModel(dir: string = modelDir()): boolean {
 export function loadModel(dir: string = modelDir()): UniversalValue | null {
   if (!hasModel(dir)) return null;
 
-  const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as Manifest;
+  const manifest = JSON.parse(
+    readFileSync(join(dir, "manifest.json"), "utf8"),
+  ) as Manifest;
   const buffers = manifest.patterns.map((_pattern, k) =>
     manifest.parts[k]!.map((_nnz, p) => {
       const raw = readFileSync(join(dir, `lut${k}_${p}.bin`));

@@ -9,7 +9,8 @@ import { handleKey } from "./keys";
  * 2048 in the terminal, authored in Solid, with the real trained n-tuple +
  * expectimax agent behind AI mode.
  *
- *   pnpm --filter @uniview/tui-2048-solid dev
+ *   pnpm --filter @uniview/tui-2048 build
+ *   pnpm --filter @uniview/tui-2048 start
  *
  *   ↑↓←→ move · a: toggle AI · s: single AI step · n: new game · q/Ctrl-C: quit
  *
@@ -21,8 +22,15 @@ const rows = process.stdout.rows ?? 24;
 const ONCE = !process.stdout.isTTY || process.env.UNIVIEW_DEMO_ONCE === "1";
 
 const styles = new StyleTable();
-const surface = new AnsiCellSurface({ write: (chunk) => process.stdout.write(chunk), styles });
-const root = createTuiSolidRoot({ surface, styles, size: { width: columns, height: rows } });
+const surface = new AnsiCellSurface({
+  write: (chunk) => process.stdout.write(chunk),
+  styles,
+});
+const root = createTuiSolidRoot({
+  surface,
+  styles,
+  size: { width: columns, height: rows },
+});
 
 const game = createGame();
 const ai = createAi(game);
