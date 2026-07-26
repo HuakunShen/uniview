@@ -6,13 +6,14 @@
   "description": "Rebuild Uniview one runnable step at a time",
   "scripts": {
     "step": "tsx",
+    "test": "node run-all-steps.mjs",
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "kkrpc": "^2.0.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.8",
-    "react-reconciler": "^0.33.0",
+    "kkrpc": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-reconciler": "catalog:",
     "solid-js": "1.9.10",
     "vue": "^3.5.40",
     "ws": "^8.18.0"

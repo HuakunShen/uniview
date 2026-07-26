@@ -6,6 +6,9 @@ settings:
 
 catalogs:
   default:
+    kkrpc:
+      specifier: ^2.0.0
+      version: 2.1.0
     react:
       specifier: ^19.2.4
       version: 19.2.4
@@ -15,6 +18,7 @@ catalogs:
 
 overrides:
   '@types/react': 19.2.14
+  react-dom: 19.2.4
   zod: 4.4.3
 
 importers:
@@ -95,7 +99,7 @@ importers:
         specifier: ^19.2.3
         version: 19.2.4
       react-dom:
-        specifier: ^19.2.3
+        specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
       tailwind-merge:
         specifier: ^3.4.0
@@ -208,7 +212,7 @@ importers:
         specifier: ^19.2.0
         version: 19.2.4
       react-dom:
-        specifier: ^19.2.0
+        specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
       tailwind-merge:
         specifier: ^3.4.0
@@ -988,6 +992,52 @@ importers:
       vitest:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.11)(happy-dom@15.11.7)(lightningcss@1.32.0)
+
+  learn:
+    dependencies:
+      kkrpc:
+        specifier: 'catalog:'
+        version: 2.1.0(@nats-io/transport-node@3.4.0)(@tauri-apps/plugin-shell@2.3.5)(amqplib@0.10.9)(elysia@1.4.24(@sinclair/typebox@0.34.48)(@types/bun@1.3.14)(exact-mirror@0.2.7(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(hono@4.12.25)(ioredis@5.11.1)(kafkajs@2.2.4)(socket.io-client@4.8.3)(socket.io@4.8.3)(typescript@5.9.2)(ws@8.21.0)
+      react:
+        specifier: 'catalog:'
+        version: 19.2.4
+      react-dom:
+        specifier: 19.2.4
+        version: 19.2.4(react@19.2.4)
+      react-reconciler:
+        specifier: 'catalog:'
+        version: 0.33.0(react@19.2.4)
+      solid-js:
+        specifier: 1.9.10
+        version: 1.9.10
+      vue:
+        specifier: ^3.5.40
+        version: 3.5.40(typescript@5.9.2)
+      ws:
+        specifier: ^8.18.0
+        version: 8.21.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.14)
+      '@types/react-reconciler':
+        specifier: ^0.32.0
+        version: 0.32.3(@types/react@19.2.14)
+      '@types/ws':
+        specifier: ^8.5.13
+        version: 8.18.1
+      tsx:
+        specifier: ^4.19.0
+        version: 4.21.0
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
   packages/host-sdk:
     dependencies:
@@ -2530,7 +2580,7 @@ packages:
     resolution: {integrity: sha512-0tLRojf/1Go2JgEVm+3Frg9A3IW8bJgKgdO0BN5RkF//ufuz2joZM63Npau2ff3J6lUVYgDSNzNkR+aH3IVfjg==}
     peerDependencies:
       react: '>=16.8.0'
-      react-dom: '>=16.8.0'
+      react-dom: 19.2.4
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
@@ -2551,7 +2601,7 @@ packages:
       fumadocs-core: 16.4.9
       next: 16.x.x
       react: ^19.2.0
-      react-dom: ^19.2.0
+      react-dom: 19.2.4
       tailwindcss: ^4.0.0
     peerDependenciesMeta:
       '@types/react':
@@ -3470,7 +3520,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3483,7 +3533,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3496,7 +3546,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3509,7 +3559,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3540,7 +3590,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3562,7 +3612,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3584,7 +3634,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3606,7 +3656,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3619,7 +3669,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3632,7 +3682,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3645,7 +3695,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3658,7 +3708,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3671,7 +3721,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3684,7 +3734,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3697,7 +3747,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3710,7 +3760,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3723,7 +3773,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3754,7 +3804,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3767,7 +3817,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3780,7 +3830,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -3865,7 +3915,7 @@ packages:
       '@types/react': 19.2.14
       '@types/react-dom': '*'
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: 19.2.4
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -6724,7 +6774,7 @@ packages:
       lucide-react: '*'
       next: 16.x.x
       react: ^19.2.0
-      react-dom: ^19.2.0
+      react-dom: 19.2.4
       react-router: 7.x.x
       waku: ^0.26.0 || ^0.27.0
       zod: 4.4.3
@@ -6785,7 +6835,7 @@ packages:
       fumadocs-core: 16.4.9
       next: 16.x.x
       react: ^19.2.0
-      react-dom: ^19.2.0
+      react-dom: 19.2.4
       tailwindcss: ^4.0.0
     peerDependenciesMeta:
       '@types/react':
@@ -7344,6 +7394,42 @@ packages:
   kind-of@6.0.3:
     resolution: {integrity: sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==}
     engines: {node: '>=0.10.0'}
+
+  kkrpc@2.1.0:
+    resolution: {integrity: sha512-ijiqw6g83paCFtwN9vjp093F4VUKuq5PT6C9VoCgRqlUGefCYR1LIVzC+4MNodB+sXfjO9z3cM4aeC2QDYIFGQ==}
+    peerDependencies:
+      '@nats-io/transport-node': ^3.3.0
+      '@tauri-apps/plugin-shell': ^2.2.0
+      amqplib: ^0.10.9
+      elysia: ^1.0.0
+      hono: ^4.10.4
+      ioredis: ^5.0.0
+      kafkajs: ^2.2.4
+      socket.io: ^4.0.0
+      socket.io-client: ^4.0.0
+      typescript: ^5.0.0 || ^6.0.0
+      ws: ^8.18.0
+    peerDependenciesMeta:
+      '@nats-io/transport-node':
+        optional: true
+      '@tauri-apps/plugin-shell':
+        optional: true
+      amqplib:
+        optional: true
+      elysia:
+        optional: true
+      hono:
+        optional: true
+      ioredis:
+        optional: true
+      kafkajs:
+        optional: true
+      socket.io:
+        optional: true
+      socket.io-client:
+        optional: true
+      ws:
+        optional: true
 
   kleur@3.0.3:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
@@ -8021,7 +8107,7 @@ packages:
     resolution: {integrity: sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==}
     peerDependencies:
       react: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17 || ^18 || ^19 || ^19.0.0-rc
+      react-dom: 19.2.4
 
   next@16.1.4:
     resolution: {integrity: sha512-gKSecROqisnV7Buen5BfjmXAm7Xlpx9o2ueVQRo5DxQcjC8d330dOM1xiGWc2k3Dcnz0In3VybyRPOsudwgiqQ==}
@@ -8032,7 +8118,7 @@ packages:
       '@playwright/test': ^1.51.1
       babel-plugin-react-compiler: '*'
       react: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
-      react-dom: ^18.2.0 || 19.0.0-rc-de68d2f4-20241204 || ^19.0.0
+      react-dom: 19.2.4
       sass: ^1.3.0
     peerDependenciesMeta:
       '@opentelemetry/api':
@@ -8641,7 +8727,7 @@ packages:
     resolution: {integrity: sha512-BsE+EnFVQzFIlyuuQrZ9iTwyKpKkqdFZV1ImEQN573QPqGrIUuNni7aF+sZwDcxlsuOMayCr6oO/PZR/yJnbRg==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: 19.2.4
 
   react-reconciler@0.33.0:
     resolution: {integrity: sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA==}
@@ -15351,6 +15437,20 @@ snapshots:
 
   electron-to-chromium@1.5.286: {}
 
+  elysia@1.4.24(@sinclair/typebox@0.34.48)(@types/bun@1.3.14)(exact-mirror@0.2.7(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2):
+    dependencies:
+      '@sinclair/typebox': 0.34.48
+      cookie: 1.1.1
+      exact-mirror: 0.2.7(@sinclair/typebox@0.34.48)
+      fast-decode-uri-component: 1.0.1
+      file-type: 21.3.0
+      memoirist: 0.4.0
+      openapi-types: 12.1.3
+    optionalDependencies:
+      '@types/bun': 1.3.14
+      typescript: 5.9.2
+    optional: true
+
   elysia@1.4.24(@sinclair/typebox@0.34.48)(@types/bun@1.3.14)(exact-mirror@0.2.7(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.3):
     dependencies:
       '@sinclair/typebox': 0.34.48
@@ -16443,6 +16543,22 @@ snapshots:
   khroma@2.1.0: {}
 
   kind-of@6.0.3: {}
+
+  kkrpc@2.1.0(@nats-io/transport-node@3.4.0)(@tauri-apps/plugin-shell@2.3.5)(amqplib@0.10.9)(elysia@1.4.24(@sinclair/typebox@0.34.48)(@types/bun@1.3.14)(exact-mirror@0.2.7(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2))(hono@4.12.25)(ioredis@5.11.1)(kafkajs@2.2.4)(socket.io-client@4.8.3)(socket.io@4.8.3)(typescript@5.9.2)(ws@8.21.0):
+    dependencies:
+      superjson: 2.2.6
+      typescript: 5.9.2
+    optionalDependencies:
+      '@nats-io/transport-node': 3.4.0
+      '@tauri-apps/plugin-shell': 2.3.5
+      amqplib: 0.10.9
+      elysia: 1.4.24(@sinclair/typebox@0.34.48)(@types/bun@1.3.14)(exact-mirror@0.2.7(@sinclair/typebox@0.34.48))(file-type@21.3.0)(openapi-types@12.1.3)(typescript@5.9.2)
+      hono: 4.12.25
+      ioredis: 5.11.1
+      kafkajs: 2.2.4
+      socket.io: 4.8.3
+      socket.io-client: 4.8.3
+      ws: 8.21.0
 
   kleur@3.0.3: {}
 
@@ -19891,6 +20007,16 @@ snapshots:
       '@vue/shared': 3.5.28
     optionalDependencies:
       typescript: 5.9.3
+
+  vue@3.5.40(typescript@5.9.2):
+    dependencies:
+      '@vue/compiler-dom': 3.5.40
+      '@vue/compiler-sfc': 3.5.40
+      '@vue/runtime-dom': 3.5.40
+      '@vue/server-renderer': 3.5.40
+      '@vue/shared': 3.5.40
+    optionalDependencies:
+      typescript: 5.9.2
 
   vue@3.5.40(typescript@6.0.3):
     dependencies:

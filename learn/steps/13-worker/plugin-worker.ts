@@ -39,11 +39,16 @@ import { createElement, createContext, memo, useCallback, useState } from "react
 import { parentPort, threadId, isMainThread } from "node:worker_threads"
 import ReactReconciler from "react-reconciler"
 import type { HostConfig, ReactContext } from "react-reconciler"
+// The explicit `.js` matters here and nowhere else in this curriculum: a
+// `node:worker_threads` Worker does not inherit tsx's resolver, so this file is
+// resolved by Node's own ESM loader, which does not extension-guess a
+// subpath export. Bare `react-reconciler/constants` works on the host thread
+// and fails only inside the worker — the kind of asymmetry this step is about.
 import {
   ConcurrentRoot,
   DefaultEventPriority,
   NoEventPriority,
-} from "react-reconciler/constants"
+} from "react-reconciler/constants.js"
 import { RPCChannel } from "kkrpc"
 import { workerSelfTransport } from "kkrpc/worker"
 import type {
@@ -54,8 +59,8 @@ import type {
   PluginToHostAPI,
   UINode,
   UpdateMode,
-} from "./protocol"
-import { PROTOCOL_VERSION, TEXT_NODE_TYPE } from "./protocol"
+} from "./protocol.ts"
+import { PROTOCOL_VERSION, TEXT_NODE_TYPE } from "./protocol.ts"
 
 // ===========================================================================
 // 1. Talking back to the host
@@ -276,8 +281,17 @@ function serializeNode(
 
 class MutationCollector {
   private pendingMutations: Mutation[] = []
+  // Written out longhand rather than as a TypeScript parameter property
+  // (`constructor(private readonly handlerRegistry: HandlerRegistry) {}`).
+  // This file is loaded by a real `node:worker_threads` Worker, and a worker
+  // thread does not inherit tsx's loader — Node falls back to its own
+  // strip-only TypeScript mode, which rejects parameter properties with
+  // ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX. Longhand runs under both.
+  private readonly handlerRegistry: HandlerRegistry
 
-  constructor(private readonly handlerRegistry: HandlerRegistry) {}
+  constructor(handlerRegistry: HandlerRegistry) {
+    this.handlerRegistry = handlerRegistry
+  }
 
   beginCommit(): void {
     this.pendingMutations = []

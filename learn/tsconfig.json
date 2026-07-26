@@ -13,6 +13,10 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    // Step 13 loads its plugin module on a real worker thread, which does not
+    // inherit tsx's loader. Explicit `.ts` specifiers are what make that file
+    // resolvable by Node's own loader as well as by tsx.
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "jsx": "react-jsx"
   },

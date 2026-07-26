@@ -75,7 +75,7 @@ import type {
   SetPropsMutation,
   SetTextMutation,
   UINode,
-} from "./protocol"
+} from "./protocol.ts"
 import {
   PROTOCOL_VERSION,
   TEXT_NODE_TYPE,
@@ -84,7 +84,7 @@ import {
   nativeStringify,
   show,
   utf8,
-} from "./protocol"
+} from "./protocol.ts"
 
 // ===========================================================================
 // 1. The instruments — step 12's, pointed at a boundary that is now real
@@ -591,7 +591,15 @@ export function createWorkerController(opts: WorkerControllerOptions): WorkerCon
     async connect() {
       // `new Worker(url)` — the plugin's module is loaded, evaluated and started
       // on a thread of its own. Nothing of the host's heap goes with it.
-      worker = new Worker(pluginUrl)
+      //
+      // `execArgv` is the one concession to running TypeScript directly: a
+      // worker thread does NOT inherit its parent's module loader, so without
+      // passing it along Node loads `plugin-worker.ts` with its own strip-only
+      // TypeScript support and fails on the first relative import lacking a
+      // file extension. Step 14 does the same thing for its forked child. In a
+      // browser — and in the real `createWorkerController` — the plugin is
+      // already-built JavaScript and none of this applies.
+      worker = new Worker(pluginUrl, { execArgv: process.execArgv })
       const transport = meteredTransport(
         workerTransport(nodeWorkerTarget(worker) as unknown as globalThis.Worker),
         meter,

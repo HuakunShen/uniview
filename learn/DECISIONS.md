@@ -1,36 +1,32 @@
 # Decisions taken while building this curriculum
 
-Judgment calls made without stopping to ask, and the open questions they leave.
-Read the "Open questions" section at the bottom first — those are the ones that
-may want your answer.
+Judgment calls made while building it, the things rebuilding this system in
+miniature turned up in the real code, and what was done about each.
 
 ## Structural decisions
 
-### `learn/` is standalone, not a pnpm workspace member
+### `learn/` is a workspace member — after a detour
 
-**Why.** The first attempt added `learn` to `pnpm-workspace.yaml` and the install
-failed: `vendors/kkrpc` and `vendors/svelte-react-render` are git submodules that
-are not initialized in this checkout, so `kkrpc@workspace:*` cannot resolve and
-**no** workspace install succeeds — with or without `learn`.
+It was built standalone. The first attempt to make it a workspace member failed
+because `vendors/kkrpc` and `vendors/svelte-react-render` are git submodules that
+were not initialized in this checkout, so `kkrpc@workspace:*` could not resolve
+and **no** workspace install succeeded — with or without `learn`. Rather than
+block the whole curriculum on that, it was written against its own private
+install.
 
-Rather than initialize submodules (a change to your repo state that the
-curriculum does not need), `learn/` installs on its own:
+Once the curriculum was finished and CI was wanted, the submodules were
+initialized (`git submodule update --init`) and `learn` joined the workspace, so
+that root `pnpm test` — what CI runs — covers it with no workflow change.
 
-```bash
-cd learn && pnpm install --ignore-workspace
-```
+**What that cost, concretely:** dependencies stopped resolving from a private
+lockfile and started resolving through the root catalog, which immediately
+produced a version conflict react-dom rejects at import time (`react` 19.2.4 from
+the catalog, `react-dom` floating to 19.2.8). Fixed by cataloguing `react-dom`
+next to `react` and pinning it in `pnpm.overrides` — the mechanism this repo
+already uses for `@types/react`.
 
-**What this buys.** A reader can clone, enter `learn/`, install, and run every
-step without building Uniview at all. That is a genuinely better property for a
-teaching artifact.
-
-**What it costs.** A second `node_modules` (already covered by the root
-`.gitignore`), no turbo caching, and dependency versions that must be kept in
-sync with the real packages by hand rather than by the catalog. Versions were
-pinned to match the root catalog at the time of writing: react `^19.2.4`,
-react-reconciler `^0.33.0`, solid-js `1.9.10`, kkrpc `^2.0.0`.
-
-`pnpm-workspace.yaml` was edited and then reverted; it is unchanged from HEAD.
+Running under a different `node_modules` layout also broke step 13 in two ways a
+standalone install had hidden; see the last section.
 
 ### Steps do not import `@uniview/*`
 
@@ -118,15 +114,71 @@ Stages C (05 steps) and D (04 steps) are the result.
 
 ## Things found in the production code while writing this
 
-Reported, not fixed — all of them are outside `learn/`.
+Rebuilding a system in miniature surfaces things reading it does not. These were
+all found that way. **Most have since been fixed, with regression tests** — each
+entry says which.
 
-### `MutableTree` asymmetric error reporting (`packages/host-sdk/src/mutable-tree.ts`)
+### One "finding" that was wrong, and the check that caught it
+
+Worth recording first, because it is the most useful thing in this file.
+
+A step reported that `serializeProps` matching `/^on[A-Z]/` instead of
+`EVENT_PROPS` was a bug shipping dead handler ids. It is not. `EVENT_PROPS` is
+the DOM-event subset hosts *auto-wire*, not the closed set of handler props:
+AppKit resolves handler ids generically
+(`ShadowNode.swift:65` — `handlerId(for: "onSelect")`) and wires every
+`NSMenuItem` that way, the Svelte host has an explicit branch relaying
+non-whitelisted ids, and the plugin API is built on `onAction`, `onSelect`,
+`onSearchTextChange` and `onSelectionChange`. Narrowing the rule would have
+broken every macOS menu item.
+
+The attempted fix passed the whole test suite — because **no test covered
+app-level handler props at all**. That coverage gap, not the regex, was the real
+defect; it is closed now, and both renderers document why the rule is
+deliberately wider than the whitelist.
+
+The residual case is real but unfixable at this layer: a typo like `onMouseMove`
+does ship an unbound id, and telling it apart from a legitimate app-level handler
+needs a host-declared component contract, not a protocol whitelist.
+
+### What was fixed, in one place
+
+| Fix | Where | Tests |
+|---|---|---|
+| Worker controller never noticed a dead plugin thread | `host-sdk/src/controllers/worker.ts` | 7 |
+| WebSocket controller never noticed a closed socket | `host-sdk/src/controllers/websocket.ts` | 8 |
+| `MutableTree` lost subtrees silently | `host-sdk/src/mutable-tree.ts` | +6 |
+| `button`'s composed class destroyed by its own spread | Svelte, React and Vue adapters | 4 |
+| Web hosts never bound `onWheel` (the terminal host did) | Svelte, React and Vue adapters | +2 |
+| Registry components never received hover | Svelte, React and Vue adapters | covered above |
+| Global error capture was a no-op outside a browser | both runtimes | 8 |
+| `resetRuntimeState()` leaked the host environment between plugins | both runtimes | 6 |
+| Five wrong file paths and a nonexistent API in `AGENTS.md` | `AGENTS.md` | n/a |
+
+Every fix was checked the same way: write the test, confirm it **fails** against
+the unfixed source, then fix. The two "settles instead of hanging" worker tests
+fail by timing out at 5 s without the fix — which is the bug, reproduced.
+
+Verified across the whole workspace afterwards: `pnpm build` 28/28,
+`turbo run check-types --force` 62/62, `turbo run test --force` 56/56.
+(`kkrpc#test` fails for want of a local Redis; the repo's own `test` script
+excludes it, and it is a vendored submodule.)
+
+Two things were deliberately NOT fixed, both larger than a bug fix and recorded
+where they were found: the React coupling in `host-sdk`, and the absence of any
+`setEnvironment` on the TypeScript controllers.
+
+### `MutableTree` asymmetric error reporting — FIXED
 
 `setText` against an unknown id and a missed `insertBefore` anchor both
 `console.error`. But `appendChild` / `insertBefore` / `setProps` / `removeChild`
-against an unknown **parent** return silently. The silent path is the one that
-can lose an entire subtree, so the loud/quiet split is arguably backwards.
-Step 02 prints this behaviour.
+against an unknown **parent** returned silently — and the silent path is the one
+that can lose an entire subtree, so the loud/quiet split was backwards.
+
+All four now report in the same `[uniview] … (tree state diverged)` style, with
+the appendChild/insertBefore messages noting the node was already detached.
+Behaviour is otherwise unchanged. Six tests added, including the
+move-to-unknown-parent subtree-loss case. Step 02 still prints the behaviour.
 
 ### Style resolution is two-staged, and the obvious mental model is wrong
 
@@ -183,7 +235,7 @@ incremental mode (2768 B vs 2709 B, because React emits `setRoot null` first), a
 unmount emits only `setRoot null` with no per-node `removeChild`, so handlers
 survive it — which is why `HandlerRegistry.clear()` exists.
 
-### Three real gaps in `packages/host-svelte`, found by writing step 08
+### Three real gaps in the web host adapters, found by writing steps 08/09 — FIXED
 
 Each was reproduced faithfully in the teaching version rather than silently
 "fixed", and each is worth an issue against the real package.
@@ -266,7 +318,7 @@ Additional evidence for the React-coupling item above:
 while listing `@uniview/react-renderer` under `dependencies` — not a peer
 dependency, not optional.
 
-### Both remote controllers report `connected: true` after their plugin dies
+### Both remote controllers reported `connected: true` after their plugin died — FIXED
 
 - **Worker** (`packages/host-sdk/src/controllers/worker.ts`): never listens for
   the worker's `error` or `exit`. If the plugin thread dies outside a `try`, the
@@ -321,7 +373,7 @@ Both found by step 14, both free on the main thread:
   ~400 wasted bytes per interaction. This is the same `memo` effect measured in
   step 05, seen from the wire side.
 
-### `CLAUDE.md`'s structure map omits the file step 02 is entirely about
+### `CLAUDE.md`'s structure map omitted the file step 02 is about — FIXED
 
 The `packages/host-sdk` STRUCTURE block lists only `types.ts`, `registry.ts` and
 `controllers/` — omitting `mutable-tree.ts` and `validate.ts`.
@@ -353,29 +405,50 @@ The `packages/host-sdk` STRUCTURE block lists only `types.ts`, `registry.ts` and
   continues from step 02 rather than 06, because 03–06 are the plugin side and 07
   opens the host side; its section explains the jump.
 
-## Open questions for you
+## Questions that were open, and how they were answered
 
-1. **Should `learn/` be committed to the uniview repo at all**, or live outside
-   it? It is currently untracked. Committing it means the curriculum ships with
-   the project; it also means a second `node_modules` and a directory turbo does
-   not manage.
+All four have been decided and acted on.
 
-2. **Should `learn/` join CI?** It is not in `turbo.json`'s task graph, so
-   nothing runs these steps automatically. A `test` script that runs all sixteen
-   would catch curriculum rot when the real packages change — at the cost of one
-   more thing to keep green.
+1. **Does `learn/` live in the repo?** Yes. It is committed here.
 
-3. **Two stale claims in the root `CLAUDE.md`**, found while writing step 01:
-   - The CODE MAP says `UINode` lives at `protocol/src/types.ts`. That file does
-     not exist; it is `protocol/src/tree.ts`.
-   - "Protocol-First Architecture" says the Zod schemas are in
-     `protocol/src/ui-node.ts`. Also nonexistent; they are in
-     `protocol/src/validators.ts`.
+2. **Does it join CI?** Yes. `learn` is now a pnpm workspace member with a
+   `test` script (`run-all-steps.mjs`) that runs all sixteen steps end to end, so
+   the root `pnpm test` — which is what CI runs — covers it. No workflow change
+   was needed.
 
-   Both would send a reader — or an agent — to a nonexistent file. Left alone
-   because they are outside this curriculum's scope.
+   Becoming a workspace member had one consequence worth knowing: dependencies
+   now resolve through the root catalog rather than a private lockfile, and that
+   immediately exposed a version conflict — `react` pinned at 19.2.4 by the
+   catalog while `react-dom` floated to 19.2.8, which react-dom rejects at import
+   time. Fixed by cataloguing `react-dom` alongside `react` and pinning it in
+   `pnpm.overrides`, the mechanism this repo already uses for `@types/react`.
 
-4. **Should the maintenance skill be project-local?** The generic
-   `building-codebase-curriculum` skill lives in `~/dev/skills`. Uniview may also
-   want a small project-specific skill saying when a change deserves a new step
-   versus an edit, the way CrossCopy's `learn-rust-curriculum` skill does.
+3. **The stale `CLAUDE.md` claims?** Fixed — in `AGENTS.md`, which `CLAUDE.md` is
+   a symlink to. Five corrections in all, more than the two originally found:
+   `UINode` (`protocol/src/types.ts` → `tree.ts`), the Zod schemas
+   (`protocol/src/ui-node.ts` → `validators.ts`), `serializeTree`
+   (`react-renderer/src/serializer/index.ts` → `src/serialization/serialize.ts`),
+   a `reconcile` export that does not exist (the real one is `render`), and the
+   Handler Registry example, which used a `register`/`invoke` API that was never
+   real — the actual API is `syncNode`/`execute`. The `host-sdk` structure block
+   gained the two files it was missing, and the bridge server is described as
+   Bun.serve rather than Elysia.
+
+4. **A project-local maintenance skill?** Added, at
+   [`skills/learn-curriculum/SKILL.md`](../skills/learn-curriculum/SKILL.md).
+
+## What running the curriculum under CI changed in the steps themselves
+
+Making `learn` a workspace member surfaced two real portability bugs in step 13
+that a standalone install had hidden, both from the same cause: **a
+`node:worker_threads` worker does not inherit its parent's module loader.**
+
+- A TypeScript parameter property (`constructor(private readonly x: T) {}`) is
+  rejected by Node's own strip-only TypeScript mode. Rewritten longhand.
+- Bare and extensionless specifiers do not resolve under Node's ESM loader.
+  `react-reconciler/constants` → `constants.js`, and `./protocol` → `./protocol.ts`
+  (with `allowImportingTsExtensions` in the tsconfig).
+
+Both are now commented in place, because they are exactly the kind of asymmetry
+step 13 exists to teach: code that works on the host thread and fails on the
+worker.
