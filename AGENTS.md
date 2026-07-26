@@ -104,7 +104,7 @@ uniview/
 | RPC protocol          | `packages/protocol/src/`                         | Type definitions, Zod schemas          |
 | Host controller logic | `packages/host-sdk/src/`                         | Lifecycle, state management            |
 | Svelte adapter        | `packages/host-svelte/src/`                      | Svelte 5 renderer, components          |
-| Bridge server         | `examples/bridge-server/src/`                    | Elysia WebSocket multiplexer           |
+| Bridge server         | `examples/bridge-server/src/`                    | Bun.serve WebSocket multiplexer        |
 | Examples              | `examples/*/`                                    | Plugin/host demo implementations       |
 | Core RPC library      | `vendors/kkrpc/` # See vendors/kkrpc/AGENTS.md   |
 | Svelte reconciler     | `vendors/svelte-react-render/` # See vendor docs |
@@ -116,9 +116,10 @@ uniview/
 | startWorkerPlugin      | Function  | react-runtime/src/worker-entry.ts         | Plugin bootstrap in Web Worker     |
 | createWorkerController | Function  | host-sdk/src/index.ts                     | Host controller for worker plugins |
 | PluginHost             | Component | host-svelte/src/PluginHost.svelte         | Svelte 5 plugin renderer           |
-| UINode                 | Type      | protocol/src/types.ts                     | Serializable UI tree node          |
-| reconcile              | Function  | react-renderer/src/reconciler/renderer.ts | React → UINode conversion          |
-| serializeTree          | Function  | react-renderer/src/serializer/index.ts    | InternalNode → UINode conversion   |
+| UINode                 | Type      | protocol/src/tree.ts                          | Serializable UI tree node          |
+| render                 | Function  | react-renderer/src/reconciler/renderer.ts     | React → UINode conversion          |
+| serializeTree          | Function  | react-renderer/src/serialization/serialize.ts | InternalNode → UINode conversion   |
+| MutableTree            | Class     | host-sdk/src/mutable-tree.ts                  | Applies mutations host-side        |
 
 ## CONVENTIONS
 
@@ -204,7 +205,7 @@ uniview/
 All plugin/host communication flows through `@uniview/protocol`:
 
 - RPC methods defined in `protocol/src/rpc.ts`
-- UINode tree schemas via Zod in `protocol/src/ui-node.ts`
+- UINode tree types in `protocol/src/tree.ts`, and their Zod schemas in `protocol/src/validators.ts`
 - Event types in `protocol/src/events.ts`
 - Version constant in `protocol/src/version.ts`
 
@@ -214,13 +215,20 @@ Changes to protocol must sync across ALL packages and bump `PROTOCOL_VERSION`.
 
 Functions passed over RPC use handler IDs instead of direct function references:
 
-```typescript
-// Plugin side
-const handlerId = registry.register(() => console.log("clicked"));
-rpc.call("registerCallback", { handlerId });
+Ids are minted as `` `${nodeId}:${propName}` `` by each renderer's
+`serializeProps`, so re-rendering a node replaces its handler under the same id
+rather than leaking a new one.
 
-// Host side
-rpc.expose({ onCallback: (id: string) => registry.invoke(id) });
+```typescript
+// Plugin side — the renderer does this for you during serialization.
+// `syncNode` replaces every handler this node had, and drops the ones it lost.
+registry.syncNode("node-7", new Map([["node-7:onClick", () => console.log("clicked")]]));
+// The serialized node carries only the id: { _onClickHandlerId: "node-7:onClick" }
+
+// Host side — the host has a string, never a function.
+await controller.executeHandler("node-7:onClick", []);
+// ...which reaches the plugin runtime, which calls:
+await registry.execute("node-7:onClick");
 ```
 
 ### Bridge Architecture
@@ -326,6 +334,8 @@ Framework-agnostic host controller with unified transport abstraction for Worker
 src/
 ├── types.ts              # PluginController interface
 ├── registry.ts           # ComponentRegistry implementation
+├── mutable-tree.ts       # Applies Mutations to the host's tree; every host needs this
+├── validate.ts           # Guards incoming trees/mutations from an untrusted plugin
 └── controllers/
     ├── worker.ts         # Web Worker controller
     ├── websocket.ts      # WebSocket controller (bridge mode)
