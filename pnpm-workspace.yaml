@@ -15,3 +15,10 @@ catalog:
   # the two pinned together from one place.
   react-dom: ^19.2.4
   react-reconciler: ^0.33.0
+  # Every package that touches Solid MUST resolve to this one copy. Solid's
+  # reactive graph is module-level state: an effect created by a second copy of
+  # solid-js reads a signal from the first without subscribing to it, so the
+  # initial render works and nothing ever updates again. A `solid-js: "1.9.10"`
+  # devDependency on @uniview/solid-renderer (while every plugin resolved
+  # 1.9.11) is exactly how that happened, and it took out every Solid demo.
+  solid-js: ^1.9.11
