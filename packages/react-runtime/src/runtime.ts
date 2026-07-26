@@ -104,19 +104,47 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     resetHostEnvironment();
   }
 
+  /**
+   * Send something at the host without waiting for it, and survive the host
+   * not being there any more.
+   *
+   * These pushes are fire-and-forget by design — a render must not block on a
+   * round trip. But an un-awaited RPC still rejects when the host disappears
+   * mid-flight (kkrpc times a request out after 30s), and in a plugin running
+   * under Node or Bun — the bridge/ws-client case — an unhandled rejection
+   * TERMINATES THE PROCESS. That is how the E2E suite's `simple-demo` bridge
+   * client died with `RPCTimeoutError` the moment a host closed its tab, and
+   * with it every later test that needed that plugin.
+   *
+   * A host that went away is an ordinary event. Log it and stay alive: the
+   * ws-client keeps the plugin registered so the next host can attach.
+   *
+   * Deliberately does not route to `reportErrorToHost` — that is another RPC
+   * at the same absent host, and would recurse.
+   */
+  function pushToHost(what: string, send: () => unknown): void {
+    try {
+      const pending = send() as Promise<unknown> | undefined;
+      if (pending && typeof pending.catch === "function") {
+        pending.catch((error: unknown) => {
+          console.warn(`[uniview plugin] ${what} did not reach the host:`, error);
+        });
+      }
+    } catch (error) {
+      console.warn(`[uniview plugin] ${what} did not reach the host:`, error);
+    }
+  }
+
   /** Forward a plugin-side error to the host's reportError RPC. */
   function reportErrorToHost(error: unknown): void {
     console.error("[uniview plugin]", error);
-    if (!rpc) return;
+    const channel = rpc;
+    if (!channel) return;
     const payload =
       error instanceof Error
         ? { message: error.message, ...(error.stack ? { stack: error.stack } : {}) }
         : { message: String(error) };
-    try {
-      void rpc.getAPI().reportError(payload);
-    } catch {
-      // Channel already gone — nothing more to do.
-    }
+    pushToHost("reportError", () => channel.getAPI().reportError(payload));
   }
 
   interface GlobalErrorTarget {
@@ -185,15 +213,19 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
         bridge.mutationCollector = mutationCollector;
 
         bridge.subscribeMutations((mutations: Mutation[]) => {
-          if (!rpc) return;
+          const channel = rpc;
+          if (!channel) return;
           trackStats(mutations);
-          rpc.getAPI().applyMutations(mutations);
+          pushToHost("applyMutations", () =>
+            channel.getAPI().applyMutations(mutations),
+          );
         });
 
       } else {
         // Full tree mode (default)
         bridge.subscribe(() => {
-          if (!bridge || !handlerRegistry || !rpc) return;
+          const channel = rpc;
+          if (!bridge || !handlerRegistry || !channel) return;
 
           const serializedTree = serializeTree(
             bridge.rootInstance,
@@ -201,7 +233,9 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
           ) as UINode | null;
 
           trackStats(serializedTree);
-          rpc.getAPI().updateTree(serializedTree);
+          pushToHost("updateTree", () =>
+            channel.getAPI().updateTree(serializedTree),
+          );
         });
       }
 
@@ -232,7 +266,8 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     },
 
     async syncTree() {
-      if (!bridge || !handlerRegistry || !rpc) return;
+      const channel = rpc;
+      if (!bridge || !handlerRegistry || !channel) return;
 
       const serializedTree = serializeTree(
         bridge.rootInstance ?? null,
@@ -240,7 +275,7 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
       ) as UINode | null;
 
       trackStats(serializedTree);
-      rpc.getAPI().updateTree(serializedTree);
+      pushToHost("updateTree", () => channel.getAPI().updateTree(serializedTree));
     },
 
     async destroy() {
