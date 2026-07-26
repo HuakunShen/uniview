@@ -29,6 +29,7 @@ interface TransformedProps {
   onKeyUp?: EventHandler;
   onMouseEnter?: EventHandler;
   onMouseLeave?: EventHandler;
+  onWheel?: EventHandler;
 }
 
 export function ComponentRenderer({ node }: ComponentRendererProps) {
@@ -80,6 +81,8 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
             result.onMouseEnter = handler;
           } else if (eventName === "onMouseLeave") {
             result.onMouseLeave = handler;
+          } else if (eventName === "onWheel") {
+            result.onWheel = handler;
           }
         }
         continue;
@@ -122,6 +125,22 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
     };
   }
 
+  // Mirrors the terminal host's wheel payload field for field (TuiWheelEvent:
+  // deltaY, x, y) so one plugin tree reads its wheel events the same way no
+  // matter who renders it.
+  function withWheelDelta(
+    handler?: EventHandler,
+  ): ((event: React.WheelEvent<HTMLElement>) => void) | undefined {
+    if (!handler) return undefined;
+    return (event) => {
+      void handler({
+        deltaY: event.deltaY,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    };
+  }
+
   function submitWithoutEvent(
     handler?: EventHandler,
   ): ((event: React.FormEvent<HTMLFormElement>) => void) | undefined {
@@ -137,10 +156,14 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
 
   if (type === "button") {
     return (
+      // The composed className must come AFTER the spread — JSX takes the last
+      // occurrence, so spreading p.attrs last drops `cursor-pointer` whenever
+      // the plugin sets a className.
       <button
-        className={`cursor-pointer ${p.attrs.className || ""}`}
         {...p.attrs}
+        className={`cursor-pointer ${p.attrs.className || ""}`}
         onClick={withoutEvent(p.onClick)}
+        onWheel={withWheelDelta(p.onWheel)}
       >
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
@@ -155,6 +178,7 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
         {...p.attrs}
         onInput={withInputValue(p.onInput)}
         onChange={withInputValue(p.onChange)}
+        onWheel={withWheelDelta(p.onWheel)}
       />
     );
   }
@@ -165,13 +189,18 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
         {...p.attrs}
         onInput={withInputValue(p.onInput)}
         onChange={withInputValue(p.onChange)}
+        onWheel={withWheelDelta(p.onWheel)}
       />
     );
   }
 
   if (type === "select") {
     return (
-      <select {...p.attrs} onChange={withSelectValue(p.onChange)}>
+      <select
+        {...p.attrs}
+        onChange={withSelectValue(p.onChange)}
+        onWheel={withWheelDelta(p.onWheel)}
+      >
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
         ))}
@@ -181,7 +210,11 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
 
   if (type === "a") {
     return (
-      <a {...p.attrs} onClick={withoutEvent(p.onClick)}>
+      <a
+        {...p.attrs}
+        onClick={withoutEvent(p.onClick)}
+        onWheel={withWheelDelta(p.onWheel)}
+      >
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
         ))}
@@ -191,7 +224,11 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
 
   if (type === "form") {
     return (
-      <form {...p.attrs} onSubmit={submitWithoutEvent(p.onSubmit)}>
+      <form
+        {...p.attrs}
+        onSubmit={submitWithoutEvent(p.onSubmit)}
+        onWheel={withWheelDelta(p.onWheel)}
+      >
         {children.map((child, index) => (
           <ComponentRenderer key={index} node={child} />
         ))}
@@ -202,17 +239,18 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
   if (LAYOUT_TAGS.includes(type as (typeof LAYOUT_TAGS)[number])) {
     const Tag = type as keyof React.JSX.IntrinsicElements;
     const isVoidElement = VOID_ELEMENTS.includes(type);
+    const layoutProps = {
+      ...p.attrs,
+      onWheel: withWheelDelta(p.onWheel),
+    } as React.HTMLAttributes<HTMLElement>;
 
     if (isVoidElement) {
-      return React.createElement(
-        Tag,
-        p.attrs as React.HTMLAttributes<HTMLElement>,
-      );
+      return React.createElement(Tag, layoutProps);
     }
 
     return React.createElement(
       Tag,
-      p.attrs as React.HTMLAttributes<HTMLElement>,
+      layoutProps,
       children.map((child, index) => (
         <ComponentRenderer key={index} node={child} />
       )),
@@ -239,6 +277,9 @@ export function ComponentRenderer({ node }: ComponentRendererProps) {
       onBlur: p.onBlur,
       onKeyDown: p.onKeyDown,
       onKeyUp: p.onKeyUp,
+      onMouseEnter: p.onMouseEnter,
+      onMouseLeave: p.onMouseLeave,
+      onWheel: p.onWheel,
     };
 
     if (nonTextChildren.length > 0 || textChildren) {

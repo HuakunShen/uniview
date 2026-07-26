@@ -41,6 +41,22 @@ export function setHostEnvironment(patch: Partial<HostEnvironment>): void {
   for (const listener of listeners) listener();
 }
 
+/**
+ * Drop back to the default environment. Called by the runtime when it tears a
+ * plugin down, not by plugin code.
+ *
+ * The "one Worker, one process, one React root" premise above holds for a
+ * Worker; it does not hold on the main thread, where a second plugin created in
+ * the same process would otherwise open in the first one's dark mode and accent
+ * color. Assigns rather than merges: the default omits `accentColor` and
+ * friends, so patching it over the current value would leave them behind.
+ */
+export function resetHostEnvironment(): void {
+  if (shallowEqual(DEFAULT_HOST_ENVIRONMENT, current)) return;
+  current = DEFAULT_HOST_ENVIRONMENT;
+  for (const listener of listeners) listener();
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
   return () => {

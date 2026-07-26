@@ -6,6 +6,19 @@ import type { HandlerRegistry } from "./handler-registry";
  * Serialize props for a node, converting event handlers to handler IDs
  * and filtering out non-serializable values.
  *
+ * EVERY top-level `on[A-Z]*` function prop becomes a handler id — deliberately
+ * wider than the protocol's `EVENT_PROPS`. Do not "fix" this into a whitelist:
+ * `EVENT_PROPS` is only the DOM-style event subset that hosts auto-wire to real
+ * input events, NOT the closed set of handler props a host may bind. Hosts also
+ * bind app-level handler ids by name — AppKit reads `_onSelectHandlerId` for
+ * menu items (UniviewAppKit `NativeSurface.swift`, via the generic
+ * `ShadowNode.handlerId(for:)` lookup) and the AppKit demo reads
+ * `_onActionHandlerId` / `_onSearchTextChangeHandlerId` /
+ * `_onSelectionChangeHandlerId` for the Raycast-style surfaces, and the Svelte
+ * host explicitly passes unrecognized handler id props through for registered
+ * components to relay. `extractEventName` returning null means "not a DOM
+ * event", not "nobody binds it".
+ *
  * Handler ids are deterministic (`${nodeId}:${propName}`) and the node's
  * full handler set is synced into the registry in one shot, so repeated
  * serialization of the same node never grows the registry.

@@ -1,5 +1,5 @@
 import { TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { MutableTree } from "../src/mutable-tree";
 
 function textNode(id: string, text: string): UINode {
@@ -47,6 +47,21 @@ function createNestedRoot(): UINode {
   };
 }
 
+/** Collect console.error output so divergence reports can be asserted on. */
+function captureErrors(): string[] {
+  const messages: string[] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    messages.push(args.map(String).join(" "));
+  });
+  return messages;
+}
+
+function childIds(node: UINode | null): string[] {
+  return (node?.children ?? []).map((child) =>
+    typeof child === "string" ? child : child.id,
+  );
+}
+
 function getElementChild(node: UINode, index: number): UINode {
   const child = node.children[index];
   if (typeof child === "string") {
@@ -56,6 +71,10 @@ function getElementChild(node: UINode, index: number): UINode {
 }
 
 describe("MutableTree", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   test("initializes and returns the current tree", () => {
     const tree = new MutableTree();
     const root = createRoot();
@@ -192,5 +211,119 @@ describe("MutableTree", () => {
         typeof child === "string" ? child : child.id,
       ),
     ).toEqual(["item"]);
+  });
+
+  test("reports an appendChild against an unknown parent", () => {
+    const errors = captureErrors();
+    const tree = new MutableTree();
+    tree.init(createRoot());
+
+    const next = tree.applyMutations([
+      {
+        type: "appendChild",
+        parentId: "ghost",
+        node: { id: "orphan", type: "p", props: {}, children: ["orphan"] },
+      },
+    ]);
+
+    expect(childIds(next)).toEqual(["label", "tail-text"]);
+    expect(errors).toEqual([
+      expect.stringContaining(
+        "[uniview] appendChild parent ghost not found; dropping node orphan",
+      ),
+    ]);
+  });
+
+  test("reports the subtree lost when a move targets an unknown parent", () => {
+    const errors = captureErrors();
+    const tree = new MutableTree();
+    tree.init(createRoot());
+
+    // A move (detach + re-attach) whose destination is gone: the node is
+    // detached and never re-attached, so the whole subtree disappears.
+    const next = tree.applyMutations([
+      {
+        type: "appendChild",
+        parentId: "ghost",
+        node: {
+          id: "label",
+          type: "span",
+          props: {},
+          children: [textNode("label-text", "before")],
+        },
+      },
+    ]);
+
+    expect(childIds(next)).toEqual(["tail-text"]);
+    expect(errors).toEqual([
+      expect.stringContaining(
+        "[uniview] appendChild parent ghost not found; dropping node label",
+      ),
+    ]);
+  });
+
+  test("reports an insertBefore against an unknown parent", () => {
+    const errors = captureErrors();
+    const tree = new MutableTree();
+    tree.init(createRoot());
+
+    const next = tree.applyMutations([
+      {
+        type: "insertBefore",
+        parentId: "ghost",
+        beforeId: "tail-text",
+        node: { id: "orphan", type: "p", props: {}, children: ["orphan"] },
+      },
+    ]);
+
+    expect(childIds(next)).toEqual(["label", "tail-text"]);
+    expect(errors).toEqual([
+      expect.stringContaining(
+        "[uniview] insertBefore parent ghost not found; dropping node orphan",
+      ),
+    ]);
+  });
+
+  test("reports a removeChild against an unknown parent", () => {
+    const errors = captureErrors();
+    const tree = new MutableTree();
+    tree.init(createRoot());
+
+    const next = tree.applyMutations([
+      { type: "removeChild", parentId: "ghost", nodeId: "label" },
+    ]);
+
+    expect(childIds(next)).toEqual(["label", "tail-text"]);
+    expect(errors).toEqual([
+      expect.stringContaining(
+        "[uniview] removeChild parent ghost not found; label was not removed",
+      ),
+    ]);
+  });
+
+  test("reports a setProps against an unknown node", () => {
+    const errors = captureErrors();
+    const tree = new MutableTree();
+    tree.init(createRoot());
+
+    tree.applyMutations([
+      { type: "setProps", nodeId: "ghost", props: { className: "hot" } },
+    ]);
+
+    expect(errors).toEqual([
+      expect.stringContaining("[uniview] setProps target ghost not found"),
+    ]);
+  });
+
+  test("reports a setText against an unknown node", () => {
+    const errors = captureErrors();
+    const tree = new MutableTree();
+    tree.init(createRoot());
+
+    tree.applyMutations([{ type: "setText", nodeId: "ghost", text: "after" }]);
+
+    expect(errors).toEqual([
+      expect.stringContaining("[uniview] setText target ghost not found"),
+    ]);
   });
 });

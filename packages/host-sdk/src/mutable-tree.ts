@@ -174,7 +174,14 @@ export class MutableTree {
     // Detach first: this mutation may be moving an existing node.
     this.detachExistingNode(mutation.node.id);
     const parent = this.nodeIndex.get(mutation.parentId);
-    if (!parent) return;
+    if (!parent) {
+      // Louder than it looks: the node was already detached above, so an
+      // unknown parent drops it (and its whole subtree) from the tree.
+      console.error(
+        `[uniview] appendChild parent ${mutation.parentId} not found; dropping node ${mutation.node.id} (tree state diverged)`,
+      );
+      return;
+    }
 
     const newParent: UINode = {
       ...parent,
@@ -197,7 +204,14 @@ export class MutableTree {
     // same-parent detach replaces the parent's index entry.
     this.detachExistingNode(mutation.node.id);
     const parent = this.nodeIndex.get(mutation.parentId);
-    if (!parent) return;
+    if (!parent) {
+      // Same as appendChild: the detach above already removed the node, so
+      // bailing out here silently loses it and everything under it.
+      console.error(
+        `[uniview] insertBefore parent ${mutation.parentId} not found; dropping node ${mutation.node.id} (tree state diverged)`,
+      );
+      return;
+    }
 
     // Find insertion index based on beforeId
     let insertIndex = -1;
@@ -238,7 +252,12 @@ export class MutableTree {
     nodeId: string;
   }): void {
     const parent = this.nodeIndex.get(mutation.parentId);
-    if (!parent) return;
+    if (!parent) {
+      console.error(
+        `[uniview] removeChild parent ${mutation.parentId} not found; ${mutation.nodeId} was not removed (tree state diverged)`,
+      );
+      return;
+    }
 
     const newChildren = parent.children.filter((child) => {
       if (typeof child === "string") return true;
@@ -285,7 +304,12 @@ export class MutableTree {
     props: Record<string, JSONValue>;
   }): void {
     const node = this.nodeIndex.get(mutation.nodeId);
-    if (!node) return;
+    if (!node) {
+      console.error(
+        `[uniview] setProps target ${mutation.nodeId} not found (tree state diverged)`,
+      );
+      return;
+    }
 
     this.replaceNode(mutation.nodeId, {
       ...node,

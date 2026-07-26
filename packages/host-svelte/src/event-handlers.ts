@@ -21,6 +21,9 @@ export function serializeHandlerArgs(eventName: string, args: unknown[]): JSONVa
   if ((eventName === "onKeyDown" || eventName === "onKeyUp") && looksLikeKeyboardEvent(args[0])) {
     return [serializeKeyboardEvent(args[0])];
   }
+  if (eventName === "onWheel" && looksLikeWheelEvent(args[0])) {
+    return [serializeWheelEvent(args[0])];
+  }
   return args.filter(isJsonValue);
 }
 
@@ -39,6 +42,14 @@ function looksLikeKeyboardEvent(value: unknown): value is {
   shiftKey?: unknown;
 } {
   return looksLikeDomEvent(value) && ("key" in value || "code" in value);
+}
+
+function looksLikeWheelEvent(value: unknown): value is {
+  deltaY?: unknown;
+  clientX?: unknown;
+  clientY?: unknown;
+} {
+  return looksLikeDomEvent(value) && "deltaY" in value;
 }
 
 function readTargetValue(event: { target?: unknown }): JSONValue {
@@ -65,6 +76,24 @@ function serializeKeyboardEvent(event: {
     ctrlKey: event.ctrlKey === true,
     metaKey: event.metaKey === true,
     shiftKey: event.shiftKey === true,
+  };
+}
+
+/**
+ * Mirrors the terminal host's wheel payload field for field (`TuiWheelEvent`:
+ * `deltaY`, `x`, `y` — see host-tui's InputRouter). One plugin tree must not
+ * read its wheel events two different ways depending on who renders it.
+ * `x`/`y` are the pointer position: client pixels on the web, cells in the TUI.
+ */
+function serializeWheelEvent(event: {
+  deltaY?: unknown;
+  clientX?: unknown;
+  clientY?: unknown;
+}): JSONValue {
+  return {
+    deltaY: typeof event.deltaY === "number" ? event.deltaY : 0,
+    x: typeof event.clientX === "number" ? event.clientX : 0,
+    y: typeof event.clientY === "number" ? event.clientY : 0,
   };
 }
 

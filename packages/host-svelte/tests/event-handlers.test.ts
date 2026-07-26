@@ -49,6 +49,30 @@ describe("serializeHandlerArgs", () => {
     ]);
   });
 
+  it("serializes wheel events the way the terminal host does (deltaY/x/y)", () => {
+    const event = {
+      type: "wheel",
+      deltaY: 120,
+      deltaX: 0,
+      clientX: 40,
+      clientY: 12,
+      target: {},
+      preventDefault() {},
+    };
+    // Field for field the same as host-tui's InputRouter wheel payload
+    // (TuiWheelEvent), so one plugin tree reads wheel events identically
+    // whether the terminal or the web renders it.
+    expect(serializeHandlerArgs("onWheel", [event])).toEqual([
+      { deltaY: 120, x: 40, y: 12 },
+    ]);
+  });
+
+  it("keeps an already-serialized wheel payload untouched", () => {
+    expect(serializeHandlerArgs("onWheel", [{ deltaY: -3, x: 1, y: 2 }])).toEqual([
+      { deltaY: -3, x: 1, y: 2 },
+    ]);
+  });
+
   it("drops non-serializable submit events", () => {
     const event = { type: "submit", target: {}, preventDefault() {} };
     expect(serializeHandlerArgs("onSubmit", [event])).toEqual([]);

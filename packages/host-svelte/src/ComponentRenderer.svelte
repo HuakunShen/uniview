@@ -36,6 +36,7 @@
 		onkeyup?: (e: KeyboardEvent) => Promise<void>;
 		onmouseenter?: () => Promise<void>;
 		onmouseleave?: () => Promise<void>;
+		onwheel?: (e: WheelEvent) => Promise<void>;
 	}
 
 	function transformProps(props: Record<string, unknown>): TransformedProps {
@@ -75,6 +76,8 @@
 						result.onmouseenter = handler;
 					} else if (eventName === "onMouseLeave") {
 						result.onmouseleave = handler;
+					} else if (eventName === "onWheel") {
+						result.onwheel = handler;
 					} else {
 						matched = false;
 					}
@@ -142,6 +145,7 @@
 			keyup: 'onkeyup',
 			mouseenter: 'onmouseenter',
 			mouseleave: 'onmouseleave',
+			wheel: 'onwheel',
 		};
 
 		const cleanup: (() => void)[] = [];
@@ -187,7 +191,10 @@
 	<svelte:element this={node.type} {...p.attrs} />
 {:else if node.type === "button"}
 	{@const p = transformProps(node.props)}
-	<button class="cursor-pointer {p.attrs.class || ''}" {...p.attrs} use:attachEvents={p}>
+	<!-- The composed class must come AFTER the spread: a later attribute wins, so
+	     spreading `p.attrs` last would drop `cursor-pointer` whenever the plugin
+	     sets a className. -->
+	<button {...p.attrs} class="cursor-pointer {p.attrs.class || ''}" use:attachEvents={p}>
 		{#each node.children as child, i (typeof child === "string" ? `str-${i}` : child.id)}
 			<Self node={child} />
 		{/each}
@@ -246,6 +253,9 @@
 		onblur: p.onblur,
 		onkeydown: p.onkeydown,
 		onkeyup: p.onkeyup,
+		onmouseenter: p.onmouseenter,
+		onmouseleave: p.onmouseleave,
+		onwheel: p.onwheel,
 	}}
 	{#if node.children.length > 0}
 		<RegisteredComponent {...componentProps}>

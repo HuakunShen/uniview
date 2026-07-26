@@ -42,6 +42,29 @@ export function createWebSocketController(
     errorSubscribers.forEach((cb) => void cb(message));
   }
 
+  /**
+   * The socket went away without a local `disconnect()` — the plugin process
+   * died, the server closed, or the network dropped. kkrpc has already rejected
+   * the in-flight calls by the time this runs; the controller's job is to stop
+   * reporting `connected: true` and to drop the dead channel so later calls
+   * return instead of queueing against a socket nobody answers.
+   *
+   * Reconnecting is the host's business — this only makes the status honest.
+   */
+  function reportConnectionLost(reason?: Error): void {
+    if (!rpc && !transport) return; // already torn down
+    const message = reason ? reason.message : "WebSocket closed by remote";
+    lastError = message;
+    connected = false;
+    console.error("[Plugin WS Error]", message);
+
+    rpc?.destroy();
+    rpc = null;
+    transport = null;
+
+    errorSubscribers.forEach((cb) => void cb(message));
+  }
+
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
       if (validate) {
@@ -78,6 +101,7 @@ export function createWebSocketController(
 
         rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(transport, {
           expose: hostAPI,
+          onClose: reportConnectionLost,
         });
 
         connected = true;

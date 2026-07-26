@@ -40,6 +40,31 @@ export function createWorkerController(
     errorSubscribers.forEach((cb) => void cb(message));
   }
 
+  /**
+   * The worker thread stopped being a usable peer (crash, terminated thread, or
+   * an undeserializable message). kkrpc's worker transport has no `onClose`, so
+   * nothing else notices: the status would stay `connected: true` and every
+   * in-flight RPC would await an answer that can never arrive. Destroying the
+   * channel rejects those pending calls and drops the dead worker.
+   *
+   * Recovery is the host's business — this only makes the status honest.
+   */
+  function reportWorkerFailure(message: string): void {
+    if (!worker && !rpc) return; // already torn down
+    lastError = message;
+    connected = false;
+    console.error("[Plugin Worker Error]", message);
+
+    if (rpc) {
+      // Rejects everything pending; the transport's close() terminates worker.
+      rpc.destroy();
+      rpc = null;
+    }
+    worker = null;
+
+    errorSubscribers.forEach((cb) => void cb(message));
+  }
+
   const hostAPI: PluginToHostAPI = {
     updateTree(newTree: UINode | null) {
       if (validate) {
@@ -83,6 +108,24 @@ export function createWorkerController(
 
       worker = new Worker(blobURL, { type: "module" });
       URL.revokeObjectURL(blobURL);
+
+      worker.addEventListener("error", (event: ErrorEvent) => {
+        const detail =
+          event.message ||
+          (event.error instanceof Error ? event.error.message : "") ||
+          "unknown error";
+        reportWorkerFailure(`Plugin worker crashed: ${detail}`);
+      });
+      worker.addEventListener("messageerror", () => {
+        reportWorkerFailure(
+          "Plugin worker sent a message the host could not deserialize",
+        );
+      });
+      // Not a DOM Worker event; fires for worker_threads-style workers, where a
+      // thread can exit without ever raising `error`.
+      worker.addEventListener("exit", () => {
+        reportWorkerFailure("Plugin worker exited");
+      });
 
       const transport = workerTransport(worker);
       rpc = new RPCChannel<PluginToHostAPI, HostToPluginAPI>(transport, {

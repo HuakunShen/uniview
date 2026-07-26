@@ -10,7 +10,7 @@ import type {
   Mutation,
 } from "@uniview/protocol";
 import { PROTOCOL_VERSION } from "@uniview/protocol";
-import { setHostEnvironment } from "./environment";
+import { resetHostEnvironment, setHostEnvironment } from "./environment";
 import {
   createRenderer,
   render,
@@ -98,6 +98,10 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     mutationCollector = null;
     handlerRegistry?.clear();
     handlerRegistry = null;
+    // The environment store is module-level, so on the main thread the next
+    // plugin in this process would inherit this one's dark mode and accent
+    // color. The host re-seeds it on initialize().
+    resetHostEnvironment();
   }
 
   /** Forward a plugin-side error to the host's reportError RPC. */
@@ -120,6 +124,16 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     removeEventListener?: (type: string, listener: (event: unknown) => void) => void;
   }
 
+  /**
+   * Node/Deno/Bun's `process`, reached through globalThis so no Node-only
+   * import creeps into the Worker/browser build.
+   */
+  interface NodeProcessLike {
+    on: (event: string, listener: (value: unknown) => void) => unknown;
+    off?: (event: string, listener: (value: unknown) => void) => unknown;
+    removeListener?: (event: string, listener: (value: unknown) => void) => unknown;
+  }
+
   const globalTarget = globalThis as GlobalErrorTarget;
   const onGlobalError = (event: unknown) => {
     const e = event as { error?: unknown; message?: unknown };
@@ -129,6 +143,24 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
     const e = event as { reason?: unknown };
     reportErrorToHost(e.reason ?? event);
   };
+  // Node hands the error/reason itself to the listener, not a browser event
+  // object wrapping it — unwrapping would throw away the stack.
+  const onProcessError = (error: unknown) => {
+    reportErrorToHost(error);
+  };
+
+  /**
+   * A browser/Worker has addEventListener; a plugin running under Node, Deno or
+   * Bun (the bridge/WebSocket case) does not, and used to get no global error
+   * capture at all because the optional call silently did nothing.
+   */
+  function hasEventTarget(): boolean {
+    return typeof globalTarget.addEventListener === "function";
+  }
+
+  function getNodeProcess(): NodeProcessLike | undefined {
+    return (globalThis as unknown as { process?: NodeProcessLike }).process;
+  }
 
   const pluginAPI: HostToPluginAPI = {
     async initialize(req) {
@@ -221,12 +253,28 @@ export function createPluginRuntime<T extends Transport<RPCMessage>>(
       rpc = createChannel(transport, pluginAPI);
       // Uncaught exceptions and unhandled rejections anywhere in the
       // plugin context are reported to the host.
-      globalTarget.addEventListener?.("error", onGlobalError);
-      globalTarget.addEventListener?.("unhandledrejection", onUnhandledRejection);
+      if (hasEventTarget()) {
+        globalTarget.addEventListener?.("error", onGlobalError);
+        globalTarget.addEventListener?.("unhandledrejection", onUnhandledRejection);
+      } else {
+        // Note: listening for "uncaughtException" also stops Node from exiting
+        // on one — deliberate, and the same contract the browser path has: the
+        // host is told the plugin crashed and decides what to do about it.
+        const proc = getNodeProcess();
+        proc?.on("uncaughtException", onProcessError);
+        proc?.on("unhandledRejection", onProcessError);
+      }
     },
     stop() {
-      globalTarget.removeEventListener?.("error", onGlobalError);
-      globalTarget.removeEventListener?.("unhandledrejection", onUnhandledRejection);
+      if (hasEventTarget()) {
+        globalTarget.removeEventListener?.("error", onGlobalError);
+        globalTarget.removeEventListener?.("unhandledrejection", onUnhandledRejection);
+      } else {
+        const proc = getNodeProcess();
+        const off = proc?.off ?? proc?.removeListener;
+        off?.call(proc, "uncaughtException", onProcessError);
+        off?.call(proc, "unhandledRejection", onProcessError);
+      }
       // Full teardown: unmount the tree (effect cleanups) before dropping
       // the channel, so a stopped runtime leaves nothing running.
       resetRuntimeState();

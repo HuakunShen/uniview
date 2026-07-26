@@ -1,12 +1,26 @@
 /**
- * Handler ID type for event callbacks
- * Format: h_<counter> or uuid
+ * Handler ID type for event callbacks.
+ *
+ * Both renderers mint it as `${nodeId}:${propName}` — e.g. `"button-1:onClick"`.
+ * The format is deterministic on purpose: re-serializing a node reuses the same
+ * id, so the plugin-side handler registry is overwritten in place instead of
+ * growing, and an event that arrives after a re-render runs that node's latest
+ * handler. Only the renderer that minted an id may parse it; to a host it is an
+ * opaque string handed back verbatim to `executeHandler`.
  */
 export type HandlerId = string;
 
 /**
- * Supported event prop names
- * These are the events that can be proxied across boundaries
+ * The DOM-style event prop names hosts auto-wire to real input events.
+ *
+ * This is NOT the closed set of handler props that may cross the boundary. A
+ * renderer mints a handler id for every top-level `on[A-Z]*` function prop, and
+ * hosts bind app-level ones by name — AppKit wires `_onSelectHandlerId` on menu
+ * items and `_onActionHandlerId` / `_onSearchTextChangeHandlerId` /
+ * `_onSelectionChangeHandlerId` on the Raycast-style surfaces, and the Svelte
+ * host relays any handler id prop it does not recognize to the registered
+ * component. This list is the subset that gets automatic click/key/focus
+ * plumbing; everything else is the component contract's business.
  */
 export type EventPropName =
   | "onClick"
@@ -42,7 +56,8 @@ export interface KeyDownEvent {
 }
 
 /**
- * List of all event prop names for runtime checking
+ * Runtime form of {@link EventPropName} — the DOM-style events, not every
+ * handler prop. See that type before using this as a filter.
  */
 export const EVENT_PROPS: readonly EventPropName[] = [
   "onClick",
@@ -77,6 +92,12 @@ export function isHandlerIdProp(propName: string): boolean {
 /**
  * Extract the event name from a handler ID prop name
  * e.g., '_onClickHandlerId' -> 'onClick'
+ *
+ * Returns null for a handler id prop outside {@link EVENT_PROPS} — meaning "not
+ * a DOM event I can auto-wire", NOT "dead prop". `_onActionHandlerId` lands
+ * here and is still bound by name on the AppKit and Svelte hosts, so a caller
+ * filtering on this must pass the unrecognized ones through rather than drop
+ * them (see host-svelte's ComponentRenderer).
  */
 const HANDLER_ID_PREFIX_LENGTH = 1;
 const HANDLER_ID_SUFFIX_LENGTH = 9;

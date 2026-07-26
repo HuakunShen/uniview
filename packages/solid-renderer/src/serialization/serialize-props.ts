@@ -21,9 +21,18 @@ const STYLE_IR_PROP = "_style";
  *
  * Any `on[A-Z]*` function prop becomes a handler id (matching the react
  * renderer — custom app-level handlers like onSearchTextChange included,
- * not just the DOM event whitelist). Handler ids are deterministic
- * (`${nodeId}:${propName}`) and the node's full handler set is synced into
- * the registry in one shot, so repeated serialization never grows it.
+ * not just the DOM event whitelist). Do not narrow this to `EVENT_PROPS`:
+ * that list is only the DOM-style subset hosts auto-wire to real input events,
+ * NOT the closed set of handler props a host may bind. AppKit binds
+ * `_onSelectHandlerId` for menu items and `_onActionHandlerId` /
+ * `_onSearchTextChangeHandlerId` / `_onSelectionChangeHandlerId` for the
+ * Raycast-style surfaces, and the Svelte host passes unrecognized handler id
+ * props through for registered components to relay. `extractEventName`
+ * returning null means "not a DOM event", not "nobody binds it".
+ *
+ * Handler ids are deterministic (`${nodeId}:${propName}`) and the node's full
+ * handler set is synced into the registry in one shot, so repeated
+ * serialization never grows it.
  *
  * This is shared between full-tree serialization and mutation-based updates.
  */

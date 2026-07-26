@@ -33,6 +33,7 @@ interface TransformedProps {
   onKeyup?: EventHandler;
   onMouseenter?: EventHandler;
   onMouseleave?: EventHandler;
+  onWheel?: EventHandler;
 }
 
 function createHandler(handlerId: string): EventHandler {
@@ -56,6 +57,20 @@ function withInputValue(handler?: EventHandler) {
       | HTMLTextAreaElement
       | HTMLSelectElement;
     void handler(target.value);
+  };
+}
+
+// Mirrors the terminal host's wheel payload field for field (TuiWheelEvent:
+// deltaY, x, y) so one plugin tree reads its wheel events the same way no
+// matter who renders it.
+function withWheelDelta(handler?: EventHandler) {
+  if (!handler) return undefined;
+  return (event: WheelEvent) => {
+    void handler({
+      deltaY: event.deltaY,
+      x: event.clientX,
+      y: event.clientY,
+    });
   };
 }
 
@@ -101,6 +116,8 @@ function transformProps(
           result.onMouseenter = handler;
         } else if (eventName === "onMouseLeave") {
           result.onMouseleave = handler;
+        } else if (eventName === "onWheel") {
+          result.onWheel = handler;
         }
       }
       continue;
@@ -139,12 +156,16 @@ function renderNode(node: UINode | string): VNode | string {
     });
 
   if (type === "button") {
+    // The composed class must come AFTER the spread: a later key wins in an
+    // object literal, so spreading p.attrs last drops `cursor-pointer`
+    // whenever the plugin sets a className.
     return h(
       "button",
       {
-        class: `cursor-pointer ${p.attrs.class || ""}`,
         ...p.attrs,
+        class: `cursor-pointer ${p.attrs.class || ""}`,
         onClick: withoutEvent(p.onClick),
+        onWheel: withWheelDelta(p.onWheel),
       },
       renderChildren(),
     );
@@ -155,6 +176,7 @@ function renderNode(node: UINode | string): VNode | string {
       ...p.attrs,
       onInput: withInputValue(p.onInput),
       onChange: withInputValue(p.onChange),
+      onWheel: withWheelDelta(p.onWheel),
     });
   }
 
@@ -163,13 +185,18 @@ function renderNode(node: UINode | string): VNode | string {
       ...p.attrs,
       onInput: withInputValue(p.onInput),
       onChange: withInputValue(p.onChange),
+      onWheel: withWheelDelta(p.onWheel),
     });
   }
 
   if (type === "select") {
     return h(
       "select",
-      { ...p.attrs, onChange: withInputValue(p.onChange) },
+      {
+        ...p.attrs,
+        onChange: withInputValue(p.onChange),
+        onWheel: withWheelDelta(p.onWheel),
+      },
       renderChildren(),
     );
   }
@@ -177,7 +204,11 @@ function renderNode(node: UINode | string): VNode | string {
   if (type === "a") {
     return h(
       "a",
-      { ...p.attrs, onClick: withoutEvent(p.onClick) },
+      {
+        ...p.attrs,
+        onClick: withoutEvent(p.onClick),
+        onWheel: withWheelDelta(p.onWheel),
+      },
       renderChildren(),
     );
   }
@@ -185,17 +216,25 @@ function renderNode(node: UINode | string): VNode | string {
   if (type === "form") {
     return h(
       "form",
-      { ...p.attrs, onSubmit: submitWithoutEvent(p.onSubmit) },
+      {
+        ...p.attrs,
+        onSubmit: submitWithoutEvent(p.onSubmit),
+        onWheel: withWheelDelta(p.onWheel),
+      },
       renderChildren(),
     );
   }
 
   if (LAYOUT_TAGS.includes(type as (typeof LAYOUT_TAGS)[number])) {
     const isVoidElement = VOID_ELEMENTS.includes(type);
+    const layoutProps = {
+      ...p.attrs,
+      onWheel: withWheelDelta(p.onWheel),
+    };
     if (isVoidElement) {
-      return h(type, p.attrs);
+      return h(type, layoutProps);
     }
-    return h(type, p.attrs, renderChildren());
+    return h(type, layoutProps, renderChildren());
   }
 
   if (registry?.has(type)) {
@@ -218,6 +257,9 @@ function renderNode(node: UINode | string): VNode | string {
       onBlur: p.onBlur,
       onKeydown: p.onKeydown,
       onKeyup: p.onKeyup,
+      onMouseenter: p.onMouseenter,
+      onMouseleave: p.onMouseleave,
+      onWheel: p.onWheel,
     };
 
     if (nonTextChildren.length > 0 || textChildren) {

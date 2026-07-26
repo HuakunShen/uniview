@@ -20,6 +20,20 @@ export function setHostEnvironment(patch: Partial<HostEnvironment>): void {
 	setEnvironment((current) => ({ ...current, ...patch }))
 }
 
+/**
+ * Drop back to the default environment. Called by the runtime when it tears a
+ * plugin down, not by plugin code.
+ *
+ * The "one Worker, one process, one root" premise above holds for a Worker; on
+ * the main thread it does not, and a second plugin in the same process would
+ * otherwise open in the first one's dark mode and accent color. Assigns rather
+ * than merges: the default omits `accentColor` and friends, so patching it over
+ * the current value would leave them behind.
+ */
+export function resetHostEnvironment(): void {
+	setEnvironment(DEFAULT_HOST_ENVIRONMENT)
+}
+
 /** The full host environment. Reactive — read it inside a tracking scope. */
 export const hostEnvironment = environment
 

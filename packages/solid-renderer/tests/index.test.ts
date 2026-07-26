@@ -84,6 +84,37 @@ describe("solid renderer serialization", () => {
     expect(await registry.execute("button-1:onClick")).toBe("clicked");
   });
 
+  // Guards against narrowing the on[A-Z]* rule to the protocol's EVENT_PROPS.
+  // EVENT_PROPS is only the DOM-style subset hosts auto-wire to input events;
+  // hosts also bind app-level handler ids by name — AppKit reads
+  // _onSelectHandlerId for menu items and _onActionHandlerId for the
+  // Raycast-style surfaces, and the Svelte host relays unrecognized handler id
+  // props to registered components. Dropping them here silently breaks every
+  // <Action>, <MenuItem> and <List searchText> in the plugin API.
+  test("mints ids for app-level handlers outside EVENT_PROPS too", async () => {
+    const registry = new HandlerRegistry();
+    const action = createElementNode("action-1", "Action", {
+      onClick: () => "clicked",
+      onAction: () => "acted",
+      onSelect: () => "selected",
+    });
+
+    const serialized = serializeTree(action, registry);
+
+    expect(serialized).toEqual({
+      id: "action-1",
+      type: "Action",
+      props: {
+        _onClickHandlerId: "action-1:onClick",
+        _onActionHandlerId: "action-1:onAction",
+        _onSelectHandlerId: "action-1:onSelect",
+      },
+      children: [],
+    });
+    expect(registry.size).toBe(3);
+    expect(await registry.execute("action-1:onAction")).toBe("acted");
+  });
+
   test("collects incremental mutations using serialized node payloads", () => {
     const registry = new HandlerRegistry();
     const collector = new SolidMutationCollector(registry);
