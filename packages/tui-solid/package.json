@@ -13,10 +13,22 @@
     "directory": "packages/tui-solid"
   },
   "exports": {
-    ".": "./dist/index.mjs",
-    "./jsx-runtime": "./dist/jsx-runtime.mjs",
-    "./renderer": "./dist/renderer.mjs",
-    "./vite": "./dist/vite.mjs",
+    ".": {
+      "uniview-source": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./jsx-runtime": {
+      "uniview-source": "./src/jsx-runtime.ts",
+      "default": "./dist/jsx-runtime.mjs"
+    },
+    "./renderer": {
+      "uniview-source": "./src/renderer.ts",
+      "default": "./dist/renderer.mjs"
+    },
+    "./vite": {
+      "uniview-source": "./src/vite.ts",
+      "default": "./dist/vite.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
@@ -24,7 +36,14 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./jsx-runtime": "./dist/jsx-runtime.mjs",
+      "./renderer": "./dist/renderer.mjs",
+      "./vite": "./dist/vite.mjs",
+      "./package.json": "./package.json"
+    }
   },
   "scripts": {
     "build": "tsdown",

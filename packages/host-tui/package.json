@@ -5,7 +5,10 @@
   "description": "Terminal host adapter: consumes UINode + mutations and renders via @uniview/tui-core",
   "license": "MIT",
   "exports": {
-    ".": "./dist/index.mjs",
+    ".": {
+      "uniview-source": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
@@ -13,7 +16,11 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json"
+    }
   },
   "scripts": {
     "build": "tsdown",

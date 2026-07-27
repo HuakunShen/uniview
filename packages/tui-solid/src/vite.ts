@@ -60,7 +60,12 @@ export function univiewSolid(): UniviewSolidVitePlugin {
       };
     },
     config(_config, _environment) {
-      const conditions = ["module", "browser", "development|production"];
+      const conditions = [
+        "uniview-source",
+        "module",
+        "browser",
+        "development|production",
+      ];
       return {
         resolve: {
           conditions,

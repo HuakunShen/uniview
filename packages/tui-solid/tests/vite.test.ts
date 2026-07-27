@@ -18,7 +18,12 @@ describe("univiewSolid", () => {
     const plugin = univiewSolid();
     const config = plugin.config({}, { command: "build", mode: "production" });
 
-    const expected = ["module", "browser", "development|production"];
+    const expected = [
+      "uniview-source",
+      "module",
+      "browser",
+      "development|production",
+    ];
     expect(config.resolve.dedupe).toEqual(["solid-js"]);
     expect(config.resolve.conditions).toEqual(expected);
     expect(config.ssr.resolve.conditions).toEqual(expected);

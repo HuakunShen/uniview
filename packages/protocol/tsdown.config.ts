@@ -5,5 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     core: "src/core.ts",
   },
-  exports: true,
+  exports: {
+    devExports: "uniview-source",
+  },
 });

@@ -6,8 +6,14 @@
   "description": "Protocol types and schemas for the Uniview plugin system",
   "license": "MIT",
   "exports": {
-    ".": "./dist/index.mjs",
-    "./core": "./dist/core.mjs",
+    ".": {
+      "uniview-source": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./core": {
+      "uniview-source": "./src/core.ts",
+      "default": "./dist/core.mjs"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.mts",
@@ -15,7 +21,12 @@
     "dist"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./core": "./dist/core.mjs",
+      "./package.json": "./package.json"
+    }
   },
   "scripts": {
     "build": "tsdown",

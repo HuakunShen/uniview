@@ -48,6 +48,8 @@ export default defineConfig({
     alwaysBundle: bundledWorkspacePackages,
     dts: { alwaysBundle: bundledWorkspacePackages },
   },
-  exports: true,
+  exports: {
+    devExports: "uniview-source",
+  },
   plugins: [solidUniversal()],
 });
