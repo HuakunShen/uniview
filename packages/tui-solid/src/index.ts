@@ -1,4 +1,5 @@
 import "./jsx-runtime";
+import type { JSX } from "solid-js";
 import {
   createComponent,
   HandlerRegistry,
@@ -379,9 +380,9 @@ function createTuiSolidRootInternal(
             createComponent(TuiRuntimeContext.Provider, {
               value: router,
               get children() {
-                return App() as SolidNode;
+                return App() as unknown as JSX.Element;
               },
-            }) as SolidNode,
+            }) as unknown as JSX.Element,
           container,
         );
       } catch (error) {
