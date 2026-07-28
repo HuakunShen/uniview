@@ -38,9 +38,9 @@ export interface TextSelectionOptions {
 
 type SelectionState =
   | { type: "idle" }
-  | { type: "pending"; anchor: CellPoint }
+  | { type: "pending"; press: CellPoint; anchor: CellPoint }
   | { type: "selecting"; anchor: CellPoint; current: CellPoint }
-  | { type: "selected"; range: SelectionRange }
+  | { type: "selected"; range: SelectionRange; text: string }
   | { type: "shift-pending"; anchor: CellPoint }
   | { type: "shift-drag" };
 
@@ -126,6 +126,10 @@ export class TextSelectionController {
     return null;
   }
 
+  get selectedText(): string | null {
+    return this.state.type === "selected" ? this.state.text : null;
+  }
+
   clear(): boolean {
     const changed =
       this.state.type === "selecting" || this.state.type === "selected";
@@ -155,6 +159,7 @@ export class TextSelectionController {
       if (buffer && isSelectableCell(buffer, point)) {
         this.state = {
           type: "pending",
+          press: point,
           anchor: selectableLead(buffer, point),
         };
       }
@@ -183,7 +188,7 @@ export class TextSelectionController {
     if (this.state.type === "pending") {
       if (
         event.action === "drag" &&
-        (point.x !== this.state.anchor.x || point.y !== this.state.anchor.y)
+        (point.x !== this.state.press.x || point.y !== this.state.press.y)
       ) {
         const current = buffer ? selectableLead(buffer, point) : point;
         this.state = {
@@ -195,8 +200,8 @@ export class TextSelectionController {
       }
       if (event.action === "up") {
         if (
-          point.x !== this.state.anchor.x ||
-          point.y !== this.state.anchor.y
+          point.x !== this.state.press.x ||
+          point.y !== this.state.press.y
         ) {
           this.state = {
             type: "selecting",
@@ -230,7 +235,7 @@ export class TextSelectionController {
         this.state = { type: "idle" };
         return { consumed: true, changed: true };
       }
-      this.state = { type: "selected", range };
+      this.state = { type: "selected", range, text };
       return {
         consumed: true,
         changed: true,

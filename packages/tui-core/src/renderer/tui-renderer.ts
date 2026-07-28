@@ -250,7 +250,12 @@ export class TuiRenderer {
   private applySelection(buffer: CellBuffer): void {
     const range = this.selection.range;
     if (!range) return;
-    if (extractSelectedText(buffer, range).length === 0) {
+    const text = extractSelectedText(buffer, range);
+    if (
+      text.length === 0 ||
+      (this.selection.selectedText !== null &&
+        text !== this.selection.selectedText)
+    ) {
       this.selection.clear();
       return;
     }

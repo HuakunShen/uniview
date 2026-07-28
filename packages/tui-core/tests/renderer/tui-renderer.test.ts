@@ -211,6 +211,26 @@ describe("TuiRenderer", () => {
     ).toBe(true);
   });
 
+  it("clears a completed selection when new text replaces the selected cells", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+      schedule: (flush) => flush(),
+      selection: {},
+    });
+    renderer.setRoot({ type: "text", text: "select" });
+    renderer.handleSelectionInput(mouse("down", 0, 0));
+    renderer.handleSelectionInput(mouse("drag", 2, 0));
+    renderer.handleSelectionInput(mouse("up", 2, 0));
+
+    renderer.setRoot({ type: "text", text: "replace" });
+
+    expect(renderer.selectionRange).toBeNull();
+  });
+
   it("coalesces multiple setRoot calls into a single frame", () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });

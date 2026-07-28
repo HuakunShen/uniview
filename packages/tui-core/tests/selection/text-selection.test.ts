@@ -293,4 +293,29 @@ describe("TextSelectionController", () => {
     expect(completed.completed?.text).toBe("界x");
     expect(completed.completed?.start).toEqual({ x: 0, y: 0 });
   });
+
+  it("keeps a same-cell click on a wide-character continuation as a click", () => {
+    const buffer = new CellBuffer(5, 1);
+    writeSelectable(buffer, 0, 0, "界x");
+    const controller = new TextSelectionController();
+
+    expect(controller.handle(mouse("down", 1, 0), buffer).consumed).toBe(false);
+    expect(controller.handle(mouse("up", 1, 0), buffer)).toEqual({
+      consumed: false,
+      changed: false,
+    });
+    expect(controller.range).toBeNull();
+  });
+
+  it("owns movement from a wide-character continuation to its lead cell", () => {
+    const buffer = new CellBuffer(5, 1);
+    writeSelectable(buffer, 0, 0, "界x");
+    const controller = new TextSelectionController();
+
+    controller.handle(mouse("down", 1, 0), buffer);
+    const completed = controller.handle(mouse("up", 0, 0), buffer);
+
+    expect(completed.completed?.text).toBe("界");
+    expect(completed.consumed).toBe(true);
+  });
 });
