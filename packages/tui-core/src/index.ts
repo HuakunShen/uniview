@@ -16,11 +16,19 @@ export type { CellView } from "./buffer/cell-buffer";
 
 // Application-level visible text selection
 export {
+  DEFAULT_MAX_CLIPBOARD_BYTES,
   extractSelectedText,
   isSelectableCell,
   normalizeSelectionRange,
+  TextSelectionController,
 } from "./selection/text-selection";
-export type { CellPoint, SelectionRange } from "./selection/text-selection";
+export type {
+  CellPoint,
+  SelectionEvent,
+  SelectionInputResult,
+  SelectionRange,
+  TextSelectionOptions,
+} from "./selection/text-selection";
 
 // Serializable frame model
 export { frameToLines, frameToText, serializeFrame } from "./buffer/frame";
@@ -148,6 +156,7 @@ export type {
   TtyInput,
   TtyOutput,
 } from "./terminal/terminal-driver";
+export { encodeOsc52Clipboard } from "./terminal/clipboard";
 export {
   buildEnterSequence,
   buildLeaveSequence,

@@ -143,6 +143,40 @@ describe("TerminalDriver — lifecycle", () => {
     expect(tty.resizeListenerCount()).toBe(1);
   });
 
+  it("writes OSC 52 clipboard data only while running", () => {
+    const tty = fakeTty();
+    const driver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+
+    expect(driver.copyToClipboard("before")).toBe(false);
+    driver.start();
+    const beforeCopy = tty.output_writes();
+    expect(driver.copyToClipboard("copy me")).toBe(true);
+    expect(tty.output_writes().slice(beforeCopy.length)).toBe(
+      "\u001b]52;c;Y29weSBtZQ==\u0007",
+    );
+    driver.stop();
+    expect(driver.copyToClipboard("after")).toBe(false);
+  });
+
+  it("does not write an oversized clipboard payload", () => {
+    const tty = fakeTty();
+    const driver = new TerminalDriver({
+      input: tty.input,
+      output: tty.output,
+      onEvent: () => {},
+    });
+    driver.start();
+    const beforeCopy = tty.output_writes();
+
+    expect(() => driver.copyToClipboard("界", 2)).toThrow(/3 bytes.*2 bytes/i);
+    expect(tty.output_writes()).toBe(beforeCopy);
+    driver.stop();
+  });
+
   it("restores the terminal and detaches on stop", () => {
     const tty = fakeTty();
     const driver = new TerminalDriver({

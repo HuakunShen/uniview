@@ -4,7 +4,9 @@ import {
   extractSelectedText,
   isSelectableCell,
   normalizeSelectionRange,
+  TextSelectionController,
 } from "../../src/selection/text-selection";
+import type { TuiInputEvent } from "../../src/input/events";
 
 function writeSelectable(
   buffer: CellBuffer,
@@ -13,6 +15,24 @@ function writeSelectable(
   text: string,
 ): number {
   return buffer.writeText(x, y, text, 0, 0, undefined, undefined, true);
+}
+
+function mouse(
+  action: "down" | "up" | "drag",
+  x: number,
+  y: number,
+  shift = false,
+): TuiInputEvent {
+  return {
+    type: "mouse",
+    action,
+    button: "left",
+    x,
+    y,
+    ctrl: false,
+    alt: false,
+    shift,
+  };
 }
 
 describe("text selection ranges", () => {
@@ -115,5 +135,143 @@ describe("isSelectableCell", () => {
     expect(isSelectableCell(buffer, { x: -1, y: 0 })).toBe(false);
     expect(isSelectableCell(buffer, { x: 4, y: 0 })).toBe(false);
     expect(isSelectableCell(buffer, { x: 0, y: 1 })).toBe(false);
+  });
+});
+
+describe("TextSelectionController", () => {
+  it("does not consume a same-cell click", () => {
+    const buffer = new CellBuffer(8, 1);
+    writeSelectable(buffer, 0, 0, "click");
+    const controller = new TextSelectionController();
+
+    expect(controller.handle(mouse("down", 1, 0), buffer)).toEqual({
+      consumed: false,
+      changed: false,
+    });
+    expect(controller.handle(mouse("up", 1, 0), buffer)).toEqual({
+      consumed: false,
+      changed: false,
+    });
+    expect(controller.range).toBeNull();
+  });
+
+  it("owns a drag after it crosses into another cell", () => {
+    const buffer = new CellBuffer(8, 1);
+    writeSelectable(buffer, 0, 0, "drag me");
+    const controller = new TextSelectionController();
+
+    controller.handle(mouse("down", 1, 0), buffer);
+    expect(controller.handle(mouse("drag", 2, 0), buffer)).toEqual({
+      consumed: true,
+      changed: true,
+    });
+    const completed = controller.handle(mouse("up", 4, 0), buffer);
+
+    expect(completed.consumed).toBe(true);
+    expect(completed.changed).toBe(true);
+    expect(completed.completed).toMatchObject({
+      text: "rag ",
+      start: { x: 1, y: 0 },
+      end: { x: 4, y: 0 },
+      characterCount: 4,
+      byteCount: 4,
+      clipboardEmitted: false,
+    });
+    expect(controller.range).toEqual({
+      start: { x: 1, y: 0 },
+      end: { x: 4, y: 0 },
+    });
+  });
+
+  it("normalizes a reverse multi-row drag", () => {
+    const buffer = new CellBuffer(6, 2);
+    writeSelectable(buffer, 0, 0, "first");
+    writeSelectable(buffer, 0, 1, "last");
+    const controller = new TextSelectionController();
+
+    controller.handle(mouse("down", 3, 1), buffer);
+    controller.handle(mouse("drag", 2, 0), buffer);
+    const completed = controller.handle(mouse("up", 1, 0), buffer);
+
+    expect(completed.completed?.text).toBe("irst\nlast");
+    expect(completed.completed?.start).toEqual({ x: 1, y: 0 });
+    expect(completed.completed?.end).toEqual({ x: 3, y: 1 });
+  });
+
+  it("clears a completed selection on click without consuming the click", () => {
+    const buffer = new CellBuffer(8, 1);
+    writeSelectable(buffer, 0, 0, "select");
+    const controller = new TextSelectionController();
+    controller.handle(mouse("down", 0, 0), buffer);
+    controller.handle(mouse("drag", 2, 0), buffer);
+    controller.handle(mouse("up", 2, 0), buffer);
+
+    expect(controller.handle(mouse("down", 5, 0), buffer)).toEqual({
+      consumed: false,
+      changed: true,
+    });
+    expect(controller.handle(mouse("up", 5, 0), buffer).consumed).toBe(false);
+    expect(controller.range).toBeNull();
+  });
+
+  it("clears on Escape and lets Escape continue routing", () => {
+    const buffer = new CellBuffer(8, 1);
+    writeSelectable(buffer, 0, 0, "select");
+    const controller = new TextSelectionController();
+    controller.handle(mouse("down", 0, 0), buffer);
+    controller.handle(mouse("drag", 2, 0), buffer);
+    controller.handle(mouse("up", 2, 0), buffer);
+
+    expect(
+      controller.handle(
+        {
+          type: "key",
+          key: "Escape",
+          ctrl: false,
+          alt: false,
+          shift: false,
+          meta: false,
+        },
+        buffer,
+      ),
+    ).toEqual({ consumed: false, changed: true });
+    expect(controller.range).toBeNull();
+  });
+
+  it("bypasses shifted click and suppresses a shifted drag reported by the terminal", () => {
+    const buffer = new CellBuffer(8, 1);
+    writeSelectable(buffer, 0, 0, "native");
+    const controller = new TextSelectionController();
+
+    expect(controller.handle(mouse("down", 0, 0, true), buffer).consumed).toBe(
+      false,
+    );
+    expect(controller.handle(mouse("up", 0, 0, true), buffer).consumed).toBe(
+      false,
+    );
+
+    controller.handle(mouse("down", 0, 0, true), buffer);
+    expect(controller.handle(mouse("drag", 2, 0, true), buffer)).toEqual({
+      consumed: true,
+      changed: false,
+    });
+    expect(controller.handle(mouse("up", 2, 0, true), buffer)).toEqual({
+      consumed: true,
+      changed: false,
+    });
+    expect(controller.range).toBeNull();
+  });
+
+  it("starts a wide-character selection from the grapheme lead", () => {
+    const buffer = new CellBuffer(5, 1);
+    writeSelectable(buffer, 0, 0, "界x");
+    const controller = new TextSelectionController();
+
+    controller.handle(mouse("down", 1, 0), buffer);
+    controller.handle(mouse("drag", 2, 0), buffer);
+    const completed = controller.handle(mouse("up", 2, 0), buffer);
+
+    expect(completed.completed?.text).toBe("界x");
+    expect(completed.completed?.start).toEqual({ x: 0, y: 0 });
   });
 });

@@ -11,6 +11,7 @@ import type {
 } from "../../src/surface/types";
 import { isIdle, waitForIdle } from "../../src/scheduler/diagnostics";
 import { TuiRenderer, type RenderNode } from "../../src/renderer/tui-renderer";
+import type { TuiInputEvent } from "../../src/input/events";
 
 function manualScheduler() {
   const queue: Array<() => void> = [];
@@ -31,6 +32,23 @@ const counter = (n: number): RenderNode => ({
     { type: "text", text: "Increment" },
   ],
 });
+
+function mouse(
+  action: "down" | "drag" | "up",
+  x: number,
+  y: number,
+): TuiInputEvent {
+  return {
+    type: "mouse",
+    action,
+    button: "left",
+    x,
+    y,
+    ctrl: false,
+    alt: false,
+    shift: false,
+  };
+}
 
 type SurfaceOperation = "mount" | "resize" | "present" | "destroy";
 
@@ -106,6 +124,91 @@ describe("TuiRenderer", () => {
       "",
     ]);
     expect(surface.presentCount).toBe(1);
+  });
+
+  it("highlights the selected cells using inverse style", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+      schedule: (flush) => flush(),
+      selection: {},
+    });
+    renderer.setRoot({ type: "text", text: "select me" });
+
+    renderer.handleSelectionInput(mouse("down", 1, 0));
+    renderer.handleSelectionInput(mouse("drag", 3, 0));
+
+    const frame = renderer.currentFrame;
+    expect(frame).not.toBeNull();
+    expect(styles.get(frame!.cellAt(0, 0).styleId).inverse).toBeUndefined();
+    expect(styles.get(frame!.cellAt(1, 0).styleId).inverse).toBe(true);
+    expect(styles.get(frame!.cellAt(3, 0).styleId).inverse).toBe(true);
+    expect(styles.get(frame!.cellAt(4, 0).styleId).inverse).toBeUndefined();
+  });
+
+  it("copies and emits one completed selection event", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const copied: Array<{ text: string; maxBytes: number }> = [];
+    const completed: Array<{
+      text: string;
+      clipboardEmitted: boolean;
+    }> = [];
+    const renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+      schedule: (flush) => flush(),
+      selection: {
+        clipboard: "on-select",
+        maxClipboardBytes: 64,
+        writeClipboard: (text, maxBytes) => {
+          copied.push({ text, maxBytes });
+          return true;
+        },
+        onSelection: (event) => completed.push(event),
+      },
+    });
+    renderer.setRoot({ type: "text", text: "copy me" });
+
+    renderer.handleSelectionInput(mouse("down", 0, 0));
+    renderer.handleSelectionInput(mouse("drag", 3, 0));
+    const result = renderer.handleSelectionInput(mouse("up", 3, 0));
+
+    expect(copied).toEqual([{ text: "copy", maxBytes: 64 }]);
+    expect(completed).toEqual([
+      expect.objectContaining({ text: "copy", clipboardEmitted: true }),
+    ]);
+    expect(result.completed?.clipboardEmitted).toBe(true);
+  });
+
+  it("clears a stale selection when selected text disappears", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const renderer = new TuiRenderer({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+      schedule: (flush) => flush(),
+      selection: {},
+    });
+    renderer.setRoot({ type: "text", text: "select" });
+    renderer.handleSelectionInput(mouse("down", 0, 0));
+    renderer.handleSelectionInput(mouse("drag", 2, 0));
+    renderer.handleSelectionInput(mouse("up", 2, 0));
+
+    renderer.setRoot({ type: "box", style: { width: 10, height: 1 } });
+
+    expect(renderer.selectionRange).toBeNull();
+    const snapshot = surface.cells()!;
+    expect(
+      snapshot.cells
+        .flat()
+        .every((cell) => snapshot.styles[cell.styleId]?.inverse !== true),
+    ).toBe(true);
   });
 
   it("coalesces multiple setRoot calls into a single frame", () => {

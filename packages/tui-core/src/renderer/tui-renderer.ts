@@ -1,10 +1,19 @@
 import { CellBuffer } from "../buffer/cell-buffer";
 import type { CursorState } from "../buffer/frame";
+import type { TuiInputEvent } from "../input/events";
 import { renderToBuffer, type RenderNode } from "../paint/paint";
 import { customLayoutEngine, type LayoutEngine } from "../layout/engine";
 import { OwnerTable } from "../paint/owner-table";
 import { DiagnosticsTracker } from "../scheduler/diagnostics";
 import { RenderScheduler, type RenderKind } from "../scheduler/scheduler";
+import {
+  DEFAULT_MAX_CLIPBOARD_BYTES,
+  extractSelectedText,
+  TextSelectionController,
+  type SelectionInputResult,
+  type SelectionRange,
+  type TextSelectionOptions,
+} from "../selection/text-selection";
 import { StyleTable } from "../style/style-table";
 import { buildFrameUpdate, HIDDEN_CURSOR } from "../surface/frame-update";
 import type { CellSurface, Size } from "../surface/types";
@@ -24,6 +33,8 @@ export interface TuiRendererOptions {
   schedule?: (flush: () => void) => void;
   /** Layout engine; defaults to the zero-dependency customLayoutEngine. */
   layoutEngine?: LayoutEngine;
+  /** Optional application-level visible text selection. */
+  selection?: TextSelectionOptions;
 }
 
 type TuiRendererLifecycle = "active" | "destroying" | "destroyed";
@@ -52,6 +63,8 @@ export class TuiRenderer {
   private readonly styles: StyleTable;
   private readonly layoutEngine: LayoutEngine;
   private readonly scheduler: RenderScheduler;
+  private readonly selectionOptions: TextSelectionOptions | undefined;
+  private readonly selection = new TextSelectionController();
   private size: Size;
   private cursor: CursorState;
 
@@ -70,6 +83,10 @@ export class TuiRenderer {
     return this.previous;
   }
 
+  get selectionRange(): SelectionRange | null {
+    return this.selection.range;
+  }
+
   /** Whether public mutation and presentation operations may still run. */
   get isActive(): boolean {
     return this.lifecycle === "active";
@@ -79,6 +96,7 @@ export class TuiRenderer {
     this.surface = options.surface;
     this.styles = options.styles ?? new StyleTable();
     this.layoutEngine = options.layoutEngine ?? customLayoutEngine;
+    this.selectionOptions = options.selection;
     this.size = options.size;
     this.cursor = options.cursor ?? HIDDEN_CURSOR;
     this.scheduler = new RenderScheduler({
@@ -120,6 +138,29 @@ export class TuiRenderer {
     this.scheduler.flushSync();
   }
 
+  handleSelectionInput(event: TuiInputEvent): SelectionInputResult {
+    this.assertActive("dispatch selection input");
+    if (!this.selectionOptions) {
+      return { consumed: false, changed: false };
+    }
+
+    const result = this.selection.handle(event, this.previous);
+    let completed = result.completed;
+    if (completed) {
+      const maxBytes =
+        this.selectionOptions.maxClipboardBytes ?? DEFAULT_MAX_CLIPBOARD_BYTES;
+      const clipboardEmitted =
+        this.selectionOptions.clipboard === "on-select" &&
+        completed.byteCount <= maxBytes &&
+        (this.selectionOptions.writeClipboard?.(completed.text, maxBytes) ??
+          false);
+      completed = { ...completed, clipboardEmitted };
+      this.selectionOptions.onSelection?.(completed);
+    }
+    if (result.changed) this.invalidate("paint");
+    return completed ? { ...result, completed } : result;
+  }
+
   destroy(): void {
     if (this.lifecycle === "destroyed" || this.destroyCallInProgress) return;
     this.beginTeardown();
@@ -148,6 +189,7 @@ export class TuiRenderer {
     this.diagnostics.discardPendingRenderWork();
     this.root = null;
     this.previous = null;
+    this.selection.clear();
     this.owners = new OwnerTable();
   }
 
@@ -184,6 +226,7 @@ export class TuiRenderer {
       this.styles,
       this.layoutEngine,
     );
+    this.applySelection(buffer);
     this.revision += 1;
     const previous = this.forceFullRepaint ? null : this.previous;
     const update = buildFrameUpdate(
@@ -202,5 +245,33 @@ export class TuiRenderer {
     this.previous = buffer;
     this.diagnostics.markRendered();
     this.diagnostics.setSchedulerPending(this.scheduler.pending);
+  }
+
+  private applySelection(buffer: CellBuffer): void {
+    const range = this.selection.range;
+    if (!range) return;
+    if (extractSelectedText(buffer, range).length === 0) {
+      this.selection.clear();
+      return;
+    }
+
+    const firstY = Math.max(0, range.start.y);
+    const lastY = Math.min(buffer.height - 1, range.end.y);
+    const overlay = this.selectionOptions?.style ?? { inverse: true };
+    for (let y = firstY; y <= lastY; y += 1) {
+      const firstX = y === range.start.y ? Math.max(0, range.start.x) : 0;
+      const lastX =
+        y === range.end.y
+          ? Math.min(buffer.width - 1, range.end.x)
+          : buffer.width - 1;
+      for (let x = firstX; x <= lastX; x += 1) {
+        const index = buffer.index(x, y);
+        if (buffer.selectable[index] !== 1) continue;
+        buffer.styleIds[index] = this.styles.intern({
+          ...this.styles.get(buffer.styleIds[index]!),
+          ...overlay,
+        });
+      }
+    }
   }
 }

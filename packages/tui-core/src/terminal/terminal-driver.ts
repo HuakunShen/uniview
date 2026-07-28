@@ -1,6 +1,7 @@
 import { InputParser } from "../input/parser";
 import type { TuiInputEvent } from "../input/events";
 import type { Size } from "../surface/types";
+import { encodeOsc52Clipboard } from "./clipboard";
 import {
   buildEnterSequence,
   buildLeaveSequence,
@@ -107,6 +108,13 @@ export class TerminalDriver {
 
   get size(): Size {
     return this.currentSize;
+  }
+
+  copyToClipboard(text: string, maxBytes?: number): boolean {
+    if (this.state !== "running") return false;
+    const sequence = encodeOsc52Clipboard(text, maxBytes);
+    this.options.output.write(sequence);
+    return true;
   }
 
   private readSize(): Size {
