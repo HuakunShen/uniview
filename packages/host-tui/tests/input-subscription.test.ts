@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { handlerIdProp, TEXT_NODE_TYPE, type UINode } from "@uniview/protocol";
-import { MemoryCellSurface, StyleTable, keyEvent, type TuiInputEvent } from "@uniview/tui-core";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  keyEvent,
+  type TuiInputEvent,
+} from "@uniview/tui-core";
 import { TuiHost } from "../src/tui-host";
 import { InputRouter } from "../src/input-router";
 
@@ -23,7 +28,12 @@ function setup(root: UINode) {
 
 describe("InputRouter.subscribeInput", () => {
   it("forwards unconsumed key/text and every paste to subscribers", () => {
-    const { router } = setup({ id: "root", type: "box", props: {}, children: [] });
+    const { router } = setup({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [],
+    });
     const got: TuiInputEvent[] = [];
     const unsub = router.subscribeInput((e) => got.push(e));
 
@@ -31,7 +41,11 @@ describe("InputRouter.subscribeInput", () => {
     router.dispatch(keyEvent("Escape")); // nothing focused → global
     router.dispatch({ type: "paste", text: "pasted" }); // paste is always global
 
-    expect(got).toEqual([{ type: "text", text: "q" }, keyEvent("Escape"), { type: "paste", text: "pasted" }]);
+    expect(got).toEqual([
+      { type: "text", text: "q" },
+      keyEvent("Escape"),
+      { type: "paste", text: "pasted" },
+    ]);
 
     unsub();
     router.dispatch(text("z"));
@@ -48,17 +62,72 @@ describe("InputRouter.subscribeInput", () => {
           id: "btn",
           type: "box",
           props: { [handlerIdProp("onClick")]: "go" },
-          children: [{ id: "l", type: TEXT_NODE_TYPE, props: {}, children: [], text: "Go" } as UINode],
+          children: [
+            {
+              id: "l",
+              type: TEXT_NODE_TYPE,
+              props: {},
+              children: [],
+              text: "Go",
+            } as UINode,
+          ],
         },
       ],
     });
     const got: TuiInputEvent[] = [];
     router.subscribeInput((e) => got.push(e));
 
-    router.dispatch(keyEvent("Tab")); // focus the button (focus-move, consumed)
-    router.dispatch(keyEvent("Enter")); // activates the focused button (consumed)
+    expect(router.dispatch(keyEvent("Tab"))).toBe(true); // focus move was consumed
+    expect(router.dispatch(keyEvent("Enter"))).toBe(true); // focused button consumed activation
 
     expect(got).toEqual([]); // neither leaked to the global layer
+  });
+
+  it("reports an event as unconsumed when it reaches the global input layer", () => {
+    const { router } = setup({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [],
+    });
+
+    expect(router.dispatch(keyEvent("Enter"))).toBe(false);
+    expect(router.dispatch(text("q"))).toBe(false);
+    expect(router.dispatch(keyEvent("Tab"))).toBe(false);
+    expect(
+      router.dispatch({
+        type: "mouse",
+        action: "wheel",
+        button: "none",
+        x: 19,
+        y: 2,
+        deltaY: 1,
+        ctrl: false,
+        alt: false,
+        shift: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("can release pointer focus before an application-level selection moves", () => {
+    const { router, clicks } = setup({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "btn",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "go" },
+          children: [],
+        },
+      ],
+    });
+
+    expect(router.dispatch(keyEvent("Tab"))).toBe(true);
+    router.clearFocus();
+    expect(router.dispatch(keyEvent("Enter"))).toBe(false);
+    expect(clicks).toEqual([]);
   });
 
   it("forwards keys a focused text field ignores, but not ones it consumes", () => {
@@ -70,7 +139,11 @@ describe("InputRouter.subscribeInput", () => {
         {
           id: "field",
           type: "box",
-          props: { role: "textbox", value: "hi", [handlerIdProp("onChange")]: "chg" },
+          props: {
+            role: "textbox",
+            value: "hi",
+            [handlerIdProp("onChange")]: "chg",
+          },
           children: [],
         },
       ],

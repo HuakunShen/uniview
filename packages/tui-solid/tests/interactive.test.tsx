@@ -148,6 +148,36 @@ describe("Hoverable", () => {
     expect(fg()).toBe("yellow");
     root.destroy();
   });
+
+  it("exposes button semantics and suppresses activation while disabled", async () => {
+    let activations = 0;
+    const { root } = mount(
+      () => (
+        <Hoverable
+          role="button"
+          name="Use exit Alpha"
+          disabled
+          onClick={() => {
+            activations += 1;
+          }}
+        >
+          {() => <Text>Alpha</Text>}
+        </Hoverable>
+      ),
+      16,
+      1,
+    );
+    await tick();
+
+    root.dispatchInput(click(1, 0));
+    root.dispatchInput(key("Tab"));
+    root.dispatchInput(key("Enter"));
+    await tick();
+
+    expect(activations).toBe(0);
+    expect(root.host.focusableTargets()).toEqual([]);
+    root.destroy();
+  });
 });
 
 describe("CommandPalette", () => {

@@ -232,6 +232,10 @@ export interface TuiSolidRoot {
   render(App: () => unknown): void;
   /** Route a normalized terminal input event to the Solid tree. */
   dispatchInput(event: TuiInputEvent): void;
+  /** Route input and report whether a local control consumed it. */
+  dispatchInputWithResult(event: TuiInputEvent): boolean;
+  /** Release local focus before application-level list navigation. */
+  clearFocus(): void;
   /** Dispose the Solid root and tear down the host. */
   destroy(): void;
 }
@@ -418,6 +422,24 @@ function createTuiSolidRootInternal(
       router.dispatch(event);
     },
 
+    dispatchInputWithResult(event: TuiInputEvent): boolean {
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot dispatch input after TUI Solid root teardown has started",
+        );
+      }
+      return router.dispatch(event);
+    },
+
+    clearFocus(): void {
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot clear focus after TUI Solid root teardown has started",
+        );
+      }
+      router.clearFocus();
+    },
+
     destroy(): void {
       if (hostDestroyed && dispose === null && !ownsGlobals()) return;
       teardownStarted = true;
@@ -581,6 +603,9 @@ export function render(
       }
     },
     dispatchInput: (event) => mountedRoot.dispatchInput(event),
+    dispatchInputWithResult: (event) =>
+      mountedRoot.dispatchInputWithResult(event),
+    clearFocus: () => mountedRoot.clearFocus(),
     destroy: () => driver.stop(),
   };
 }

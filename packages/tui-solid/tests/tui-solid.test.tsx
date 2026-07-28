@@ -1,13 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { createSignal, onCleanup } from "solid-js";
-import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  type TuiInputEvent,
+} from "@uniview/tui-core";
 import { getRootNode } from "@uniview/solid-renderer";
 import { createTuiSolidRoot, getActiveTuiClock } from "../src/index";
 
 import { tick } from "./tick";
 
 function mouseUp(x: number, y: number): TuiInputEvent {
-  return { type: "mouse", action: "up", button: "left", x, y, ctrl: false, alt: false, shift: false };
+  return {
+    type: "mouse",
+    action: "up",
+    button: "left",
+    x,
+    y,
+    ctrl: false,
+    alt: false,
+    shift: false,
+  };
 }
 
 function Counter() {
@@ -31,7 +44,11 @@ describe("createTuiSolidRoot", () => {
   it("renders a Solid component to the surface", () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 3 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
     root.render(Counter);
 
     expect(surface.lines({ trimRight: true })[0]).toBe("Count: 0");
@@ -41,7 +58,11 @@ describe("createTuiSolidRoot", () => {
   it("updates the terminal when a signal changes via a click", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 3 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
     root.render(Counter);
 
     // Handler dispatch goes through the async registry, then Solid updates
@@ -59,13 +80,85 @@ describe("createTuiSolidRoot", () => {
   it("activates the focused control with the keyboard", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 3 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
     root.render(Counter);
 
-    root.dispatchInput({ type: "key", key: "Tab", ctrl: false, alt: false, shift: false, meta: false });
-    root.dispatchInput({ type: "key", key: "Enter", ctrl: false, alt: false, shift: false, meta: false });
+    expect(
+      root.dispatchInputWithResult({
+        type: "key",
+        key: "Tab",
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+      }),
+    ).toBe(true);
+    expect(
+      root.dispatchInputWithResult({
+        type: "key",
+        key: "Enter",
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+      }),
+    ).toBe(true);
     await tick();
     expect(surface.lines({ trimRight: true })[0]).toBe("Count: 1");
+    root.destroy();
+  });
+
+  it("returns false when no local control consumes input", () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
+    root.render(() => <text>Static</text>);
+
+    expect(root.dispatchInputWithResult({ type: "text", text: "q" })).toBe(
+      false,
+    );
+    root.destroy();
+  });
+
+  it("exposes focus release for applications with global list navigation", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 3 },
+    });
+    root.render(Counter);
+
+    root.dispatchInput({
+      type: "key",
+      key: "Tab",
+      ctrl: false,
+      alt: false,
+      shift: false,
+      meta: false,
+    });
+    root.clearFocus();
+    expect(
+      root.dispatchInputWithResult({
+        type: "key",
+        key: "Enter",
+        ctrl: false,
+        alt: false,
+        shift: false,
+        meta: false,
+      }),
+    ).toBe(false);
+    await tick();
+    expect(surface.lines({ trimRight: true })[0]).toBe("Count: 0");
     root.destroy();
   });
 

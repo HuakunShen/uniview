@@ -61,7 +61,10 @@ export class InputRouter {
       if (!live.has(id)) this.fields.delete(id);
     }
     // Drop hover state if the hovered node is gone (no leave — it no longer exists).
-    if (this.hoveredId && this.host.nearestTarget(this.hoveredId, HOVER_EVENTS) !== this.hoveredId) {
+    if (
+      this.hoveredId &&
+      this.host.nearestTarget(this.hoveredId, HOVER_EVENTS) !== this.hoveredId
+    ) {
       this.hoveredId = null;
     }
     // Grant initial focus once: the first `autoFocus` target takes focus when
@@ -84,16 +87,28 @@ export class InputRouter {
   }
 
   /** Update hover: leave the previous target, enter the new one under (x, y). */
-  private updateHover(x: number, y: number): void {
-    const target = this.host.nearestTarget(this.host.nodeAt(x, y), HOVER_EVENTS);
-    if (target === this.hoveredId) return;
-    if (this.hoveredId) this.host.fireEvent(this.hoveredId, "onMouseLeave", { x, y });
+  private updateHover(x: number, y: number): boolean {
+    const target = this.host.nearestTarget(
+      this.host.nodeAt(x, y),
+      HOVER_EVENTS,
+    );
+    if (target === this.hoveredId) return target !== null;
+    if (this.hoveredId)
+      this.host.fireEvent(this.hoveredId, "onMouseLeave", { x, y });
     this.hoveredId = target;
     if (target) this.host.fireEvent(target, "onMouseEnter", { x, y });
+    return true;
   }
 
   get focusedId(): string | null {
     return this.focus.focused;
+  }
+
+  /** Release local pointer/keyboard focus so application-level navigation can take over. */
+  clearFocus(): void {
+    this.assertActive("clear focus");
+    this.focus.focus(null, "programmatic");
+    this.syncFocus();
   }
 
   private isTextbox(id: string): boolean {
@@ -109,7 +124,10 @@ export class InputRouter {
     let field = this.fields.get(id);
     if (!field) {
       field = {
-        machine: new TextInputMachine({ value: committed, cursor: committed.length }),
+        machine: new TextInputMachine({
+          value: committed,
+          cursor: committed.length,
+        }),
         lastSent: committed,
       };
       this.fields.set(id, field);
@@ -121,21 +139,30 @@ export class InputRouter {
     return field;
   }
 
-  dispatch(event: TuiInputEvent): void {
+  /**
+   * Route one event and report whether a local control consumed it.
+   *
+   * `false` means the event reached the global input layer. Direct terminal
+   * clients can use that signal to apply their own hotkeys without stealing
+   * Enter/Space from a focused button, row, or tab.
+   */
+  dispatch(event: TuiInputEvent): boolean {
     this.assertActive("dispatch input");
     if (event.type === "paste") {
       // Paste is neither mouse nor key; it is always a global event.
       this.emitGlobal(event);
-      return;
+      return false;
     }
 
     if (event.type === "mouse") {
       if (event.action === "move" || event.action === "drag") {
-        this.updateHover(event.x, event.y);
-        return;
+        return this.updateHover(event.x, event.y);
       }
       if (event.action === "wheel") {
-        const target = this.host.nearestTarget(this.host.nodeAt(event.x, event.y), WHEEL_EVENTS);
+        const target = this.host.nearestTarget(
+          this.host.nodeAt(event.x, event.y),
+          WHEEL_EVENTS,
+        );
         if (target) {
           this.host.fireEvent(target, "onWheel", {
             deltaY: event.deltaY ?? 0,
@@ -143,10 +170,11 @@ export class InputRouter {
             y: event.y,
           });
         }
-        return;
+        return target !== null;
       }
       if (event.action === "up" && event.button === "left") {
         const id = this.host.nodeAt(event.x, event.y);
+        let consumed = false;
         if (id) {
           // Focus the nearest focusable ancestor, not the raw hit node: the hit
           // is usually a leaf (the label inside a row), which is not focusable,
@@ -155,19 +183,25 @@ export class InputRouter {
           if (focusTarget) {
             this.focus.focus(focusTarget, "pointer");
             this.syncFocus();
+            consumed = true;
           }
           if (!this.isTextbox(id)) {
-            this.host.fireEventBubbling(id, "onClick", { x: event.x, y: event.y });
+            consumed =
+              this.host.fireEventBubbling(id, "onClick", {
+                x: event.x,
+                y: event.y,
+              }) || consumed;
           }
         }
+        return consumed;
       }
-      return;
+      return false;
     }
 
     if (event.type === "key" && event.key === "Tab") {
-      this.focus.move(event.shift ? "previous" : "next");
+      const focused = this.focus.move(event.shift ? "previous" : "next");
       this.syncFocus();
-      return;
+      return focused !== null;
     }
 
     const focused = this.focus.focused;
@@ -190,23 +224,23 @@ export class InputRouter {
       // (Escape, F-keys, ArrowUp/Down) produce no effects and must keep flowing —
       // to an ancestor keymap or the global useInput layer — per the documented
       // "key events the focused control did not consume" contract.
-      if (effects.length > 0) return;
+      if (effects.length > 0) return true;
     }
 
     // A focused node can opt into raw keyboard handling (scroll, keymaps).
     if (event.type === "key" && focused && this.hasKeyHandler(focused)) {
       this.fireKey(focused, event);
-      return;
+      return true;
     }
 
     // Enter/Space activate the focused node. This runs before the bubbling below
     // so that activating a focused row still fires its onClick, rather than
     // being swallowed by an ancestor's keymap now that one is reachable.
     if (event.type === "key" && event.key === "Enter" && focused) {
-      if (this.host.fireEvent(focused, "onClick")) return;
+      if (this.host.fireEvent(focused, "onClick")) return true;
     }
     if (event.type === "text" && event.text === " " && focused) {
-      if (this.host.fireEvent(focused, "onClick")) return;
+      if (this.host.fireEvent(focused, "onClick")) return true;
     }
 
     // Otherwise the key bubbles to the nearest ancestor that handles it, exactly
@@ -218,16 +252,20 @@ export class InputRouter {
       const target = this.host.nearestTarget(focused, KEY_EVENTS);
       if (target) {
         this.fireKey(target, event);
-        return;
+        return true;
       }
     }
 
     // Nothing local consumed this key/text — surface it to the global layer
     // (useInput). Resolved host-side, so a global hotkey costs zero round trips.
     if (event.type === "key" || event.type === "text") this.emitGlobal(event);
+    return false;
   }
 
-  private fireKey(id: string, event: Extract<TuiInputEvent, { type: "key" }>): void {
+  private fireKey(
+    id: string,
+    event: Extract<TuiInputEvent, { type: "key" }>,
+  ): void {
     this.host.fireEvent(id, "onKeyDown", {
       key: event.key,
       ctrl: event.ctrl,

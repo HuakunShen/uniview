@@ -138,6 +138,12 @@ export interface HoverableProps {
    */
   children: (hovered: Accessor<boolean>) => JSX.Element;
   onClick?: () => void;
+  role?: string;
+  name?: string;
+  disabled?: boolean;
+  selected?: boolean;
+  width?: number | string;
+  alignSelf?: "auto" | "flex-start" | "center" | "flex-end" | "stretch";
 }
 
 /**
@@ -149,9 +155,15 @@ export function Hoverable(props: HoverableProps): JSX.Element {
   const [hovered, setHovered] = createSignal(false);
   return (
     <box
-      onClick={props.onClick}
+      onClick={props.disabled ? undefined : props.onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      role={props.role}
+      name={props.name}
+      disabled={props.disabled}
+      selected={props.selected}
+      width={props.width}
+      alignSelf={props.alignSelf}
     >
       {props.children(hovered)}
     </box>

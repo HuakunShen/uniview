@@ -59,7 +59,12 @@ export type { PanelProps } from "./panel";
 export { List, listCounter } from "./list";
 export type { ListProps } from "./list";
 export { Tree, DirectoryTree } from "./tree";
-export type { TreeProps, TreeNode, TreeRowMeta, DirectoryTreeProps } from "./tree";
+export type {
+  TreeProps,
+  TreeNode,
+  TreeRowMeta,
+  DirectoryTreeProps,
+} from "./tree";
 export { Calendar, isoDate } from "./calendar";
 export type { CalendarProps } from "./calendar";
 export { StatusBar } from "./status-bar";
@@ -77,7 +82,13 @@ export type { TextInputProps } from "./text-input";
 export { Tabs } from "./tabs";
 export type { TabsProps, TabItem } from "./tabs";
 export { Table } from "./table";
-export type { Column, TableProps, ColumnAlign, SortDirection, SortState } from "./table";
+export type {
+  Column,
+  TableProps,
+  ColumnAlign,
+  SortDirection,
+  SortState,
+} from "./table";
 export { useInput, usePaste, TuiRuntimeContext } from "./input";
 export { ErrorBoundary, ErrorOverview } from "./error-boundary";
 export type { ErrorBoundaryProps, ErrorOverviewProps } from "./error-boundary";
@@ -94,7 +105,14 @@ export type {
   TuiPointerEvent,
 } from "./primitives";
 
-export { ScrollView, Scrollbar, Hoverable, CommandPalette, filterCommands, clampScroll } from "./interactive";
+export {
+  ScrollView,
+  Scrollbar,
+  Hoverable,
+  CommandPalette,
+  filterCommands,
+  clampScroll,
+} from "./interactive";
 export type {
   ScrollViewProps,
   ScrollbarProps,
@@ -102,7 +120,13 @@ export type {
   CommandPaletteProps,
   Command,
 } from "./interactive";
-export { Markdown, StreamingMarkdown, Code, Diff, renderNodeToElement } from "./content";
+export {
+  Markdown,
+  StreamingMarkdown,
+  Code,
+  Diff,
+  renderNodeToElement,
+} from "./content";
 export type {
   MarkdownProps,
   StreamingMarkdownProps,
@@ -110,10 +134,23 @@ export type {
   DiffProps,
 } from "./content";
 export { nextFocus, useFocusList } from "./focus";
-export { useAnimation, animate, TuiClockContext, TuiClockProvider } from "./animation";
+export {
+  useAnimation,
+  animate,
+  TuiClockContext,
+  TuiClockProvider,
+} from "./animation";
 export type { AnimationState, AnimateOptions } from "./animation";
 
-export { BarChart, Histogram, Sparkline, Gauge, LineGauge, LineChart, Scatter } from "./charts";
+export {
+  BarChart,
+  Histogram,
+  Sparkline,
+  Gauge,
+  LineGauge,
+  LineChart,
+  Scatter,
+} from "./charts";
 export { Canvas } from "./canvas";
 export type { CanvasProps } from "./canvas";
 export { Image } from "./image";
@@ -156,6 +193,10 @@ export interface TuiReactRoot {
   render(element: ReactElement): void;
   /** Route a normalized terminal input event to the React tree. */
   dispatchInput(event: TuiInputEvent): void;
+  /** Route input and report whether a local control consumed it. */
+  dispatchInputWithResult(event: TuiInputEvent): boolean;
+  /** Release local focus before application-level list navigation. */
+  clearFocus(): void;
   /**
    * Unmount React and tear down the host. Calling this during React render,
    * commit, or an effect throws; schedule it outside React work (for example
@@ -277,6 +318,30 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
         );
       }
       router.dispatch(event);
+    },
+
+    dispatchInputWithResult(event: TuiInputEvent): boolean {
+      if (cleanupComplete()) {
+        throw new Error("Cannot dispatch input to a destroyed TUI React root");
+      }
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot dispatch input after TUI React root teardown has started",
+        );
+      }
+      return router.dispatch(event);
+    },
+
+    clearFocus(): void {
+      if (cleanupComplete()) {
+        throw new Error("Cannot clear focus on a destroyed TUI React root");
+      }
+      if (teardownStarted) {
+        throw new Error(
+          "Cannot clear focus after TUI React root teardown has started",
+        );
+      }
+      router.clearFocus();
     },
 
     destroy(): void {
@@ -421,6 +486,9 @@ export function render(
       }
     },
     dispatchInput: (event) => mountedRoot.dispatchInput(event),
+    dispatchInputWithResult: (event) =>
+      mountedRoot.dispatchInputWithResult(event),
+    clearFocus: () => mountedRoot.clearFocus(),
     destroy: () => driver.stop(),
   };
 }

@@ -1,5 +1,10 @@
 import type { HandlerId, JSONValue, UINode } from "@uniview/protocol/core";
-import type { CellSurface, Size, StyleTable, TuiInputEvent } from "@uniview/tui-core";
+import type {
+  CellSurface,
+  Size,
+  StyleTable,
+  TuiInputEvent,
+} from "@uniview/tui-core";
 import { InputRouter } from "./input-router";
 import { TuiHost } from "./tui-host";
 
@@ -10,7 +15,10 @@ import { TuiHost } from "./tui-host";
  */
 export interface RemoteController {
   subscribe(callback: (tree: UINode | null) => void): () => void;
-  executeHandler(handlerId: HandlerId, args?: JSONValue[]): void | Promise<void>;
+  executeHandler(
+    handlerId: HandlerId,
+    args?: JSONValue[],
+  ): void | Promise<void>;
   connect?(): Promise<void>;
   disconnect?(): Promise<void>;
   destroy?(): void | Promise<void>;
@@ -26,6 +34,8 @@ export interface ControllerHost {
   readonly host: TuiHost;
   connect(): Promise<void>;
   dispatchInput(event: TuiInputEvent): void;
+  dispatchInputWithResult(event: TuiInputEvent): boolean;
+  clearFocus(): void;
   destroy(): Promise<void>;
 }
 
@@ -45,7 +55,10 @@ export function createControllerHost(
     size: options.size,
     styles: options.styles,
     onInvokeHandler: (handlerId, payload) => {
-      void controller.executeHandler(handlerId, payload === undefined ? [] : [payload]);
+      void controller.executeHandler(
+        handlerId,
+        payload === undefined ? [] : [payload],
+      );
     },
   });
   const router = new InputRouter(host);
@@ -64,6 +77,14 @@ export function createControllerHost(
 
     dispatchInput(event: TuiInputEvent): void {
       router.dispatch(event);
+    },
+
+    dispatchInputWithResult(event: TuiInputEvent): boolean {
+      return router.dispatch(event);
+    },
+
+    clearFocus(): void {
+      router.clearFocus();
     },
 
     async destroy(): Promise<void> {
