@@ -9,6 +9,23 @@ import type { TuiHost } from "./tui-host";
 const HOVER_EVENTS: readonly EventPropName[] = ["onMouseEnter", "onMouseLeave"];
 const WHEEL_EVENTS: readonly EventPropName[] = ["onWheel"];
 const KEY_EVENTS: readonly EventPropName[] = ["onKeyDown"];
+const TEXT_EDITING_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "Home",
+  "End",
+  "Backspace",
+  "Delete",
+  "Enter",
+]);
+
+function isTextEditingEvent(event: TuiInputEvent): boolean {
+  return (
+    event.type === "text" ||
+    event.type === "paste" ||
+    (event.type === "key" && TEXT_EDITING_KEYS.has(event.key))
+  );
+}
 
 interface FieldState {
   machine: TextInputMachine;
@@ -222,11 +239,11 @@ export class InputRouter {
           this.host.fireEvent(focused, "onSubmit", effect.value);
         }
       }
-      // Only stop here if the field actually consumed the key. Keys it ignores
-      // (Escape, F-keys, ArrowUp/Down) produce no effects and must keep flowing —
-      // to an ancestor keymap or the global useInput layer — per the documented
-      // "key events the focused control did not consume" contract.
-      if (effects.length > 0) return true;
+      // Editing keys belong to the focused field even when the cursor/value is
+      // already clamped at a boundary and the machine emits no state change.
+      // Other ignored keys (Escape, F-keys, ArrowUp/Down) still flow to an
+      // ancestor keymap or the global useInput layer.
+      if (effects.length > 0 || isTextEditingEvent(event)) return true;
     }
 
     // A focused node can opt into raw keyboard handling (scroll, keymaps).

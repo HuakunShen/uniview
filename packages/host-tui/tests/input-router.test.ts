@@ -150,6 +150,21 @@ describe("InputRouter — text editing", () => {
     expect(model.value).toBe("/tmp/demo.pdf!");
     host.destroy();
   });
+
+  it("consumes editing keys at text field boundaries", () => {
+    const { router } = setup("go");
+    router.dispatch(key("Tab"));
+
+    expect(router.dispatch(key("ArrowRight"))).toBe(true);
+    expect(router.dispatch(key("End"))).toBe(true);
+    expect(router.dispatch(key("Delete"))).toBe(true);
+    expect(router.dispatch(key("Escape"))).toBe(false);
+
+    router.dispatch(key("Home"));
+    expect(router.dispatch(key("ArrowLeft"))).toBe(true);
+    expect(router.dispatch(key("Home"))).toBe(true);
+    expect(router.dispatch(key("Backspace"))).toBe(true);
+  });
 });
 
 describe("InputRouter — buttons", () => {
