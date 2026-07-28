@@ -183,6 +183,25 @@ describe("TextSelectionController", () => {
     });
   });
 
+  it("owns a cross-cell release when an input source omits motion reports", () => {
+    const buffer = new CellBuffer(8, 1);
+    writeSelectable(buffer, 0, 0, "drag me");
+    const controller = new TextSelectionController();
+
+    controller.handle(mouse("down", 1, 0), buffer);
+    const completed = controller.handle(mouse("up", 4, 0), buffer);
+
+    expect(completed).toMatchObject({
+      consumed: true,
+      changed: true,
+      completed: {
+        text: "rag ",
+        start: { x: 1, y: 0 },
+        end: { x: 4, y: 0 },
+      },
+    });
+  });
+
   it("normalizes a reverse multi-row drag", () => {
     const buffer = new CellBuffer(6, 2);
     writeSelectable(buffer, 0, 0, "first");

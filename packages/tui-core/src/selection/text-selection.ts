@@ -193,7 +193,20 @@ export class TextSelectionController {
         };
         return { consumed: true, changed: true };
       }
-      if (event.action === "up") this.state = { type: "idle" };
+      if (event.action === "up") {
+        if (
+          point.x !== this.state.anchor.x ||
+          point.y !== this.state.anchor.y
+        ) {
+          this.state = {
+            type: "selecting",
+            anchor: this.state.anchor,
+            current: buffer ? selectableLead(buffer, point) : point,
+          };
+          return this.handle(event, buffer);
+        }
+        this.state = { type: "idle" };
+      }
       return { consumed: false, changed: false };
     }
 
