@@ -38,6 +38,27 @@ describe("renderToBuffer — text", () => {
     );
     expect(frameToLines(buffer, { trimRight: true })).toEqual(["hel"]);
   });
+
+  it("marks text and rich text selectable without marking layout or opted-out text", () => {
+    const { buffer } = render(
+      {
+        type: "box",
+        style: { flexDirection: "column" },
+        children: [
+          { type: "text", text: "copy" },
+          { type: "richtext", spans: [{ text: "rich" }] },
+          { type: "text", text: "secret", selectable: false },
+        ],
+      },
+      8,
+      4,
+    );
+
+    expect([...buffer.selectable.slice(0, 4)]).toEqual([1, 1, 1, 1]);
+    expect([...buffer.selectable.slice(8, 12)]).toEqual([1, 1, 1, 1]);
+    expect([...buffer.selectable.slice(16, 22)]).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(buffer.cellAt(7, 0).selectable).toBe(false);
+  });
 });
 
 describe("renderToBuffer — background", () => {
@@ -73,6 +94,8 @@ describe("renderToBuffer — border", () => {
     expect(lines[0]).toBe("┌───┐");
     expect(lines[1]).toBe("│x  │");
     expect(lines[2]).toBe("└───┘");
+    expect(buffer.cellAt(0, 0).selectable).toBe(false);
+    expect(buffer.cellAt(1, 1).selectable).toBe(true);
   });
 
   it("supports the rounded preset", () => {

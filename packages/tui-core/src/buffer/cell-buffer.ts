@@ -18,6 +18,7 @@ export interface CellView {
   styleId: number;
   ownerId: number;
   flags: CellFlags;
+  selectable: boolean;
 }
 
 const BLANK = " ";
@@ -34,6 +35,7 @@ export class CellBuffer {
   readonly styleIds: Uint32Array;
   readonly ownerIds: Uint32Array;
   readonly flags: Uint8Array;
+  readonly selectable: Uint8Array;
 
   constructor(
     readonly width: number,
@@ -45,6 +47,7 @@ export class CellBuffer {
     this.styleIds = new Uint32Array(length);
     this.ownerIds = new Uint32Array(length);
     this.flags = new Uint8Array(length);
+    this.selectable = new Uint8Array(length);
   }
 
   index(x: number, y: number): number {
@@ -61,6 +64,7 @@ export class CellBuffer {
     copy.styleIds.set(this.styleIds);
     copy.ownerIds.set(this.ownerIds);
     copy.flags.set(this.flags);
+    copy.selectable.set(this.selectable);
     return copy;
   }
 
@@ -72,6 +76,7 @@ export class CellBuffer {
       styleId: this.styleIds[i]!,
       ownerId: this.ownerIds[i]!,
       flags: this.flags[i] as CellFlags,
+      selectable: this.selectable[i] === 1,
     };
   }
 
@@ -82,6 +87,7 @@ export class CellBuffer {
     this.styleIds.fill(styleId);
     this.ownerIds.fill(ownerId);
     this.flags.fill(CellFlags.None);
+    this.selectable.fill(0);
   }
 
   /**
@@ -90,7 +96,13 @@ export class CellBuffer {
    * empty space inside them still resolves to the container (children paint
    * after and overwrite their own cells, so the deepest owner wins).
    */
-  stampOwner(x: number, y: number, width: number, height: number, ownerId: number): void {
+  stampOwner(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    ownerId: number,
+  ): void {
     const x0 = Math.max(0, x);
     const y0 = Math.max(0, y);
     const x1 = Math.min(this.width, x + width);
@@ -108,6 +120,7 @@ export class CellBuffer {
     this.styleIds[i] = 0;
     this.ownerIds[i] = 0;
     this.flags[i] = CellFlags.None;
+    this.selectable[i] = 0;
   }
 
   /**
@@ -142,6 +155,7 @@ export class CellBuffer {
     ownerId: number,
     widths: WidthCalculator = defaultWidthCalculator,
     clipRight: number = this.width,
+    selectable = false,
   ): number {
     if (y < 0 || y >= this.height) return x;
 
@@ -154,7 +168,11 @@ export class CellBuffer {
       if (width === 0) {
         // Combining-only cluster: fold it into the lead cell to its left.
         const left = cursor - 1;
-        if (left >= 0 && left < this.width && !(this.flags[this.index(left, y)]! & CellFlags.Continuation)) {
+        if (
+          left >= 0 &&
+          left < this.width &&
+          !(this.flags[this.index(left, y)]! & CellFlags.Continuation)
+        ) {
           this.graphemes[this.index(left, y)] += grapheme;
         }
         continue;
@@ -170,6 +188,7 @@ export class CellBuffer {
       this.styleIds[lead] = styleId;
       this.ownerIds[lead] = ownerId;
       this.flags[lead] = CellFlags.None;
+      this.selectable[lead] = selectable ? 1 : 0;
 
       if (width === 2) {
         this.repairBefore(cursor + 1, y);
@@ -179,6 +198,7 @@ export class CellBuffer {
         this.styleIds[cont] = styleId;
         this.ownerIds[cont] = ownerId;
         this.flags[cont] = CellFlags.Continuation;
+        this.selectable[cont] = selectable ? 1 : 0;
       }
 
       cursor += width;

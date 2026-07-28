@@ -6,16 +6,21 @@ export {
   defaultWidthCalculator,
 } from "./text/graphemes";
 export type { CellWidth, WidthCalculator } from "./text/graphemes";
-export {
-  styledLineWidth,
-  styledLineText,
-} from "./text/styled-text";
+export { styledLineWidth, styledLineText } from "./text/styled-text";
 export type { StyledSpan, StyledLine } from "./text/styled-text";
 export { maskText, DEFAULT_MASK } from "./text/mask";
 
 // Cell buffer
 export { CellBuffer, CellFlags } from "./buffer/cell-buffer";
 export type { CellView } from "./buffer/cell-buffer";
+
+// Application-level visible text selection
+export {
+  extractSelectedText,
+  isSelectableCell,
+  normalizeSelectionRange,
+} from "./selection/text-selection";
+export type { CellPoint, SelectionRange } from "./selection/text-selection";
 
 // Serializable frame model
 export { frameToLines, frameToText, serializeFrame } from "./buffer/frame";
@@ -195,15 +200,31 @@ export type {
   PressableInit,
 } from "./components/pressable-machine";
 export { CheckboxMachine } from "./components/checkbox-machine";
-export type { CheckboxEffect, CheckboxInit } from "./components/checkbox-machine";
+export type {
+  CheckboxEffect,
+  CheckboxInit,
+} from "./components/checkbox-machine";
 export { TabsMachine } from "./components/tabs-machine";
 export type { TabsEffect, TabsInit } from "./components/tabs-machine";
 export { SelectionMachine } from "./components/selection-machine";
-export type { SelectionEffect, SelectionInit } from "./components/selection-machine";
+export type {
+  SelectionEffect,
+  SelectionInit,
+} from "./components/selection-machine";
 export { TreeMachine } from "./components/tree-machine";
-export type { TreeEffect, TreeInit, TreeSourceNode, FlatTreeRow } from "./components/tree-machine";
+export type {
+  TreeEffect,
+  TreeInit,
+  TreeSourceNode,
+  FlatTreeRow,
+} from "./components/tree-machine";
 export { CalendarMachine } from "./components/calendar-machine";
-export type { CalendarEffect, CalendarInit, CalendarCell, YearMonthDay } from "./components/calendar-machine";
+export type {
+  CalendarEffect,
+  CalendarInit,
+  CalendarCell,
+  YearMonthDay,
+} from "./components/calendar-machine";
 export {
   resolveColumnWidths,
   formatCell,
@@ -220,7 +241,10 @@ export type {
   SortState,
 } from "./components/table-columns";
 export { textInputSlices } from "./components/text-input-view";
-export type { TextInputSlices, TextInputSliceOptions } from "./components/text-input-view";
+export type {
+  TextInputSlices,
+  TextInputSliceOptions,
+} from "./components/text-input-view";
 
 // Framework-agnostic UI event types & pure helpers (shared by tui-react/tui-solid)
 export {
@@ -246,12 +270,22 @@ export { borderGlyphs, BORDER_PRESETS } from "./paint/border";
 export type { BorderGlyphs } from "./paint/border";
 
 // Canvas rasterizers (charts)
-export { VERTICAL_BLOCKS, HORIZONTAL_BLOCKS, verticalBarColumn, horizontalBarCells } from "./canvas/blocks";
+export {
+  VERTICAL_BLOCKS,
+  HORIZONTAL_BLOCKS,
+  verticalBarColumn,
+  horizontalBarCells,
+} from "./canvas/blocks";
 export { SubcellCanvas } from "./canvas/subcell";
 export { dataToPixel } from "./canvas/coords";
 // Public Canvas & shapes engine (Phase 7) — emits styled lines like charts
 export { DrawContext, renderCanvas } from "./canvas/draw";
-export type { Marker, DrawStyle, CanvasDraw, CanvasDrawOptions } from "./canvas/draw";
+export type {
+  Marker,
+  DrawStyle,
+  CanvasDraw,
+  CanvasDrawOptions,
+} from "./canvas/draw";
 export { drawWorldMap, WORLD_MAP_POINTS } from "./canvas/world-map";
 export {
   imageToHalfBlockLines,
@@ -259,7 +293,11 @@ export {
   fitDimensions,
   renderImage,
 } from "./canvas/image";
-export type { RgbaImage, ImageHalfBlockOptions, RenderImageOptions } from "./canvas/image";
+export type {
+  RgbaImage,
+  ImageHalfBlockOptions,
+  RenderImageOptions,
+} from "./canvas/image";
 
 // Scheduling & diagnostics
 export { RenderScheduler } from "./scheduler/scheduler";
@@ -303,4 +341,8 @@ export type { EasingFn, EasingName } from "./scheduler/ease";
 export { Timeline } from "./scheduler/timeline";
 export type { TimelineOptions } from "./scheduler/timeline";
 export { FrameClock } from "./scheduler/frame-clock";
-export type { FrameClockOptions, FrameInfo, FrameListener } from "./scheduler/frame-clock";
+export type {
+  FrameClockOptions,
+  FrameInfo,
+  FrameListener,
+} from "./scheduler/frame-clock";

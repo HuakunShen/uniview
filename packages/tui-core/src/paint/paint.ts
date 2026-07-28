@@ -22,6 +22,8 @@ export interface RenderNode {
   textStyle?: CellStyle;
   /** Rich-text leaf: consecutive styled runs painted on one line. */
   spans?: StyledSpan[];
+  /** Whether painted text cells participate in application text selection. */
+  selectable?: boolean;
   /** Fill color for the node's box region. */
   background?: Color;
   /** Style (e.g. color) applied to border glyphs. */
@@ -58,7 +60,8 @@ function backgroundAt(
   x: number,
   y: number,
 ): Color | undefined {
-  if (x < 0 || y < 0 || x >= buffer.width || y >= buffer.height) return undefined;
+  if (x < 0 || y < 0 || x >= buffer.width || y >= buffer.height)
+    return undefined;
   return styles.get(buffer.cellAt(x, y).styleId).bg;
 }
 
@@ -67,8 +70,13 @@ function backgroundAt(
  * `bg` should keep whatever fill is underneath rather than punching a hole in
  * it. Merge the inherited background only when the run declares none.
  */
-function withBackground(style: CellStyle, inherited: Color | undefined): CellStyle {
-  return style.bg === undefined && inherited !== undefined ? { ...style, bg: inherited } : style;
+function withBackground(
+  style: CellStyle,
+  inherited: Color | undefined,
+): CellStyle {
+  return style.bg === undefined && inherited !== undefined
+    ? { ...style, bg: inherited }
+    : style;
 }
 
 function isSpansLeaf(node: RenderNode): boolean {
@@ -106,7 +114,12 @@ function intersect(a: Rect, b: Rect): Rect {
   const y = Math.max(a.y, b.y);
   const right = Math.min(a.x + a.width, b.x + b.width);
   const bottom = Math.min(a.y + a.height, b.y + b.height);
-  return { x, y, width: Math.max(0, right - x), height: Math.max(0, bottom - y) };
+  return {
+    x,
+    y,
+    width: Math.max(0, right - x),
+    height: Math.max(0, bottom - y),
+  };
 }
 
 function fillRect(
@@ -182,7 +195,8 @@ function drawEdgeText(
   if (innerWidth <= 0) return;
   const w = Math.min(stringCellWidth(text), innerWidth);
   let start = innerLeft;
-  if (align === "center") start = innerLeft + Math.max(0, Math.floor((innerWidth - w) / 2));
+  if (align === "center")
+    start = innerLeft + Math.max(0, Math.floor((innerWidth - w) / 2));
   else if (align === "right") start = innerRight - w;
   // Right-clip against the clip rect too (mirrors the text-leaf/spans paths),
   // so edge text never bleeds past a horizontally-narrower nested clip — the
@@ -210,7 +224,13 @@ function paintNode(
   // bubbles to its onClick. Children paint after and overwrite their own cells,
   // so the deepest owner wins. Leaves own only the cells they paint.
   if (ownerId !== 0 && !isTextLeaf(node) && !isSpansLeaf(node)) {
-    buffer.stampOwner(boxClip.x, boxClip.y, boxClip.width, boxClip.height, ownerId);
+    buffer.stampOwner(
+      boxClip.x,
+      boxClip.y,
+      boxClip.width,
+      boxClip.height,
+      ownerId,
+    );
   }
 
   if (node.background !== undefined) {
@@ -222,17 +242,37 @@ function paintNode(
     const borderStyleId = styles.intern(node.borderStyle ?? {});
     drawBorder(buffer, box, boxClip, glyphs, borderStyleId, ownerId);
     if (node.title) {
-      drawEdgeText(buffer, box, boxClip, box.y, node.title, node.titleAlign ?? "left", borderStyleId, ownerId);
+      drawEdgeText(
+        buffer,
+        box,
+        boxClip,
+        box.y,
+        node.title,
+        node.titleAlign ?? "left",
+        borderStyleId,
+        ownerId,
+      );
     }
     if (node.footer) {
-      drawEdgeText(buffer, box, boxClip, box.y + box.height - 1, node.footer, node.footerAlign ?? "left", borderStyleId, ownerId);
+      drawEdgeText(
+        buffer,
+        box,
+        boxClip,
+        box.y + box.height - 1,
+        node.footer,
+        node.footerAlign ?? "left",
+        borderStyleId,
+        ownerId,
+      );
     }
   }
 
   if (isTextLeaf(node)) {
     if (box.y >= boxClip.y && box.y < boxClip.y + boxClip.height) {
       const inherited = backgroundAt(buffer, styles, box.x, box.y);
-      const styleId = styles.intern(withBackground(node.textStyle ?? {}, inherited));
+      const styleId = styles.intern(
+        withBackground(node.textStyle ?? {}, inherited),
+      );
       buffer.writeText(
         box.x,
         box.y,
@@ -241,6 +281,7 @@ function paintNode(
         ownerId,
         undefined,
         boxClip.x + boxClip.width,
+        node.selectable ?? true,
       );
     }
     return;
@@ -254,8 +295,19 @@ function paintNode(
       let x = box.x;
       for (const span of node.spans ?? []) {
         if (x >= clipRight) break;
-        const styleId = styles.intern(withBackground(span.style ?? {}, inherited));
-        buffer.writeText(x, box.y, span.text, styleId, ownerId, undefined, clipRight);
+        const styleId = styles.intern(
+          withBackground(span.style ?? {}, inherited),
+        );
+        buffer.writeText(
+          x,
+          box.y,
+          span.text,
+          styleId,
+          ownerId,
+          undefined,
+          clipRight,
+          node.selectable ?? true,
+        );
         x += stringCellWidth(span.text);
       }
     }
@@ -268,15 +320,19 @@ function paintNode(
   children.forEach((child, i) => {
     if (child.style?.position === "absolute") return;
     const childLayout = layout.children[i];
-    if (childLayout) paintNode(child, childLayout, buffer, styles, owners, boxClip);
+    if (childLayout)
+      paintNode(child, childLayout, buffer, styles, owners, boxClip);
   });
   const absolute = children
     .map((child, i) => ({ child, i }))
     .filter((c) => c.child.style?.position === "absolute")
-    .sort((a, b) => (a.child.style?.zIndex ?? 0) - (b.child.style?.zIndex ?? 0));
+    .sort(
+      (a, b) => (a.child.style?.zIndex ?? 0) - (b.child.style?.zIndex ?? 0),
+    );
   for (const { child, i } of absolute) {
     const childLayout = layout.children[i];
-    if (childLayout) paintNode(child, childLayout, buffer, styles, owners, boxClip);
+    if (childLayout)
+      paintNode(child, childLayout, buffer, styles, owners, boxClip);
   }
 }
 

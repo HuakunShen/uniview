@@ -15,6 +15,7 @@ describe("CellBuffer construction", () => {
           styleId: 0,
           ownerId: 0,
           flags: CellFlags.None,
+          selectable: false,
         });
       }
     }
@@ -34,8 +35,18 @@ describe("CellBuffer.writeText", () => {
     const buffer = new CellBuffer(10, 1);
     const end = buffer.writeText(0, 0, "hi", 5, 7);
     expect(end).toBe(2);
-    expect(buffer.cellAt(0, 0)).toMatchObject({ grapheme: "h", width: 1, styleId: 5, ownerId: 7 });
-    expect(buffer.cellAt(1, 0)).toMatchObject({ grapheme: "i", width: 1, styleId: 5, ownerId: 7 });
+    expect(buffer.cellAt(0, 0)).toMatchObject({
+      grapheme: "h",
+      width: 1,
+      styleId: 5,
+      ownerId: 7,
+    });
+    expect(buffer.cellAt(1, 0)).toMatchObject({
+      grapheme: "i",
+      width: 1,
+      styleId: 5,
+      ownerId: 7,
+    });
   });
 
   it("writes a wide grapheme as a lead cell plus a continuation cell", () => {
@@ -44,7 +55,12 @@ describe("CellBuffer.writeText", () => {
     expect(end).toBe(2);
 
     const lead = buffer.cellAt(0, 0);
-    expect(lead).toMatchObject({ grapheme: "中", width: 2, styleId: 3, ownerId: 9 });
+    expect(lead).toMatchObject({
+      grapheme: "中",
+      width: 2,
+      styleId: 3,
+      ownerId: 9,
+    });
     expect(lead.flags & CellFlags.Continuation).toBe(0);
 
     const cont = buffer.cellAt(1, 0);
@@ -52,6 +68,15 @@ describe("CellBuffer.writeText", () => {
     expect(cont.width).toBe(0);
     expect(cont.ownerId).toBe(9);
     expect(cont.flags & CellFlags.Continuation).toBe(CellFlags.Continuation);
+  });
+
+  it("marks both halves of selectable wide text", () => {
+    const buffer = new CellBuffer(4, 1);
+    buffer.writeText(0, 0, "中", 3, 9, undefined, undefined, true);
+
+    expect(buffer.cellAt(0, 0).selectable).toBe(true);
+    expect(buffer.cellAt(1, 0).selectable).toBe(true);
+    expect([...buffer.selectable]).toEqual([1, 1, 0, 0]);
   });
 
   it("attaches a lone combining mark to the preceding lead cell", () => {
@@ -85,12 +110,13 @@ describe("CellBuffer.writeText", () => {
 describe("CellBuffer wide-cell overwrite invariants", () => {
   it("blanks the orphaned continuation when a narrow char overwrites a wide lead", () => {
     const buffer = new CellBuffer(10, 1);
-    buffer.writeText(0, 0, "中", 0, 0);
+    buffer.writeText(0, 0, "中", 0, 0, undefined, undefined, true);
     buffer.writeText(0, 0, "x", 0, 0);
     expect(buffer.cellAt(0, 0).grapheme).toBe("x");
     // the old continuation at column 1 must be repaired to a blank
     expect(buffer.cellAt(1, 0)).toMatchObject({ grapheme: " ", width: 1 });
     expect(buffer.cellAt(1, 0).flags & CellFlags.Continuation).toBe(0);
+    expect(buffer.cellAt(1, 0).selectable).toBe(false);
   });
 
   it("blanks the orphaned lead when a narrow char overwrites a continuation", () => {
@@ -106,18 +132,20 @@ describe("CellBuffer wide-cell overwrite invariants", () => {
 describe("CellBuffer.clone", () => {
   it("produces an independent deep copy", () => {
     const b = new CellBuffer(4, 1);
-    b.writeText(0, 0, "中x", 2, 3);
+    b.writeText(0, 0, "中x", 2, 3, undefined, undefined, true);
     const copy = b.clone();
 
     expect(copy.width).toBe(4);
     expect(copy.height).toBe(1);
     expect(copy.cellAt(0, 0)).toEqual(b.cellAt(0, 0));
     expect(copy.cellAt(1, 0)).toEqual(b.cellAt(1, 0));
+    expect([...copy.selectable]).toEqual([...b.selectable]);
 
     // Mutating the original must not touch the clone.
     b.writeText(0, 0, "ab", 0, 0);
     expect(copy.cellAt(0, 0).grapheme).toBe("中");
     expect(copy.cellAt(2, 0).grapheme).toBe("x");
+    expect(copy.cellAt(2, 0).selectable).toBe(true);
   });
 });
 
@@ -133,6 +161,7 @@ describe("CellBuffer.clear", () => {
         styleId: 8,
         ownerId: 0,
         flags: CellFlags.None,
+        selectable: false,
       });
     }
   });
