@@ -27,7 +27,7 @@ function setup(root: UINode) {
 }
 
 describe("InputRouter.subscribeInput", () => {
-  it("forwards unconsumed key/text and every paste to subscribers", () => {
+  it("forwards unconsumed key, text, and paste to subscribers", () => {
     const { router } = setup({
       id: "root",
       type: "box",
@@ -39,7 +39,7 @@ describe("InputRouter.subscribeInput", () => {
 
     router.dispatch(text("q")); // nothing focused → global
     router.dispatch(keyEvent("Escape")); // nothing focused → global
-    router.dispatch({ type: "paste", text: "pasted" }); // paste is always global
+    router.dispatch({ type: "paste", text: "pasted" });
 
     expect(got).toEqual([
       { type: "text", text: "q" },
@@ -81,6 +81,47 @@ describe("InputRouter.subscribeInput", () => {
     expect(router.dispatch(keyEvent("Enter"))).toBe(true); // focused button consumed activation
 
     expect(got).toEqual([]); // neither leaked to the global layer
+  });
+
+  it("routes paste into a focused textbox instead of the global layer", () => {
+    const values: string[] = [];
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 20, height: 1 },
+      onInvokeHandler: (id, payload) => {
+        if (id === "change") values.push(String(payload));
+      },
+    });
+    host.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "field",
+          type: "input",
+          props: {
+            value: "",
+            [handlerIdProp("onChange")]: "change",
+          },
+          children: [],
+        },
+      ],
+    });
+    const router = new InputRouter(host);
+    const global: TuiInputEvent[] = [];
+    router.onRender();
+    router.subscribeInput((event) => global.push(event));
+    router.dispatch(keyEvent("Tab"));
+
+    expect(router.dispatch({ type: "paste", text: "/tmp/demo.pdf" })).toBe(
+      true,
+    );
+    expect(values).toEqual(["/tmp/demo.pdf"]);
+    expect(global).toEqual([]);
+    host.destroy();
   });
 
   it("reports an event as unconsumed when it reaches the global input layer", () => {

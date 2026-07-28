@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { handlerIdProp, TEXT_NODE_TYPE, type JSONValue, type UINode } from "@uniview/protocol";
-import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
+import {
+  handlerIdProp,
+  TEXT_NODE_TYPE,
+  type JSONValue,
+  type UINode,
+} from "@uniview/protocol";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  type TuiInputEvent,
+} from "@uniview/tui-core";
 import { TuiHost } from "../src/tui-host";
 import { InputRouter } from "../src/input-router";
 
@@ -22,7 +31,9 @@ function setup(initial = "") {
     onInvokeHandler: (id, payload) => {
       if (id === "change") {
         model.value = String(payload);
-        host.applyBatch([{ type: "setProps", nodeId: "field", props: fieldProps(model.value) }]);
+        host.applyBatch([
+          { type: "setProps", nodeId: "field", props: fieldProps(model.value) },
+        ]);
       } else if (id === "submit") {
         model.submitted = String(payload);
       } else if (id === "btn") {
@@ -40,7 +51,15 @@ function setup(initial = "") {
         id: "button",
         type: "box",
         props: { [handlerIdProp("onClick")]: "btn" },
-        children: [{ id: "bt", type: TEXT_NODE_TYPE, props: {}, children: [], text: "Go" } as UINode],
+        children: [
+          {
+            id: "bt",
+            type: TEXT_NODE_TYPE,
+            props: {},
+            children: [],
+            text: "Go",
+          } as UINode,
+        ],
       },
     ],
   });
@@ -49,7 +68,14 @@ function setup(initial = "") {
   return { host, router, model };
 }
 
-const key = (k: string): TuiInputEvent => ({ type: "key", key: k, ctrl: false, alt: false, shift: false, meta: false });
+const key = (k: string): TuiInputEvent => ({
+  type: "key",
+  key: k,
+  ctrl: false,
+  alt: false,
+  shift: false,
+  meta: false,
+});
 const type = (t: string): TuiInputEvent => ({ type: "text", text: t });
 
 describe("InputRouter — text editing", () => {
@@ -80,6 +106,49 @@ describe("InputRouter — text editing", () => {
     router.dispatch(key("Tab"));
     router.dispatch(type(" "));
     expect(model.value).toBe("a ");
+  });
+
+  it("keeps optimistic edits while the controlled render is lagging", () => {
+    const model = { value: "" };
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 20, height: 1 },
+      onInvokeHandler: (id, payload) => {
+        if (id === "change") model.value = String(payload);
+      },
+    });
+    host.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "field",
+          type: "input",
+          props: fieldProps(""),
+          children: [],
+        },
+      ],
+    });
+    const router = new InputRouter(host);
+    router.onRender();
+    router.dispatch(key("Tab"));
+
+    for (const character of "/tmp/demo.pdf") router.dispatch(type(character));
+
+    expect(model.value).toBe("/tmp/demo.pdf");
+    host.applyBatch([
+      {
+        type: "setProps",
+        nodeId: "field",
+        props: fieldProps(model.value),
+      },
+    ]);
+    router.dispatch(type("!"));
+    expect(model.value).toBe("/tmp/demo.pdf!");
+    host.destroy();
   });
 });
 
@@ -221,7 +290,9 @@ const textEl = (id: string, t: string): UINode => ({
   id,
   type: "text",
   props: {},
-  children: [{ id: `${id}_t`, type: TEXT_NODE_TYPE, props: {}, children: [], text: t }],
+  children: [
+    { id: `${id}_t`, type: TEXT_NODE_TYPE, props: {}, children: [], text: t },
+  ],
 });
 
 const move = (x: number, y: number): TuiInputEvent => ({
@@ -305,7 +376,9 @@ describe("InputRouter — mouse hover and wheel", () => {
   it("routes wheel to the nearest onWheel handler with deltaY", () => {
     const { router, calls } = setupHover();
     router.dispatch(wheel(1, 0, 1));
-    expect(calls.find((c) => c.id === "wheelA")?.payload).toMatchObject({ deltaY: 1 });
+    expect(calls.find((c) => c.id === "wheelA")?.payload).toMatchObject({
+      deltaY: 1,
+    });
   });
 });
 

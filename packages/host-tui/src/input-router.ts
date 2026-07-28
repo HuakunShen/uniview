@@ -14,6 +14,8 @@ interface FieldState {
   machine: TextInputMachine;
   /** The last value this router committed, for optimistic reconciliation. */
   lastSent: string;
+  /** The last controlled value observed from the rendered tree. */
+  lastObserved: string;
 }
 
 /**
@@ -129,12 +131,18 @@ export class InputRouter {
           cursor: committed.length,
         }),
         lastSent: committed,
+        lastObserved: committed,
       };
       this.fields.set(id, field);
-    } else if (committed !== field.lastSent) {
-      // An external (non-local) change: adopt the server value.
-      field.machine.setValue(committed);
-      field.lastSent = committed;
+    } else if (committed !== field.lastObserved) {
+      field.lastObserved = committed;
+      if (committed !== field.lastSent) {
+        // The rendered value changed independently of our optimistic write.
+        // Adopt it as an external controlled update. An unchanged old render
+        // is merely lagging behind a burst of local terminal events.
+        field.machine.setValue(committed);
+        field.lastSent = committed;
+      }
     }
     return field;
   }
@@ -148,12 +156,6 @@ export class InputRouter {
    */
   dispatch(event: TuiInputEvent): boolean {
     this.assertActive("dispatch input");
-    if (event.type === "paste") {
-      // Paste is neither mouse nor key; it is always a global event.
-      this.emitGlobal(event);
-      return false;
-    }
-
     if (event.type === "mouse") {
       if (event.action === "move" || event.action === "drag") {
         return this.updateHover(event.x, event.y);
@@ -256,9 +258,10 @@ export class InputRouter {
       }
     }
 
-    // Nothing local consumed this key/text — surface it to the global layer
+    // Nothing local consumed this key/text/paste — surface it to the global layer
     // (useInput). Resolved host-side, so a global hotkey costs zero round trips.
-    if (event.type === "key" || event.type === "text") this.emitGlobal(event);
+    if (event.type === "key" || event.type === "text" || event.type === "paste")
+      this.emitGlobal(event);
     return false;
   }
 

@@ -1,22 +1,39 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
-import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  type TuiInputEvent,
+} from "@uniview/tui-core";
 import { AutomationSession } from "@uniview/host-tui";
 import { createTuiSolidRoot } from "../src/index";
 import { TextInput } from "../src/text-input";
 import { tick } from "./tick";
 
-const key = (k: string): TuiInputEvent => ({ type: "key", key: k, ctrl: false, alt: false, shift: false, meta: false });
+const key = (k: string): TuiInputEvent => ({
+  type: "key",
+  key: k,
+  ctrl: false,
+  alt: false,
+  shift: false,
+  meta: false,
+});
 const typeText = (t: string): TuiInputEvent => ({ type: "text", text: t });
 
 describe("TextInput (Solid)", () => {
   it("edits through the router and renders value + caret", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 10, height: 1 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
     const session = new AutomationSession(root.host);
     const [value, setValue] = createSignal("");
-    root.render(() => <TextInput value={value()} onChange={setValue} placeholder="name" />);
+    root.render(() => (
+      <TextInput value={value()} onChange={setValue} placeholder="name" />
+    ));
     await tick();
 
     root.dispatchInput(key("Tab"));
@@ -34,10 +51,40 @@ describe("TextInput (Solid)", () => {
     root.destroy();
   });
 
+  it("preserves every character when terminal events arrive before a render tick", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 30, height: 1 },
+    });
+    const session = new AutomationSession(root.host);
+    const [value, setValue] = createSignal("");
+    root.render(() => (
+      <TextInput value={value()} onChange={setValue} placeholder="path" />
+    ));
+    await tick();
+
+    root.dispatchInput(key("Tab"));
+    for (const character of "/tmp/demo.pdf") {
+      root.dispatchInput(typeText(character));
+    }
+    await tick();
+
+    expect(value()).toBe("/tmp/demo.pdf");
+    expect(session.query({ role: "textbox" })?.value).toBe("/tmp/demo.pdf");
+    root.destroy();
+  });
+
   it("blinks a single caret — on the focused field only", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 2 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 2 },
+    });
     const [a, setA] = createSignal("aa");
     const [b, setB] = createSignal("bb");
     root.render(() => (
@@ -77,7 +124,11 @@ describe("TextInput (Solid)", () => {
     // the host paints inverse/blink only on the focused textbox (React parity).
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 20, height: 2 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 2 },
+    });
     const [a, setA] = createSignal("");
     const [b, setB] = createSignal("");
     root.render(() => (
@@ -108,9 +159,15 @@ describe("TextInput (Solid)", () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
     const onSubmit = vi.fn();
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 10, height: 1 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
     const [value, setValue] = createSignal("");
-    root.render(() => <TextInput value={value()} onChange={setValue} onSubmit={onSubmit} />);
+    root.render(() => (
+      <TextInput value={value()} onChange={setValue} onSubmit={onSubmit} />
+    ));
     await tick();
     root.dispatchInput(key("Tab"));
     root.dispatchInput(typeText("x"));
@@ -124,10 +181,16 @@ describe("TextInput (Solid)", () => {
   it("masks the display but reports the real value", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiSolidRoot({ surface, styles, size: { width: 10, height: 1 } });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
     const session = new AutomationSession(root.host);
     const [value, setValue] = createSignal("");
-    root.render(() => <TextInput value={value()} onChange={setValue} mask={true} />);
+    root.render(() => (
+      <TextInput value={value()} onChange={setValue} mask={true} />
+    ));
     await tick();
     root.dispatchInput(key("Tab"));
     root.dispatchInput(typeText("a"));
