@@ -51,18 +51,22 @@ export function TextInput(props: TextInputProps): JSX.Element {
         when={slices().placeholder}
         fallback={
           <>
-            <Text>{slices().head}</Text>
+            <Text selectable={false}>{slices().head}</Text>
             <Show when={showCursor()}>
-              <Text caret>{slices().caret}</Text>
+              <Text caret selectable={false}>
+                {slices().caret}
+              </Text>
             </Show>
-            <Text>{slices().tail}</Text>
+            <Text selectable={false}>{slices().tail}</Text>
           </>
         }
       >
         <Show when={showCursor()}>
-          <Text caret>{slices().caret}</Text>
+          <Text caret selectable={false}>
+            {slices().caret}
+          </Text>
         </Show>
-        <Text dim color={props.placeholderColor ?? "gray"}>
+        <Text dim color={props.placeholderColor ?? "gray"} selectable={false}>
           {slices().head}
         </Text>
       </Show>

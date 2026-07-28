@@ -12,11 +12,17 @@ const text = (id: string, t: string): UINode => ({
 
 describe("uinodeToRenderNode", () => {
   it("converts a text node to a text render node", () => {
-    expect(uinodeToRenderNode(text("t", "hi"))).toEqual({ type: "text", text: "hi" });
+    expect(uinodeToRenderNode(text("t", "hi"))).toEqual({
+      type: "text",
+      text: "hi",
+    });
   });
 
   it("converts a bare string child to text", () => {
-    expect(uinodeToRenderNode("hello")).toEqual({ type: "text", text: "hello" });
+    expect(uinodeToRenderNode("hello")).toEqual({
+      type: "text",
+      text: "hello",
+    });
   });
 
   it("maps a text element's props to a text style and joins its text", () => {
@@ -33,6 +39,24 @@ describe("uinodeToRenderNode", () => {
       textStyle: { fg: "cyan", bold: true },
       style: {},
     });
+  });
+
+  it("maps selectable from text and richtext props", () => {
+    const plain = uinodeToRenderNode({
+      id: "plain",
+      type: "text",
+      props: { selectable: false },
+      children: [text("plain-content", "secret")],
+    });
+    const rich = uinodeToRenderNode({
+      id: "rich",
+      type: "richtext",
+      props: { selectable: false, spans: [{ text: "secret" }] },
+      children: [],
+    });
+
+    expect(plain).toMatchObject({ selectable: false });
+    expect(rich).toMatchObject({ selectable: false });
   });
 
   it("descends into a nested inline element instead of dropping its text", () => {
@@ -155,7 +179,11 @@ describe("uinodeToRenderNode — richtext", () => {
       children: [],
     };
     const rendered = uinodeToRenderNode(node);
-    expect(rendered).toMatchObject({ type: "richtext", spans: [], background: "red" });
+    expect(rendered).toMatchObject({
+      type: "richtext",
+      spans: [],
+      background: "red",
+    });
   });
 
   it("accepts an { r, g, b } background (not just string colors)", () => {
@@ -165,7 +193,9 @@ describe("uinodeToRenderNode — richtext", () => {
       props: { backgroundColor: { r: 24, g: 26, b: 38 } },
       children: [],
     };
-    expect(uinodeToRenderNode(node)).toMatchObject({ background: { r: 24, g: 26, b: 38 } });
+    expect(uinodeToRenderNode(node)).toMatchObject({
+      background: { r: 24, g: 26, b: 38 },
+    });
   });
 
   it("accepts an { r, g, b } text color", () => {
@@ -175,7 +205,9 @@ describe("uinodeToRenderNode — richtext", () => {
       props: { color: { r: 255, g: 0, b: 0 } },
       children: [],
     };
-    expect(uinodeToRenderNode(node)).toMatchObject({ textStyle: { fg: { r: 255, g: 0, b: 0 } } });
+    expect(uinodeToRenderNode(node)).toMatchObject({
+      textStyle: { fg: { r: 255, g: 0, b: 0 } },
+    });
   });
 
   it("ignores a malformed spans prop (not an array)", () => {
@@ -185,18 +217,30 @@ describe("uinodeToRenderNode — richtext", () => {
       props: { spans: "oops" },
       children: [],
     };
-    expect(uinodeToRenderNode(node)).toMatchObject({ type: "richtext", spans: [] });
+    expect(uinodeToRenderNode(node)).toMatchObject({
+      type: "richtext",
+      spans: [],
+    });
   });
 });
 
 const box = (props: Record<string, unknown>): UINode => ({
-  id: "p", type: "box", props: props as UINode["props"], children: [],
+  id: "p",
+  type: "box",
+  props: props as UINode["props"],
+  children: [],
 });
 
 describe("convert — panel chrome props", () => {
   it("maps title/footer/align and borderColor onto the render node", () => {
     const node = uinodeToRenderNode(
-      box({ border: "rounded", title: "Status", footer: "1 of 8", footerAlign: "right", borderColor: "green" }),
+      box({
+        border: "rounded",
+        title: "Status",
+        footer: "1 of 8",
+        footerAlign: "right",
+        borderColor: "green",
+      }),
     );
     expect(node).not.toBeNull();
     expect(node!.title).toBe("Status");
@@ -206,7 +250,9 @@ describe("convert — panel chrome props", () => {
   });
 
   it("accepts an { r, g, b } borderColor", () => {
-    const node = uinodeToRenderNode(box({ border: "single", borderColor: { r: 0, g: 255, b: 0 } }));
+    const node = uinodeToRenderNode(
+      box({ border: "single", borderColor: { r: 0, g: 255, b: 0 } }),
+    );
     expect(node!.borderStyle).toEqual({ fg: { r: 0, g: 255, b: 0 } });
   });
 });

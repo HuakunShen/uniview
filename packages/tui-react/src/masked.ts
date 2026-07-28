@@ -15,5 +15,9 @@ export interface MaskedProps extends Omit<TextProps, "children"> {
  */
 export function Masked(props: MaskedProps): ReactElement {
   const { value, mask = DEFAULT_MASK, ...rest } = props;
-  return createElement(Text, rest, maskText(value, mask));
+  return createElement(
+    Text,
+    { ...rest, selectable: false },
+    maskText(value, mask),
+  );
 }

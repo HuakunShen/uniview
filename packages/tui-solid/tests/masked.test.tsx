@@ -14,11 +14,16 @@ function mount(App: () => unknown, width: number, height: number) {
 
 describe("Masked (Solid)", () => {
   it("renders one bullet per grapheme, never the plaintext", async () => {
-    const { root, surface } = mount(() => <Masked value="hunter2" />, 10, 1);
+    const { root, surface } = mount(
+      () => <Masked value="hunter2" selectable />,
+      10,
+      1,
+    );
     await tick();
     const text = surface.text({ trimRight: true });
     expect(text).toBe("•••••••");
     expect(text).not.toContain("hunter2");
+    expect([...surface.lastFrame!.selectable]).toEqual(new Array(10).fill(0));
     root.destroy();
   });
 });

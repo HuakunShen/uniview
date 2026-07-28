@@ -15,11 +15,16 @@ function mount(el: ReactElement, width: number, height: number) {
 
 describe("Masked (React)", () => {
   it("renders one bullet per grapheme, never the plaintext", async () => {
-    const { root, surface } = mount(h(Masked, { value: "hunter2" }), 10, 1);
+    const { root, surface } = mount(
+      h(Masked, { value: "hunter2", selectable: true }),
+      10,
+      1,
+    );
     await tick();
     const text = surface.text({ trimRight: true });
     expect(text).toBe("•••••••");
     expect(text).not.toContain("hunter2");
+    expect([...surface.lastFrame!.selectable]).toEqual(new Array(10).fill(0));
     root.destroy();
   });
 });

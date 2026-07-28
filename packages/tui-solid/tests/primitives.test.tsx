@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import { MemoryCellSurface, StyleTable } from "@uniview/tui-core";
 import { createTuiSolidRoot, type TuiSolidRoot } from "../src/index";
-import { Box, Text } from "../src/primitives";
+import { Box, RichText, Text } from "../src/primitives";
 
 import { tick } from "./tick";
 
@@ -47,7 +47,11 @@ describe("Box", () => {
 describe("Text", () => {
   it("renders the string styled with color + bold", async () => {
     const { surface, styles } = mount(
-      () => <Text color="cyan" bold>Hello</Text>,
+      () => (
+        <Text color="cyan" bold>
+          Hello
+        </Text>
+      ),
       10,
       1,
     );
@@ -57,6 +61,66 @@ describe("Text", () => {
     const style = styles.get(frame.cells[0]![0]!.styleId);
     expect(style.fg).toBe("cyan");
     expect(style.bold).toBe(true);
+  });
+
+  it("is selectable by default and honors selectable=false for text and richtext", async () => {
+    const { surface } = mount(
+      () => (
+        <Box flexDirection="column">
+          <Text>copy</Text>
+          <Text selectable={false}>secret</Text>
+          <RichText selectable={false} spans={[{ text: "hidden" }]} />
+        </Box>
+      ),
+      10,
+      3,
+    );
+    await tick();
+
+    const frame = surface.lastFrame!;
+    expect([...frame.selectable.slice(0, 4)]).toEqual([1, 1, 1, 1]);
+    expect([...frame.selectable.slice(10, 16)]).toEqual([0, 0, 0, 0, 0, 0]);
+    expect([...frame.selectable.slice(20, 26)]).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
+  it("passes selection options through the Solid root", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 8, height: 1 },
+      selection: {},
+    });
+    root.render(() => <Text>select</Text>);
+    await tick();
+
+    root.dispatchInput({
+      type: "mouse",
+      action: "down",
+      button: "left",
+      x: 0,
+      y: 0,
+      ctrl: false,
+      alt: false,
+      shift: false,
+    });
+    root.dispatchInput({
+      type: "mouse",
+      action: "drag",
+      button: "left",
+      x: 2,
+      y: 0,
+      ctrl: false,
+      alt: false,
+      shift: false,
+    });
+
+    expect(root.host.renderer.selectionRange).toEqual({
+      start: { x: 0, y: 0 },
+      end: { x: 2, y: 0 },
+    });
+    root.destroy();
   });
 });
 

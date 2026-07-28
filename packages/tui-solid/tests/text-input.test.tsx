@@ -200,6 +200,24 @@ describe("TextInput (Solid)", () => {
     expect(session.query({ role: "textbox" })?.value).toBe("ab");
     expect(surface.text({ trimRight: true })).toContain("••");
     expect(surface.text({ trimRight: true })).not.toContain("ab");
+    expect([...surface.lastFrame!.selectable]).toEqual(new Array(10).fill(0));
+    root.destroy();
+  });
+
+  it("keeps ordinary text input content non-selectable", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiSolidRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
+    root.render(() => (
+      <TextInput value="visible" onChange={() => {}} placeholder="name" />
+    ));
+    await tick();
+
+    expect([...surface.lastFrame!.selectable]).toEqual(new Array(10).fill(0));
     root.destroy();
   });
 });

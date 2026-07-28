@@ -1,4 +1,9 @@
-import { createElement, type Key, type ReactElement, type ReactNode } from "react";
+import {
+  createElement,
+  type Key,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import type {
   Color,
   StyledSpan,
@@ -36,7 +41,8 @@ export type {
 };
 
 /** Attributes shared by every TUI element: layout ({@link TuiStyle}) + handlers + semantics. */
-export interface TuiCommonProps extends TuiStyle, TuiEventHandlers, TuiSemanticProps {
+export interface TuiCommonProps
+  extends TuiStyle, TuiEventHandlers, TuiSemanticProps {
   key?: Key;
   children?: ReactNode;
   /** Fill color for the element's box region (name/CSS string or `{ r, g, b }`). */
@@ -48,6 +54,8 @@ export type BoxProps = TuiCommonProps;
 
 /** Props for {@link Text}. */
 export interface TextProps extends TuiCommonProps {
+  /** Participate in application-level mouse text selection. Defaults to true. */
+  selectable?: boolean;
   color?: Color;
   bold?: boolean;
   dim?: boolean;
@@ -62,6 +70,8 @@ export interface TextProps extends TuiCommonProps {
 /** Props for {@link RichText}. */
 export interface RichTextProps extends TuiCommonProps {
   spans?: StyledSpan[];
+  /** Participate in application-level mouse text selection. Defaults to true. */
+  selectable?: boolean;
 }
 
 /** A flexbox container (`box` primitive). */

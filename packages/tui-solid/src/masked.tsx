@@ -18,5 +18,9 @@ export interface MaskedProps extends Omit<TextProps, "children"> {
  */
 export function Masked(props: MaskedProps): JSX.Element {
   const [, rest] = splitProps(props, ["value", "mask"]);
-  return <Text {...rest}>{maskText(props.value, props.mask ?? DEFAULT_MASK)}</Text>;
+  return (
+    <Text {...rest} selectable={false}>
+      {maskText(props.value, props.mask ?? DEFAULT_MASK)}
+    </Text>
+  );
 }

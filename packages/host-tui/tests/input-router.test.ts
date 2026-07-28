@@ -437,3 +437,94 @@ describe("InputRouter — whole-row click target", () => {
     expect(calls).toEqual(["pick"]);
   });
 });
+
+describe("InputRouter — text selection arbitration", () => {
+  function setupSelectableRow() {
+    const calls: string[] = [];
+    const styles = new StyleTable();
+    const host = new TuiHost({
+      surface: new MemoryCellSurface({ styles }),
+      styles,
+      size: { width: 16, height: 1 },
+      selection: {},
+      onInvokeHandler: (id) => calls.push(id),
+    });
+    host.setRoot({
+      id: "root",
+      type: "box",
+      props: {},
+      children: [
+        {
+          id: "item",
+          type: "box",
+          props: { [handlerIdProp("onClick")]: "pick" },
+          children: [textEl("label", "device-studio")],
+        },
+      ],
+    });
+    const router = new InputRouter(host);
+    router.onRender();
+    return { calls, host, router };
+  }
+
+  const pointer = (
+    action: "down" | "drag" | "up",
+    x: number,
+    shift = false,
+  ): TuiInputEvent => ({
+    type: "mouse",
+    action,
+    button: "left",
+    x,
+    y: 0,
+    ctrl: false,
+    alt: false,
+    shift,
+  });
+
+  it("preserves a same-cell click", () => {
+    const { calls, router } = setupSelectableRow();
+
+    expect(router.dispatch(pointer("down", 1))).toBe(false);
+    expect(router.dispatch(pointer("up", 1))).toBe(true);
+    expect(calls).toEqual(["pick"]);
+  });
+
+  it("selects a dragged row label without activating the row", () => {
+    const { calls, host, router } = setupSelectableRow();
+
+    router.dispatch(pointer("down", 1));
+    expect(router.dispatch(pointer("drag", 5))).toBe(true);
+    expect(router.dispatch(pointer("up", 5))).toBe(true);
+
+    expect(calls).toEqual([]);
+    expect(host.renderer.selectionRange).toEqual({
+      start: { x: 1, y: 0 },
+      end: { x: 5, y: 0 },
+    });
+  });
+
+  it("clears selection on Escape and still delivers Escape globally", () => {
+    const { host, router } = setupSelectableRow();
+    const global: TuiInputEvent[] = [];
+    router.subscribeInput((event) => global.push(event));
+    router.dispatch(pointer("down", 1));
+    router.dispatch(pointer("drag", 5));
+    router.dispatch(pointer("up", 5));
+
+    expect(router.dispatch(key("Escape"))).toBe(false);
+    expect(host.renderer.selectionRange).toBeNull();
+    expect(global).toEqual([key("Escape")]);
+  });
+
+  it("does not activate a row for a shifted drag reported by the terminal", () => {
+    const { calls, host, router } = setupSelectableRow();
+
+    router.dispatch(pointer("down", 1, true));
+    expect(router.dispatch(pointer("drag", 5, true))).toBe(true);
+    expect(router.dispatch(pointer("up", 5, true))).toBe(true);
+
+    expect(calls).toEqual([]);
+    expect(host.renderer.selectionRange).toBeNull();
+  });
+});

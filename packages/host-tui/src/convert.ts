@@ -9,7 +9,13 @@ import {
   type JSONValue,
   type UINode,
 } from "@uniview/protocol/core";
-import type { CellStyle, Color, RenderNode, StyledSpan, TuiStyle } from "@uniview/tui-core";
+import type {
+  CellStyle,
+  Color,
+  RenderNode,
+  StyledSpan,
+  TuiStyle,
+} from "@uniview/tui-core";
 
 /** Element types treated as inline text (their text children are flattened). */
 const TEXT_TYPES = new Set([
@@ -78,7 +84,11 @@ function asColor(value: JSONValue | undefined): Color | undefined {
   if (typeof value === "string") return value;
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     const o = value as Record<string, JSONValue>;
-    if (typeof o.r === "number" && typeof o.g === "number" && typeof o.b === "number") {
+    if (
+      typeof o.r === "number" &&
+      typeof o.g === "number" &&
+      typeof o.b === "number"
+    ) {
       return { r: o.r, g: o.g, b: o.b };
     }
   }
@@ -87,7 +97,9 @@ function asColor(value: JSONValue | undefined): Color | undefined {
 
 type EdgeAlign = "left" | "center" | "right";
 function asAlign(value: JSONValue | undefined): EdgeAlign | undefined {
-  return value === "left" || value === "center" || value === "right" ? value : undefined;
+  return value === "left" || value === "center" || value === "right"
+    ? value
+    : undefined;
 }
 
 function propsToTextStyle(props: Record<string, JSONValue>): CellStyle {
@@ -107,7 +119,8 @@ function parseSpans(value: JSONValue | undefined): StyledSpan[] {
   if (!Array.isArray(value)) return [];
   const spans: StyledSpan[] = [];
   for (const item of value) {
-    if (item === null || typeof item !== "object" || Array.isArray(item)) continue;
+    if (item === null || typeof item !== "object" || Array.isArray(item))
+      continue;
     const record = item as Record<string, JSONValue>;
     if (typeof record.text !== "string") continue;
     const span: StyledSpan = { text: record.text };
@@ -166,7 +179,8 @@ function convert(
   inFocused: boolean,
 ): RenderNode | null {
   if (typeof node === "string") return { type: "text", text: node };
-  if (node.type === TEXT_NODE_TYPE) return { type: "text", text: node.text ?? "" };
+  if (node.type === TEXT_NODE_TYPE)
+    return { type: "text", text: node.text ?? "" };
 
   const style = propsToStyle(node.props);
 
@@ -177,6 +191,9 @@ function convert(
       style,
       spans: parseSpans(node.props.spans),
     };
+    if (typeof node.props.selectable === "boolean") {
+      rendered.selectable = node.props.selectable;
+    }
     const bg = asColor(node.props.backgroundColor);
     if (bg !== undefined) rendered.background = bg;
     return rendered;
@@ -189,17 +206,22 @@ function convert(
       textStyle.inverse = true;
       textStyle.blink = true;
     }
-    return {
+    const rendered: RenderNode = {
       type: "text",
       id: node.id,
       text: joinText(node),
       textStyle,
       style,
     };
+    if (typeof node.props.selectable === "boolean") {
+      rendered.selectable = node.props.selectable;
+    }
+    return rendered;
   }
 
   // Everything at or below the focused node paints in its "focused" variant.
-  const childInFocused = inFocused || (focusedId !== null && node.id === focusedId);
+  const childInFocused =
+    inFocused || (focusedId !== null && node.id === focusedId);
   const rendered: RenderNode = {
     type: node.type,
     id: node.id,
@@ -213,7 +235,8 @@ function convert(
   if (typeof node.props.title === "string") rendered.title = node.props.title;
   const titleAlign = asAlign(node.props.titleAlign);
   if (titleAlign) rendered.titleAlign = titleAlign;
-  if (typeof node.props.footer === "string") rendered.footer = node.props.footer;
+  if (typeof node.props.footer === "string")
+    rendered.footer = node.props.footer;
   const footerAlign = asAlign(node.props.footerAlign);
   if (footerAlign) rendered.footerAlign = footerAlign;
   const borderColor = asColor(node.props.borderColor);

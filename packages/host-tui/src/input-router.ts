@@ -173,6 +173,9 @@ export class InputRouter {
    */
   dispatch(event: TuiInputEvent): boolean {
     this.assertActive("dispatch input");
+    const selection = this.host.renderer.handleSelectionInput(event);
+    if (selection.consumed) return true;
+
     if (event.type === "mouse") {
       if (event.action === "move" || event.action === "drag") {
         return this.updateHover(event.x, event.y);

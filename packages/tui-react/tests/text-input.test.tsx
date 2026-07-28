@@ -1,24 +1,44 @@
 import { describe, expect, it, vi } from "vitest";
 import { createElement as h, useState } from "react";
-import { MemoryCellSurface, StyleTable, type TuiInputEvent } from "@uniview/tui-core";
+import {
+  MemoryCellSurface,
+  StyleTable,
+  type TuiInputEvent,
+} from "@uniview/tui-core";
 import { AutomationSession } from "@uniview/host-tui";
 import { createTuiReactRoot } from "../src/index";
 import { TextInput } from "../src/text-input";
 import { tick } from "./tick";
 
-const key = (k: string): TuiInputEvent => ({ type: "key", key: k, ctrl: false, alt: false, shift: false, meta: false });
+const key = (k: string): TuiInputEvent => ({
+  type: "key",
+  key: k,
+  ctrl: false,
+  alt: false,
+  shift: false,
+  meta: false,
+});
 const typeText = (t: string): TuiInputEvent => ({ type: "text", text: t });
 
 function App({ onSubmit }: { onSubmit?: (v: string) => void }) {
   const [value, setValue] = useState("");
-  return h(TextInput, { value, onChange: setValue, onSubmit, placeholder: "name" });
+  return h(TextInput, {
+    value,
+    onChange: setValue,
+    onSubmit,
+    placeholder: "name",
+  });
 }
 
 describe("TextInput", () => {
   it("edits through the router and renders value + caret", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiReactRoot({ surface, styles, size: { width: 10, height: 1 } });
+    const root = createTuiReactRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
     const session = new AutomationSession(root.host);
     root.render(h(App, {}));
     await tick();
@@ -44,7 +64,11 @@ describe("TextInput", () => {
   it("blinks a single caret — on the focused field only", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiReactRoot({ surface, styles, size: { width: 20, height: 2 } });
+    const root = createTuiReactRoot({
+      surface,
+      styles,
+      size: { width: 20, height: 2 },
+    });
     function Two() {
       const [a, setA] = useState("aa");
       const [b, setB] = useState("bb");
@@ -90,7 +114,11 @@ describe("TextInput", () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
     const onSubmit = vi.fn();
-    const root = createTuiReactRoot({ surface, styles, size: { width: 10, height: 1 } });
+    const root = createTuiReactRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
     root.render(h(App, { onSubmit }));
     await tick();
     root.dispatchInput(key("Tab"));
@@ -105,7 +133,11 @@ describe("TextInput", () => {
   it("masks the display but reports the real value", async () => {
     const styles = new StyleTable();
     const surface = new MemoryCellSurface({ styles });
-    const root = createTuiReactRoot({ surface, styles, size: { width: 10, height: 1 } });
+    const root = createTuiReactRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
     const session = new AutomationSession(root.host);
     function Pwd() {
       const [value, setValue] = useState("");
@@ -121,6 +153,28 @@ describe("TextInput", () => {
     expect(session.query({ role: "textbox" })?.value).toBe("ab");
     expect(surface.text({ trimRight: true })).toContain("••");
     expect(surface.text({ trimRight: true })).not.toContain("ab");
+    expect([...surface.lastFrame!.selectable]).toEqual(new Array(10).fill(0));
+    root.destroy();
+  });
+
+  it("keeps ordinary text input content non-selectable", async () => {
+    const styles = new StyleTable();
+    const surface = new MemoryCellSurface({ styles });
+    const root = createTuiReactRoot({
+      surface,
+      styles,
+      size: { width: 10, height: 1 },
+    });
+    root.render(
+      h(TextInput, {
+        value: "visible",
+        onChange: () => {},
+        placeholder: "name",
+      }),
+    );
+    await tick();
+
+    expect([...surface.lastFrame!.selectable]).toEqual(new Array(10).fill(0));
     root.destroy();
   });
 });

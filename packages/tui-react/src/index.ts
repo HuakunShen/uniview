@@ -26,6 +26,7 @@ import type {
   CommittedOutput,
   LayoutEngine,
   Size,
+  TextSelectionOptions,
   TuiInputEvent,
   TtyInput,
   TtyOutput,
@@ -177,6 +178,8 @@ export interface TuiReactRootOptions {
   clock?: FrameClock;
   /** Layout engine; defaults to the zero-dependency customLayoutEngine. Pass `yogaLayoutEngine` to opt in. */
   layoutEngine?: LayoutEngine;
+  /** Optional application-level visible text selection. */
+  selection?: TextSelectionOptions;
   /**
    * "full" (default) re-serializes the tree each commit; "incremental" feeds
    * React's mutation batches to the host (the protocol's incremental path).
@@ -236,6 +239,7 @@ export function createTuiReactRoot(options: TuiReactRootOptions): TuiReactRoot {
     styles: options.styles,
     committed: options.committed,
     layoutEngine: options.layoutEngine,
+    selection: options.selection,
     onInvokeHandler: (handlerId, payload) => {
       void registry.execute(handlerId, payload);
     },

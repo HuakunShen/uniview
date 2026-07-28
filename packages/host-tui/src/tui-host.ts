@@ -14,6 +14,7 @@ import {
   type LayoutEngine,
   type Size,
   type StyledLine,
+  type TextSelectionOptions,
 } from "@uniview/tui-core";
 import { extractHandlers, uinodeToRenderNode } from "./convert";
 import { MutableTree } from "./mutable-tree";
@@ -38,6 +39,8 @@ export interface TuiHostOptions {
   committed?: CommittedOutput;
   /** Layout engine; defaults to the zero-dependency customLayoutEngine. */
   layoutEngine?: LayoutEngine;
+  /** Optional application-level visible text selection. */
+  selection?: TextSelectionOptions;
 }
 
 type TuiHostLifecycle = "active" | "destroying" | "destroyed";
@@ -80,6 +83,7 @@ export class TuiHost {
       styles: options.styles ?? new StyleTable(),
       schedule: options.schedule,
       layoutEngine: options.layoutEngine,
+      selection: options.selection,
     });
   }
 
