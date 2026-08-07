@@ -161,6 +161,23 @@ describe("computeLayout — flex grow", () => {
   });
 });
 
+describe("computeLayout — flex shrink", () => {
+  it("shrinks an explicit flexShrink child when content exceeds the parent", () => {
+    const result = computeLayout(
+      box({ flexDirection: "column", width: 10, height: 20 }, [
+        leaf(10, 3),
+        box(
+          { flexGrow: 1, flexShrink: 1, border: "rounded", padding: 1 },
+          Array.from({ length: 40 }, () => leaf(4, 1)),
+        ),
+      ]),
+      { width: 10, height: 20 },
+    );
+
+    expect(result.children[1]!.box.height).toBe(17);
+  });
+});
+
 describe("computeLayout — alignment", () => {
   it("centers children on the cross axis with alignItems", () => {
     const result = computeLayout(

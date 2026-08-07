@@ -61,6 +61,66 @@ describe("renderToBuffer — text", () => {
   });
 });
 
+describe("renderToBuffer — overflow and scroll", () => {
+  it("allows visible content to paint outside its box", () => {
+    const { buffer } = render(
+      {
+        type: "box",
+        style: { width: 5, height: 2, overflow: "visible" },
+        children: [
+          {
+            type: "text",
+            text: "visible",
+            style: { position: "absolute", top: 2, left: 0, width: 5, height: 1 },
+          },
+        ],
+      },
+      5,
+      4,
+    );
+
+    expect(frameToLines(buffer, { trimRight: true })).toEqual(["", "", "visib", ""]);
+  });
+
+  it("clips hidden content to its box", () => {
+    const { buffer } = render(
+      {
+        type: "box",
+        style: { width: 5, height: 2, overflow: "hidden" },
+        children: [
+          {
+            type: "text",
+            text: "hidden",
+            style: { position: "absolute", top: 2, left: 0, width: 5, height: 1 },
+          },
+        ],
+      },
+      5,
+      4,
+    );
+
+    expect(frameToLines(buffer, { trimRight: true })).toEqual(["", "", "", ""]);
+  });
+
+  it("keeps the border fixed while scrolling descendants", () => {
+    const { buffer } = render(
+      {
+        type: "box",
+        style: { border: "single", width: 8, height: 5, overflow: "scroll", scrollTop: 2 },
+        children: Array.from({ length: 5 }, (_, i) => ({ type: "text", text: "row-" + i })),
+      },
+      8,
+      5,
+    );
+
+    const lines = frameToLines(buffer);
+    expect(lines[0]).toBe("┌──────┐");
+    expect(lines[1]).toContain("row-2");
+    expect(lines[3]).toContain("row-4");
+    expect(lines[4]).toBe("└──────┘");
+  });
+});
+
 describe("renderToBuffer — background", () => {
   it("fills the box region with the background style", () => {
     const { buffer, styles } = render(

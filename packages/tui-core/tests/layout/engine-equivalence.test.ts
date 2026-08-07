@@ -54,6 +54,17 @@ const cases: { name: string; tree: LayoutInput; size: { width: number; height: n
     },
     size: { width: 16, height: 10 },
   },
+  {
+    name: "explicit flexShrink bounds content-sized panel",
+    tree: {
+      style: { flexDirection: "column", width: 10, height: 20 },
+      children: [
+        { style: { height: 3 } },
+        { style: { flexGrow: 1, flexShrink: 1, border: "rounded", padding: 1 }, children: Array.from({ length: 40 }, () => ({ style: { height: 1 } })) },
+      ],
+    },
+    size: { width: 10, height: 20 },
+  },
 ];
 
 describe("engine equivalence — custom vs yoga", () => {
