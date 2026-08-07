@@ -143,14 +143,25 @@ async function collectOfflineOverrides(seedDirectories) {
     if (seenDirectories.has(packageDirectory)) continue;
     seenDirectories.add(packageDirectory);
     const manifest = await readJson(join(packageDirectory, "package.json"));
-    for (const [name, specifier] of Object.entries(
-      manifest.dependencies ?? {},
-    )) {
+    const optionalNames = new Set(
+      Object.keys(manifest.optionalDependencies ?? {}),
+    );
+    for (const [name, specifier] of Object.entries({
+      ...manifest.dependencies,
+      ...manifest.optionalDependencies,
+    })) {
       if (name.startsWith("@uniview/")) continue;
-      const dependencyDirectory = await resolveInstalledDependency(
-        packageDirectory,
-        name,
-      );
+      let dependencyDirectory;
+      try {
+        dependencyDirectory = await resolveInstalledDependency(
+          packageDirectory,
+          name,
+        );
+      } catch (error) {
+        if (optionalNames.has(name) && error?.code === "MODULE_NOT_FOUND")
+          continue;
+        throw error;
+      }
       const replacement = `file:${dependencyDirectory}`;
       const replacements = replacementsByName.get(name) ?? new Map();
       const specifiers = replacements.get(replacement) ?? new Set();
@@ -740,7 +751,7 @@ try {
     localSolid,
   ]);
   const localSolidManifest = await readJson(join(localSolid, "package.json"));
-  assert.equal(localSolidManifest.version, "1.9.10");
+  assert.equal(localSolidManifest.version, "1.9.11");
   solidOfflineOverrides["solid-js"] = `file:${localSolid}`;
 
   const coreProject = join(temporaryRoot, "core");
@@ -2165,8 +2176,8 @@ void plugin
       projectDirectory,
       "solid-js",
     );
-    assert.equal(installedSolid.version, "1.9.10");
-    await assertSingleInstalledVersion(projectDirectory, "solid-js", "1.9.10");
+    assert.equal(installedSolid.version, "1.9.11");
+    await assertSingleInstalledVersion(projectDirectory, "solid-js", "1.9.11");
   }
 
   for (const [key, manifest] of Object.entries({
