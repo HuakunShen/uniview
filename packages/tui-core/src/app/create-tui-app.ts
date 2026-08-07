@@ -38,7 +38,7 @@ export interface TuiApp {
  * Compose a runnable, framework-agnostic TUI app from the core pieces: an ANSI
  * surface writing to `output`, a {@link TerminalDriver} owning the terminal and
  * parsing `input`, and a {@link TuiRenderer} driving frames. Resize events
- * re-render at the new geometry; other events are dispatched to `onInput`
+ * updates the renderer geometry and are dispatched to `onInput`; other events are dispatched to `onInput`
  * handlers. This is the plan's "direct mode" — no React/Solid required.
  */
 export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
@@ -83,7 +83,12 @@ export function createTuiApp(options: CreateTuiAppOptions): TuiApp {
     if (teardownStarted || !renderer) return;
     if (event.type === "resize") {
       renderer.resize({ width: event.width, height: event.height });
-      renderer.flush();
+      for (const handler of handlers) {
+        latchRendererTeardown();
+        if (teardownStarted) return;
+        handler(event);
+      }
+      if (!teardownStarted) renderer.flush();
       return;
     }
     for (const handler of handlers) {

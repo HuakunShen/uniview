@@ -1,0 +1,22 @@
+{
+  "name": "@uniview/tui-space-lens",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Direct @uniview/tui-core Space Lens-style bounded tree example",
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@uniview/tui-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.0.0"
+  }
+}

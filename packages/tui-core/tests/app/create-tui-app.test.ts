@@ -450,4 +450,16 @@ describe("createTuiApp", () => {
     expect(enterAttempts).toBe(2);
     replacement.destroy();
   });
+  it("dispatches resize events after updating renderer geometry", () => {
+    const tty = fakeTty(20, 5);
+    const app = createTuiApp({ input: tty.input, output: tty.output });
+    const seen: TuiInputEvent[] = [];
+    app.onInput((event) => seen.push(event));
+
+    tty.emitResize(30, 8);
+
+    expect(seen).toEqual([{ type: "resize", width: 30, height: 8 }]);
+    expect(app.size).toEqual({ width: 30, height: 8 });
+    app.destroy();
+  });
 });
