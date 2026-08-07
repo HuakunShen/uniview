@@ -4,7 +4,7 @@ import { customLayoutEngine, type LayoutEngine } from "../layout/engine";
 import { StyleTable, type CellStyle, type Color } from "../style/style-table";
 import { stringCellWidth } from "../text/graphemes";
 import { styledLineWidth, type StyledSpan } from "../text/styled-text";
-import type { TuiStyle } from "../style/tui-style";
+import { borderInsets, resolveInsets, type TuiStyle } from "../style/tui-style";
 import type { Size } from "../surface/types";
 import { borderGlyphs } from "./border";
 import { OwnerTable } from "./owner-table";
@@ -212,8 +212,9 @@ function paintNode(
   styles: StyleTable,
   owners: OwnerTable,
   clip: Rect,
+  offsetY = 0,
 ): void {
-  const box = layout.box;
+  const box = { ...layout.box, y: layout.box.y + offsetY };
   const boxClip = intersect(clip, box);
   if (boxClip.width <= 0 || boxClip.height <= 0) return;
 
@@ -315,13 +316,42 @@ function paintNode(
   }
 
   const children = node.children ?? [];
+  const border = borderInsets(node.style ?? {});
+  const padding = resolveInsets(node.style?.padding);
+  const contentClip = intersect(boxClip, {
+    x: box.x + border.left + padding.left,
+    y: box.y + border.top + padding.top,
+    width: Math.max(
+      0,
+      box.width - border.left - border.right - padding.left - padding.right,
+    ),
+    height: Math.max(
+      0,
+      box.height - border.top - border.bottom - padding.top - padding.bottom,
+    ),
+  });
+  const childClip = node.style?.overflow === "visible" ? clip : contentClip;
+  const childOffsetY =
+    offsetY -
+    (node.style?.overflow === "scroll"
+      ? Math.max(0, node.style.scrollTop ?? 0)
+      : 0);
+
   // In-flow children first, then absolute children (overlays) by zIndex — so
   // dialogs / command palettes paint on top of the content behind them.
   children.forEach((child, i) => {
     if (child.style?.position === "absolute") return;
     const childLayout = layout.children[i];
     if (childLayout)
-      paintNode(child, childLayout, buffer, styles, owners, boxClip);
+      paintNode(
+        child,
+        childLayout,
+        buffer,
+        styles,
+        owners,
+        childClip,
+        childOffsetY,
+      );
   });
   const absolute = children
     .map((child, i) => ({ child, i }))
@@ -332,7 +362,15 @@ function paintNode(
   for (const { child, i } of absolute) {
     const childLayout = layout.children[i];
     if (childLayout)
-      paintNode(child, childLayout, buffer, styles, owners, boxClip);
+      paintNode(
+        child,
+        childLayout,
+        buffer,
+        styles,
+        owners,
+        childClip,
+        childOffsetY,
+      );
   }
 }
 

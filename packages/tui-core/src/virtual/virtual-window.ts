@@ -21,7 +21,9 @@ export interface VirtualWindow {
 }
 
 /** Compute the visible (plus overscan) item range for a virtualized list. */
-export function computeVirtualWindow(options: VirtualWindowOptions): VirtualWindow {
+export function computeVirtualWindow(
+  options: VirtualWindowOptions,
+): VirtualWindow {
   const { itemCount, itemHeight, viewportHeight } = options;
   const overscan = options.overscan ?? 0;
   const totalHeight = itemCount * itemHeight;
@@ -30,7 +32,10 @@ export function computeVirtualWindow(options: VirtualWindowOptions): VirtualWind
     return { startIndex: 0, endIndex: -1, offsetY: 0, totalHeight };
   }
 
-  const scrollTop = Math.max(0, Math.min(options.scrollTop ?? 0, Math.max(0, totalHeight - viewportHeight)));
+  const scrollTop = Math.max(
+    0,
+    Math.min(options.scrollTop ?? 0, Math.max(0, totalHeight - viewportHeight)),
+  );
   const firstVisible = Math.floor(scrollTop / itemHeight);
   const lastVisible = Math.floor((scrollTop + viewportHeight - 1) / itemHeight);
 
@@ -41,7 +46,10 @@ export function computeVirtualWindow(options: VirtualWindowOptions): VirtualWind
   return { startIndex, endIndex, offsetY, totalHeight };
 }
 
-export interface VirtualListInit extends Omit<VirtualWindowOptions, "scrollTop"> {
+export interface VirtualListInit extends Omit<
+  VirtualWindowOptions,
+  "scrollTop"
+> {
   scrollTop?: number;
 }
 
@@ -52,12 +60,14 @@ export interface VirtualListInit extends Omit<VirtualWindowOptions, "scrollTop">
  */
 export class VirtualListMachine {
   private top = 0;
-  private readonly itemCount: number;
+  private itemCount: number;
   private readonly itemHeight: number;
-  private readonly viewportHeight: number;
+  private viewportHeight: number;
   private readonly overscan: number;
 
   constructor(init: VirtualListInit) {
+    this.assertDimension(init.itemCount, "itemCount");
+    this.assertDimension(init.viewportHeight, "viewportHeight");
     this.itemCount = init.itemCount;
     this.itemHeight = init.itemHeight;
     this.viewportHeight = init.viewportHeight;
@@ -71,6 +81,24 @@ export class VirtualListMachine {
 
   get maxScroll(): number {
     return Math.max(0, this.itemCount * this.itemHeight - this.viewportHeight);
+  }
+
+  setItemCount(itemCount: number): void {
+    this.assertDimension(itemCount, "itemCount");
+    this.itemCount = itemCount;
+    this.top = this.clamp(this.top);
+  }
+
+  setViewportHeight(viewportHeight: number): void {
+    this.assertDimension(viewportHeight, "viewportHeight");
+    this.viewportHeight = viewportHeight;
+    this.top = this.clamp(this.top);
+  }
+
+  private assertDimension(value: number, name: string): void {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new RangeError(name + " must be a non-negative integer");
+    }
   }
 
   private clamp(value: number): number {

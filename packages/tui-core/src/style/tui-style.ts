@@ -72,6 +72,8 @@ export interface TuiStyle {
 
   border?: BorderValue;
   overflow?: "visible" | "hidden" | "scroll";
+  /** Vertical content offset for an overflow-scroll container, in cells. */
+  scrollTop?: number;
   zIndex?: number;
 }
 
@@ -94,7 +96,8 @@ export function resolveInsets(value: InsetsValue | undefined): Insets {
 /** A visible border contributes one cell on each side. */
 export function borderInsets(style: TuiStyle): Insets {
   const border = style.border;
-  const visible = border === true || (typeof border === "string" && border !== "none");
+  const visible =
+    border === true || (typeof border === "string" && border !== "none");
   return visible ? { top: 1, right: 1, bottom: 1, left: 1 } : ZERO_INSETS;
 }
 

@@ -181,9 +181,10 @@ describe("computeLayout — flex shrink", () => {
 describe("computeLayout — alignment", () => {
   it("centers children on the cross axis with alignItems", () => {
     const result = computeLayout(
-      box({ flexDirection: "row", alignItems: "center", width: 20, height: 5 }, [
-        leaf(4, 1),
-      ]),
+      box(
+        { flexDirection: "row", alignItems: "center", width: 20, height: 5 },
+        [leaf(4, 1)],
+      ),
       { width: 20, height: 5 },
     );
     expect(result.children[0]!.box.y).toBe(2); // (5 - 1) / 2
@@ -191,9 +192,10 @@ describe("computeLayout — alignment", () => {
 
   it("stretches children on the cross axis when alignItems is stretch", () => {
     const result = computeLayout(
-      box({ flexDirection: "row", alignItems: "stretch", width: 20, height: 5 }, [
-        { style: {}, measure: () => ({ width: 4, height: 1 }) },
-      ]),
+      box(
+        { flexDirection: "row", alignItems: "stretch", width: 20, height: 5 },
+        [{ style: {}, measure: () => ({ width: 4, height: 1 }) }],
+      ),
       { width: 20, height: 5 },
     );
     expect(result.children[0]!.box.height).toBe(5);
@@ -201,9 +203,15 @@ describe("computeLayout — alignment", () => {
 
   it("centers children on the main axis with justifyContent", () => {
     const result = computeLayout(
-      box({ flexDirection: "row", justifyContent: "center", width: 20, height: 1 }, [
-        leaf(4, 1),
-      ]),
+      box(
+        {
+          flexDirection: "row",
+          justifyContent: "center",
+          width: 20,
+          height: 1,
+        },
+        [leaf(4, 1)],
+      ),
       { width: 20, height: 1 },
     );
     expect(result.children[0]!.box.x).toBe(8); // (20 - 4) / 2
@@ -211,10 +219,15 @@ describe("computeLayout — alignment", () => {
 
   it("spreads children with justifyContent space-between", () => {
     const result = computeLayout(
-      box({ flexDirection: "row", justifyContent: "space-between", width: 20, height: 1 }, [
-        leaf(4, 1),
-        leaf(4, 1),
-      ]),
+      box(
+        {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          width: 20,
+          height: 1,
+        },
+        [leaf(4, 1), leaf(4, 1)],
+      ),
       { width: 20, height: 1 },
     );
     expect(result.children[0]!.box.x).toBe(0);

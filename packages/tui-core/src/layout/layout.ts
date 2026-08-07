@@ -60,15 +60,23 @@ function absoluteBox(node: LayoutInput, inner: LayoutBox): LayoutBox {
   const top = resolveDimension(style.top, inner.height);
   const bottom = resolveDimension(style.bottom, inner.height);
 
-  const intrinsic = intrinsicSize(node, { width: inner.width, height: inner.height });
+  const intrinsic = intrinsicSize(node, {
+    width: inner.width,
+    height: inner.height,
+  });
   let width = resolveDimension(style.width, inner.width);
   if (width === undefined) {
-    width = left !== undefined && right !== undefined ? inner.width - left - right : intrinsic.width;
+    width =
+      left !== undefined && right !== undefined
+        ? inner.width - left - right
+        : intrinsic.width;
   }
   let height = resolveDimension(style.height, inner.height);
   if (height === undefined) {
     height =
-      top !== undefined && bottom !== undefined ? inner.height - top - bottom : intrinsic.height;
+      top !== undefined && bottom !== undefined
+        ? inner.height - top - bottom
+        : intrinsic.height;
   }
 
   const x =
@@ -146,7 +154,10 @@ function intrinsicSize(node: LayoutInput, avail: Size): Size {
   };
 
   if (node.measure) {
-    const measured = node.measure({ maxWidth: inner.width, maxHeight: inner.height });
+    const measured = node.measure({
+      maxWidth: inner.width,
+      maxHeight: inner.height,
+    });
     if (width === undefined) width = measured.width + hExtra;
     if (height === undefined) height = measured.height + vExtra;
   } else if (width === undefined || height === undefined) {
@@ -196,7 +207,9 @@ function contentSize(node: LayoutInput, inner: Size): Size {
     count += 1;
   });
 
-  return horizontal ? { width: main, height: cross } : { width: cross, height: main };
+  return horizontal
+    ? { width: main, height: cross }
+    : { width: cross, height: main };
 }
 
 /** Place a node and its subtree inside `box` (its final outer rectangle). */
@@ -233,6 +246,7 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
   );
   const mains = sizes.map((s) => (horizontal ? s.width : s.height));
   const grows = flow.map((c) => c.style?.flexGrow ?? 0);
+  const shrinks = flow.map((c) => c.style?.flexShrink ?? 0);
 
   // `row-reverse`/`column-reverse` place the LAST child at the leading edge.
   // The placement loop below always walks index 0..n-1 from the leading edge,
@@ -245,6 +259,7 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
     sizes.reverse();
     mains.reverse();
     grows.reverse();
+    shrinks.reverse();
   }
 
   const totalGrow = grows.reduce((a, b) => a + b, 0);
@@ -272,6 +287,41 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
     free = 0;
   }
 
+  const totalShrink = shrinks.reduce((a, b) => a + b, 0);
+
+  if (free < 0 && totalShrink > 0) {
+    const deficit = -free;
+    const weights = mains.map(
+      (main, i) => Math.max(0, main) * Math.max(0, shrinks[i]!),
+    );
+    const totalWeight = weights.reduce((a, b) => a + b, 0);
+    let remaining = deficit;
+
+    if (totalWeight > 0) {
+      weights.forEach((weight, i) => {
+        if (weight <= 0 || remaining <= 0) return;
+        const amount = Math.min(
+          mains[i]!,
+          Math.floor((deficit * weight) / totalWeight),
+        );
+        mains[i]! -= amount;
+        remaining -= amount;
+      });
+
+      while (remaining > 0) {
+        let changed = false;
+        for (let i = flow.length - 1; i >= 0 && remaining > 0; i -= 1) {
+          if (weights[i]! > 0 && mains[i]! > 0) {
+            mains[i]! -= 1;
+            remaining -= 1;
+            changed = true;
+          }
+        }
+        if (!changed) break;
+      }
+    }
+  }
+
   // justifyContent only matters when free space remains (no grow consumed it).
   const justify = style.justifyContent ?? "start";
   const leftover = mainSize - (mains.reduce((a, b) => a + b, 0) + totalGap);
@@ -297,15 +347,28 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
 
     const selfAlign = child.style?.alignSelf;
     const align =
-      selfAlign && selfAlign !== "auto" ? selfAlign : style.alignItems ?? "stretch";
+      selfAlign && selfAlign !== "auto"
+        ? selfAlign
+        : (style.alignItems ?? "stretch");
     let crossStart = horizontal ? inner.y : inner.x;
     if (align === "stretch") childCross = crossSize;
-    else if (align === "center") crossStart += Math.floor((crossSize - childCross) / 2);
+    else if (align === "center")
+      crossStart += Math.floor((crossSize - childCross) / 2);
     else if (align === "end") crossStart += crossSize - childCross;
 
     const childBox: LayoutBox = horizontal
-      ? { x: Math.round(cursor), y: Math.round(crossStart), width: childMain, height: childCross }
-      : { x: Math.round(crossStart), y: Math.round(cursor), width: childCross, height: childMain };
+      ? {
+          x: Math.round(cursor),
+          y: Math.round(crossStart),
+          width: childMain,
+          height: childCross,
+        }
+      : {
+          x: Math.round(crossStart),
+          y: Math.round(cursor),
+          width: childCross,
+          height: childMain,
+        };
 
     results[flowIndices[k]!] = arrange(child, childBox);
     cursor += childMain + betweenGap;
@@ -313,7 +376,8 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
 
   // Absolute children: positioned by their insets, out of flow.
   children.forEach((child, i) => {
-    if (isAbsolute(child)) results[i] = arrange(child, absoluteBox(child, inner));
+    if (isAbsolute(child))
+      results[i] = arrange(child, absoluteBox(child, inner));
   });
 
   return { input: node, box, children: results };
@@ -323,10 +387,14 @@ function arrange(node: LayoutInput, box: LayoutBox): LayoutResult {
  * Lay out `root` inside a `container`. An absent width/height fills the
  * container (screen behavior); an explicit `"auto"` shrinks to content.
  */
-export function computeLayout(root: LayoutInput, container: Size): LayoutResult {
+export function computeLayout(
+  root: LayoutInput,
+  container: Size,
+): LayoutResult {
   const style = root.style ?? EMPTY_STYLE;
   const intrinsic = intrinsicSize(root, container);
   const width = style.width === undefined ? container.width : intrinsic.width;
-  const height = style.height === undefined ? container.height : intrinsic.height;
+  const height =
+    style.height === undefined ? container.height : intrinsic.height;
   return arrange(root, { x: 0, y: 0, width, height });
 }

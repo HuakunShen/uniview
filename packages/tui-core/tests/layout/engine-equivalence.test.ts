@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { customLayoutEngine, yogaLayoutEngine, type LayoutInput, type LayoutResult } from "../../src/index";
+import {
+  customLayoutEngine,
+  yogaLayoutEngine,
+  type LayoutInput,
+  type LayoutResult,
+} from "../../src/index";
 
 function boxes(r: LayoutResult): unknown {
   return { box: r.box, children: r.children.map(boxes) };
@@ -13,7 +18,11 @@ function boxes(r: LayoutResult): unknown {
  * therefore avoid putting an explicit cross-size on a flexed child so both
  * engines agree — the equivalence safety net for a possible future default flip.
  */
-const cases: { name: string; tree: LayoutInput; size: { width: number; height: number } }[] = [
+const cases: {
+  name: string;
+  tree: LayoutInput;
+  size: { width: number; height: number };
+}[] = [
   {
     name: "column stack of measured leaves",
     tree: {
@@ -32,14 +41,21 @@ const cases: { name: string; tree: LayoutInput; size: { width: number; height: n
   },
   {
     name: "bordered parent insets one cell per side",
-    tree: { style: { border: "single" }, children: [{ style: { flexGrow: 1 } }] },
+    tree: {
+      style: { border: "single" },
+      children: [{ style: { flexGrow: 1 } }],
+    },
     size: { width: 10, height: 6 },
   },
   {
     name: "column gap between full-width rows",
     tree: {
       style: { flexDirection: "column", gap: 1 },
-      children: [{ style: { height: 1 } }, { style: { height: 1 } }, { style: { height: 1 } }],
+      children: [
+        { style: { height: 1 } },
+        { style: { height: 1 } },
+        { style: { height: 1 } },
+      ],
     },
     size: { width: 8, height: 8 },
   },
@@ -48,7 +64,10 @@ const cases: { name: string; tree: LayoutInput; size: { width: number; height: n
     tree: {
       style: { flexDirection: "column" },
       children: [
-        { style: { flexGrow: 1 }, children: [{ style: { flexGrow: 1 } }, { style: { flexGrow: 1 } }] },
+        {
+          style: { flexGrow: 1 },
+          children: [{ style: { flexGrow: 1 } }, { style: { flexGrow: 1 } }],
+        },
         { style: { height: 2 } },
       ],
     },
@@ -60,7 +79,12 @@ const cases: { name: string; tree: LayoutInput; size: { width: number; height: n
       style: { flexDirection: "column", width: 10, height: 20 },
       children: [
         { style: { height: 3 } },
-        { style: { flexGrow: 1, flexShrink: 1, border: "rounded", padding: 1 }, children: Array.from({ length: 40 }, () => ({ style: { height: 1 } })) },
+        {
+          style: { flexGrow: 1, flexShrink: 1, border: "rounded", padding: 1 },
+          children: Array.from({ length: 40 }, () => ({
+            style: { height: 1 },
+          })),
+        },
       ],
     },
     size: { width: 10, height: 20 },
@@ -69,6 +93,8 @@ const cases: { name: string; tree: LayoutInput; size: { width: number; height: n
 
 describe("engine equivalence — custom vs yoga", () => {
   it.each(cases)("agrees on $name", ({ tree, size }) => {
-    expect(boxes(yogaLayoutEngine.computeLayout(tree, size))).toEqual(boxes(customLayoutEngine.computeLayout(tree, size)));
+    expect(boxes(yogaLayoutEngine.computeLayout(tree, size))).toEqual(
+      boxes(customLayoutEngine.computeLayout(tree, size)),
+    );
   });
 });

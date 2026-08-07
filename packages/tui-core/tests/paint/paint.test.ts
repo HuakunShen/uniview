@@ -71,7 +71,13 @@ describe("renderToBuffer — overflow and scroll", () => {
           {
             type: "text",
             text: "visible",
-            style: { position: "absolute", top: 2, left: 0, width: 5, height: 1 },
+            style: {
+              position: "absolute",
+              top: 2,
+              left: 0,
+              width: 5,
+              height: 1,
+            },
           },
         ],
       },
@@ -79,7 +85,12 @@ describe("renderToBuffer — overflow and scroll", () => {
       4,
     );
 
-    expect(frameToLines(buffer, { trimRight: true })).toEqual(["", "", "visib", ""]);
+    expect(frameToLines(buffer, { trimRight: true })).toEqual([
+      "",
+      "",
+      "visib",
+      "",
+    ]);
   });
 
   it("clips hidden content to its box", () => {
@@ -91,7 +102,13 @@ describe("renderToBuffer — overflow and scroll", () => {
           {
             type: "text",
             text: "hidden",
-            style: { position: "absolute", top: 2, left: 0, width: 5, height: 1 },
+            style: {
+              position: "absolute",
+              top: 2,
+              left: 0,
+              width: 5,
+              height: 1,
+            },
           },
         ],
       },
@@ -106,8 +123,17 @@ describe("renderToBuffer — overflow and scroll", () => {
     const { buffer } = render(
       {
         type: "box",
-        style: { border: "single", width: 8, height: 5, overflow: "scroll", scrollTop: 2 },
-        children: Array.from({ length: 5 }, (_, i) => ({ type: "text", text: "row-" + i })),
+        style: {
+          border: "single",
+          width: 8,
+          height: 5,
+          overflow: "scroll",
+          scrollTop: 2,
+        },
+        children: Array.from({ length: 5 }, (_, i) => ({
+          type: "text",
+          text: "row-" + i,
+        })),
       },
       8,
       5,
