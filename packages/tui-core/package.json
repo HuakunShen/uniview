@@ -1,7 +1,7 @@
 {
   "name": "@uniview/tui-core",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "Framework-neutral TUI core: scene, cell buffer, text engine, layout, paint, diff, surfaces",
   "license": "MIT",
   "engines": {

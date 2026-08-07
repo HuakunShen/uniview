@@ -248,9 +248,9 @@ test("matches the Solid public and test minimum to babel-preset-solid", async ()
     binding.peerDependencies["solid-js"],
     preset.peerDependencies["solid-js"],
   );
-  assert.equal(binding.devDependencies["solid-js"], "1.9.10");
-  assert.equal(renderer.devDependencies["solid-js"], "1.9.10");
-  assert.equal(bindingSolid.version, "1.9.10");
+  assert.equal(binding.devDependencies["solid-js"], "catalog:");
+  assert.equal(renderer.devDependencies["solid-js"], "catalog:");
+  assert.equal(bindingSolid.version, "1.9.11");
   assert.equal(rendererSolid.version, bindingSolid.version);
 });
 
