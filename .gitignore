@@ -36,8 +36,6 @@ cypress/videos/
 out/
 build
 dist
-.tui-release.lock
-.tui-release/
 
 
 # Debug

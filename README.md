@@ -42,34 +42,38 @@ Uniview enables writing plugins in React or Solid that can be rendered by Svelte
 
 ## Publishing the TUI packages
 
-The TUI release publishes exactly `@uniview/tui-core`, `@uniview/tui-react`, and
-`@uniview/tui-solid`. Run `pnpm publish:tui` under Node `^24.15.0` or `>=26.0.0`; the public
-packages themselves remain compatible with Node `>=18`. The release first acquires the exclusive
-repository-sibling `.tui-release.lock`. An existing or identity-changed lock requires manual audit,
-and no release artifact root is created before the lock is held. A read-only git preflight then
-requires `main`, a clean worktree, a configured upstream, and `HEAD` equal to that upstream.
+The public packages are published individually from their package directories. Run the normal TUI
+checks first:
 
-Each invocation prepares a new `.tui-release/run-*/` containing one descriptor and three exact
-tarballs, then runs normal and production-only smoke against those bytes. After the descriptor,
-manifest, file-list, and tarball identities match the immutable snapshot, all three tarballs are
-read into memory and independently SHA-256 checked. Each verified Buffer and its packed manifest
-are passed directly to `libnpmpublish`; publication never reopens a tarball pathname. npmrc project,
-user, global, environment, scoped registry, auth, and provenance configuration is loaded through
-`@npmcli/config`, while access is forced to public and the default tag to `latest`. Secrets are
-never logged or serialized by the release script. Every run directory is preserved for audit.
+```bash
+pnpm test:tui
+pnpm build:tui
+pnpm check-types:tui
+node scripts/verify-tui-package-boundaries.mjs
+```
 
-That immutable identity is scoped to one prepared run: smoke, reuse, and publication consume its
-exact captured bytes. Separate `pnpm pack` invocations are not required to produce byte-identical
-`.tgz` files, even when their package contents and packed manifests are equivalent.
+Log in to npm once. With npm two-factor authentication enabled, the CLI will ask for the current
+OTP (or pass it with `--otp=123456`):
 
-Registry publication is sequential, not transactional. If core succeeds and a later package
-fails, the registry is partially released; the orchestrator stops before the next package and
-keeps the exact run directory for deliberate recovery. It never silently rebuilds, replaces, or
-switches to another self-consistent artifact.
+```bash
+npm login --auth-type=web --registry=https://registry.npmjs.org
+```
 
-`pnpm publish:tui:dry-run` follows verification through exact byte capture, but the dry-run is
-purely local: it loads no publish configuration, calls no publisher, and performs no registry
-request.
+Publish in dependency order, starting with the core package:
+
+```bash
+cd packages/tui-core
+npm publish --access public
+
+cd ../tui-react
+npm publish --access public
+
+cd ../tui-solid
+npm publish --access public
+```
+
+React and Solid depend on `@uniview/tui-core`, so publish `tui-core` first. For a non-interactive
+terminal, add `--otp=123456` to each command and replace the placeholder with the current code.
 
 ## Quick Start
 
